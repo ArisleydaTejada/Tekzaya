@@ -1,8 +1,11 @@
+import { initialsOf, roleLabelOf } from "@tekzaya/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { updateMyAvailability } from "../../api/auth";
+import { ME_QUERY_KEY, useAuth } from "../../auth/AuthContext";
 import { Avatar } from "../Avatar";
 import { BellIcon, ChevronDownIcon, MoonIcon, SunIcon } from "../icons";
-import { areaById, CURRENT_USER } from "../../data/mock";
 import { useTheme } from "../../theme/ThemeContext";
 
 const NOTIFICATIONS = [
@@ -10,13 +13,6 @@ const NOTIFICATIONS = [
   { id: "n2", text: "Posible incidente: 3 tickets sobre el wifi en Ventas", when: "hace 20 min", tone: "amber" as const },
   { id: "n3", text: "TK-000452 sigue en riesgo de vencer el SLA", when: "hace 1 h", tone: "amber" as const },
 ];
-
-const ROLE_LABEL: Record<string, string> = {
-  employee: "Empleado",
-  area_supervisor: "Supervisor de área",
-  hr_supervisor: "Supervisor de RRHH",
-  admin: "Administrador",
-};
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -26,7 +22,17 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const { theme, toggle } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const area = areaById(CURRENT_USER.areaId);
+  const { me, logout } = useAuth();
+  const queryClient = useQueryClient();
+
+  const availabilityMutation = useMutation({
+    mutationFn: updateMyAvailability,
+    onSuccess: (updated) => queryClient.setQueryData(ME_QUERY_KEY, updated),
+  });
+
+  if (!me) return null;
+
+  const isAvailable = me.availability.state === "available";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--content-border)] bg-[var(--content-bg)] px-4 sm:px-6">
@@ -96,11 +102,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[var(--content-surface)]"
           >
-            <Avatar name={CURRENT_USER.name} initials={CURRENT_USER.initials} available={CURRENT_USER.available} />
+            <Avatar name={me.name} initials={initialsOf(me.name)} available={isAvailable} />
             <span className="hidden text-left leading-tight md:block">
-              <span className="block text-sm font-medium text-[var(--content-ink)]">{CURRENT_USER.name}</span>
+              <span className="block text-sm font-medium text-[var(--content-ink)]">{me.name}</span>
               <span className="block text-xs text-[var(--content-ink-dim)]">
-                {area.name} · {ROLE_LABEL[CURRENT_USER.role]}
+                {me.areaName} · {roleLabelOf(me)}
               </span>
             </span>
             <ChevronDownIcon className="hidden text-[var(--content-ink-dim)] md:block" />
@@ -116,11 +122,26 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-1.5 shadow-[var(--content-shadow)]"
                 >
-                  <button className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]">
-                    Perfil
+                  <p className="px-3 py-1.5 text-xs text-[var(--content-ink-dim)]">{me.email}</p>
+                  <button
+                    onClick={() => {
+                      availabilityMutation.mutate({ state: isAvailable ? "away" : "available" });
+                      setMenuOpen(false);
+                    }}
+                    disabled={availabilityMutation.isPending}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-60"
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${isAvailable ? "bg-green" : "bg-amber"}`}
+                      aria-hidden="true"
+                    />
+                    {isAvailable ? "Marcarme como ausente" : "Marcarme como disponible"}
                   </button>
-                  <button className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]">
-                    Cambiar disponibilidad
+                  <button
+                    onClick={logout}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red hover:bg-red/10"
+                  >
+                    Cerrar sesión
                   </button>
                 </motion.div>
               </>

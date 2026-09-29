@@ -1,0 +1,179 @@
+import type { Role, TicketStatus } from "../enums";
+
+/**
+ * Quién actúa. El rol base se combina con banderas (spec §4.2): un "supervisor de
+ * área" es un empleado con `isAreaSupervisor`, y el "supervisor de RRHH" añade
+ * `hasGlobalReadAccess`.
+ */
+export interface Actor {
+  id: string;
+  areaId: string;
+  role: Role;
+  isAreaSupervisor: boolean;
+  hasGlobalReadAccess: boolean;
+}
+
+/** Lo mínimo de un ticket para decidir permisos, sin arrastrar el documento entero. */
+export interface TicketRef {
+  areaId: string;
+  requesterId: string;
+  createdById: string;
+  assigneeIds: readonly string[];
+  status: TicketStatus;
+}
+
+export interface UserRef {
+  id: string;
+  areaId: string;
+}
+
+/** Estados en los que el ticket ya no admite cambios del solicitante (spec §5.1). */
+const SETTLED: readonly TicketStatus[] = ["resolved", "closed", "cancelled", "merged"];
+
+export function isAdmin(actor: Actor): boolean {
+  return actor.role === "admin";
+}
+
+/** Pertenece al área que atiende el ticket, así que es agente de ese ticket. */
+export function isAreaMember(actor: Actor, areaId: string): boolean {
+  return actor.areaId === areaId;
+}
+
+export function isSupervisorOf(actor: Actor, areaId: string): boolean {
+  return isAdmin(actor) || (actor.isAreaSupervisor && actor.areaId === areaId);
+}
+
+/** El ticket es suyo: lo pidió o lo registró. Actúa como solicitante, no como agente. */
+export function isOwnTicket(actor: Actor, ticket: TicketRef): boolean {
+  return ticket.requesterId === actor.id || ticket.createdById === actor.id;
+}
+
+export function isAssignee(actor: Actor, ticket: TicketRef): boolean {
+  return ticket.assigneeIds.includes(actor.id);
+}
+
+// ── Lectura ───────────────────────────────────────────────────
+
+export function canViewTicket(actor: Actor, ticket: TicketRef): boolean {
+  if (isAdmin(actor)) return true;
+  return isOwnTicket(actor, ticket) || isAreaMember(actor, ticket.areaId);
+}
+
+/**
+ * Regla de privacidad del spec §4.3: el solicitante **nunca** ve las notas internas
+ * de su propio ticket, aunque pertenezca al área que lo atiende. Solo las ve cuando
+ * actúa como agente de un ticket ajeno.
+ *
+ * Se aplica también al administrador: la regla dice "nunca" y el motivo es la
+ * privacidad frente al solicitante, no la jerarquía.
+ */
+export function canReadInternalNotes(actor: Actor, ticket: TicketRef): boolean {
+  if (isOwnTicket(actor, ticket)) return false;
+  if (isAdmin(actor)) return true;
+  return isAreaMember(actor, ticket.areaId);
+}
+
+// ── Conversación ──────────────────────────────────────────────
+
+/** Leer no implica actuar: responder al solicitante queda para responsables y supervisores. */
+export function canReplyPublicly(actor: Actor, ticket: TicketRef): boolean {
+  if (isAdmin(actor)) return true;
+  if (isOwnTicket(actor, ticket)) return true;
+  if (isAssignee(actor, ticket)) return true;
+  return isSupervisorOf(actor, ticket.areaId);
+}
+
+/** Cualquier miembro del área destino puede dejar una nota interna (spec §12). */
+export function canWriteInternalNote(actor: Actor, ticket: TicketRef): boolean {
+  if (isOwnTicket(actor, ticket)) return false;
+  if (isAdmin(actor)) return true;
+  return isAreaMember(actor, ticket.areaId);
+}
+
+// ── Gestión del ticket ────────────────────────────────────────
+
+export function canManageAssignees(actor: Actor, ticket: TicketRef): boolean {
+  return isSupervisorOf(actor, ticket.areaId);
+}
+
+export function canSelfAssign(actor: Actor, ticket: TicketRef): boolean {
+  return isAdmin(actor) || isAreaMember(actor, ticket.areaId);
+}
+
+export function canChangePriority(actor: Actor, ticket: TicketRef): boolean {
+  return isSupervisorOf(actor, ticket.areaId);
+}
+
+export function canChangeCategory(actor: Actor, ticket: TicketRef): boolean {
+  if (SETTLED.includes(ticket.status)) return false;
+  if (isOwnTicket(actor, ticket)) return true;
+  return isSupervisorOf(actor, ticket.areaId);
+}
+
+export function canChangeStatus(actor: Actor, ticket: TicketRef): boolean {
+  return isAssignee(actor, ticket) || isSupervisorOf(actor, ticket.areaId);
+}
+
+export function canTransfer(actor: Actor, ticket: TicketRef): boolean {
+  return isAssignee(actor, ticket) || isSupervisorOf(actor, ticket.areaId);
+}
+
+export function canCancel(actor: Actor, ticket: TicketRef): boolean {
+  if (SETTLED.includes(ticket.status)) return false;
+  if (isOwnTicket(actor, ticket)) return true;
+  return isSupervisorOf(actor, ticket.areaId);
+}
+
+/** Solo dentro de una misma área, y siendo responsable de ambos si no se es supervisor. */
+export function canMerge(actor: Actor, principal: TicketRef, duplicate: TicketRef): boolean {
+  if (principal.areaId !== duplicate.areaId) return false;
+  if (isSupervisorOf(actor, principal.areaId)) return true;
+  return isAssignee(actor, principal) && isAssignee(actor, duplicate);
+}
+
+// ── Personas ──────────────────────────────────────────────────
+
+/** Crear en nombre de un compañero: mismo área, salvo el admin (spec §10.4). */
+export function canCreateOnBehalfOf(actor: Actor, target: UserRef): boolean {
+  if (isAdmin(actor)) return true;
+  return actor.areaId === target.areaId;
+}
+
+export function canSetAvailabilityOf(actor: Actor, target: UserRef): boolean {
+  if (actor.id === target.id) return true;
+  return isSupervisorOf(actor, target.areaId);
+}
+
+export function canManageSystem(actor: Actor): boolean {
+  return isAdmin(actor);
+}
+
+// ── Alcance de datos ──────────────────────────────────────────
+
+export type DataScope =
+  | { type: "global" }
+  | { type: "area"; areaId: string }
+  | { type: "me"; userId: string };
+
+/**
+ * Alcance máximo que el servidor concede a este usuario en estadísticas y reportes.
+ * El endpoint lo recalcula desde el token y descarta cualquier `areaId` o `userId`
+ * que el cliente mande por encima (spec §10.4).
+ */
+export function maxReportScope(actor: Actor): DataScope {
+  if (isAdmin(actor) || actor.hasGlobalReadAccess) return { type: "global" };
+  if (actor.isAreaSupervisor) return { type: "area", areaId: actor.areaId };
+  return { type: "me", userId: actor.id };
+}
+
+/** ¿Cabe el alcance pedido dentro de lo que este usuario puede ver? */
+export function isScopeAllowed(actor: Actor, requested: DataScope): boolean {
+  const allowed = maxReportScope(actor);
+  if (allowed.type === "global") return true;
+  if (allowed.type === "area") {
+    if (requested.type === "global") return false;
+    if (requested.type === "area") return requested.areaId === allowed.areaId;
+    return true; // una persona concreta: el endpoint comprueba que sea de su área
+  }
+  return requested.type === "me" && requested.userId === actor.id;
+}

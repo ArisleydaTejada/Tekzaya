@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isoDateTime, objectId } from "./common";
-import { availabilityState, awayReason, role, userStatus } from "./enums";
+import { availabilityState, awayReason, role, userStatus, type Role } from "./enums";
 
 // Las personas se referencian por identificador, nunca por su nombre.
 // Estos esquemas describen lo que la API devuelve: `passwordHash` y `googleId`
@@ -32,6 +32,18 @@ export const user = userSummary.extend({
   lastLoginAt: isoDateTime.optional(),
 });
 export type User = z.infer<typeof user>;
+
+/** Etiqueta del rol efectivo, derivada del rol base más las banderas (spec §4.2). */
+export function roleLabelOf(user: {
+  role: Role;
+  isAreaSupervisor: boolean;
+  hasGlobalReadAccess: boolean;
+}): string {
+  if (user.role === "admin") return "Administrador";
+  if (user.hasGlobalReadAccess) return "Supervisor de RRHH";
+  if (user.isAreaSupervisor) return "Supervisor de área";
+  return "Empleado";
+}
 
 export const updateAvailabilityInput = z.object({
   state: availabilityState,

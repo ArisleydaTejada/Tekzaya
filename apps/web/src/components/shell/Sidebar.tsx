@@ -10,7 +10,8 @@ import {
   UsersIcon,
   WrenchIcon,
 } from "../icons";
-import { CURRENT_USER, TICKETS, isActive } from "../../data/mock";
+import { TICKETS, isActive } from "../../data/mock";
+import { useAuth } from "../../auth/AuthContext";
 
 const NAV_ITEMS = [
   { to: "/tablero", label: "Tablero", icon: GaugeNavIcon },
@@ -90,7 +91,8 @@ interface SidebarContentProps {
 }
 
 export function SidebarContent({ collapsed }: SidebarContentProps) {
-  const isAdmin = CURRENT_USER.role === "admin";
+  const { me, logout } = useAuth();
+  const isAdmin = me?.role === "admin";
   const navigate = useNavigate();
 
   return (
@@ -199,7 +201,10 @@ export function SidebarContent({ collapsed }: SidebarContentProps) {
           {!collapsed && "Configuración"}
         </NavLink>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => {
+            logout();
+            navigate("/", { replace: true });
+          }}
           title={collapsed ? "Cerrar sesión" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-panel-ink-dim transition-colors hover:bg-red/10 hover:text-red ${
             collapsed ? "justify-center" : ""

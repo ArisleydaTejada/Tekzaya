@@ -46,3 +46,28 @@ if (!parsed.success) {
 export const env = parsed.data;
 export const isProduction = env.NODE_ENV === "production";
 export { repoRoot };
+
+// En desarrollo la aplicación arranca sin .env para no estorbar; en producción,
+// firmar tokens con un secreto conocido sería un agujero, así que se exige.
+const DEV_ONLY_SECRET = "tekzaya-solo-desarrollo-no-usar-en-produccion";
+let warnedAboutSecrets = false;
+
+function resolveSecret(value: string | undefined, name: string): string {
+  if (value) return value;
+  if (isProduction) {
+    console.error(`Falta ${name} en .env y es obligatorio en producción.`);
+    process.exit(1);
+  }
+  if (!warnedAboutSecrets) {
+    console.warn("Secretos JWT de desarrollo: define JWT_SECRET y JWT_REFRESH_SECRET en .env");
+    warnedAboutSecrets = true;
+  }
+  return `${DEV_ONLY_SECRET}-${name}`;
+}
+
+export const secrets = {
+  access: resolveSecret(env.JWT_SECRET, "JWT_SECRET"),
+  refresh: resolveSecret(env.JWT_REFRESH_SECRET, "JWT_REFRESH_SECRET"),
+};
+
+export const isGoogleConfigured = Boolean(env.GOOGLE_CLIENT_ID);

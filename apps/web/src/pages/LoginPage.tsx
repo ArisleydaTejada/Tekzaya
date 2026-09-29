@@ -1,23 +1,17 @@
+import { loginInput } from "@tekzaya/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { login, loginWithGoogle } from "../api/auth";
+import { ApiRequestError } from "../api/client";
+import { ME_QUERY_KEY } from "../auth/AuthContext";
 import { Field } from "../components/Field";
 import { GoogleMark } from "../components/GoogleMark";
 import { LeverButton } from "../components/LeverButton";
 import { AlertIcon, CheckIcon, LockIcon, MailIcon } from "../components/icons";
 
-const DEMO_EMAIL = "aris@tekzaya.com";
-const DEMO_PASSWORD = "Tekzaya123";
-const MAX_ATTEMPTS = 5;
-const LOCK_SECONDS = 15 * 60;
-
 type FormStatus = "idle" | "loading" | "error" | "locked" | "success";
-type GoogleStatus = "idle" | "loading" | "disabled";
-
-function formatClock(totalSeconds: number) {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 function Wordmark({
   size = "md",
@@ -48,51 +42,71 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
-  const [attempts, setAttempts] = useState(0);
-  const [lockSeconds, setLockSeconds] = useState(LOCK_SECONDS);
-  const [googleStatus, setGoogleStatus] = useState<GoogleStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [googleMessage, setGoogleMessage] = useState("");
   const [showResetHelp, setShowResetHelp] = useState(false);
 
-  useEffect(() => {
-    if (status !== "locked") return;
-    if (lockSeconds <= 0) {
-      setStatus("idle");
-      setAttempts(0);
-      setLockSeconds(LOCK_SECONDS);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  function handleAuthError(error: unknown): void {
+    const isApiError = error instanceof ApiRequestError;
+    // El servidor distingue bloqueo de credenciales incorrectas; la interfaz
+    // refleja esa diferencia en vez de inventar su propio contador.
+    setStatus(isApiError && error.code === "account_locked" ? "locked" : "error");
+    setErrorMessage(
+      isApiError ? error.message : "No se pudo contactar con el servidor. Inténtalo de nuevo.",
+    );
+  }
+
+  const loginMutation = useMutation({
+    mutationFn: login,
+    onSuccess: (me) => {
+      setStatus("success");
+      queryClient.setQueryData(ME_QUERY_KEY, me);
+      navigate("/tablero", { replace: true });
+    },
+    onError: handleAuthError,
+  });
+
+  const googleMutation = useMutation({
+    mutationFn: loginWithGoogle,
+    onSuccess: (me) => {
+      queryClient.setQueryData(ME_QUERY_KEY, me);
+      navigate("/tablero", { replace: true });
+    },
+    onError: (error: unknown) => {
+      setGoogleMessage(
+        error instanceof ApiRequestError
+          ? error.message
+          : "No se pudo contactar con el servidor.",
+      );
+    },
+  });
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (status === "loading") return;
+
+    // El mismo esquema que valida el backend valida aquí (spec §10.1).
+    const parsed = loginInput.safeParse({ email: email.trim(), password });
+    if (!parsed.success) {
+      setStatus("error");
+      setErrorMessage(parsed.error.issues[0]?.message ?? "Revisa los datos");
       return;
     }
-    const id = window.setTimeout(() => setLockSeconds((s) => s - 1), 1000);
-    return () => window.clearTimeout(id);
-  }, [status, lockSeconds]);
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (status === "locked" || status === "loading") return;
     setStatus("loading");
-    window.setTimeout(() => {
-      const validMatch = email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD;
-      if (validMatch) {
-        setStatus("success");
-        return;
-      }
-      const nextAttempts = attempts + 1;
-      setAttempts(nextAttempts);
-      if (nextAttempts >= MAX_ATTEMPTS) {
-        setLockSeconds(LOCK_SECONDS);
-        setStatus("locked");
-      } else {
-        setStatus("error");
-      }
-    }, 700);
+    setErrorMessage("");
+    loginMutation.mutate(parsed.data);
   }
 
   function handleGoogle() {
-    if (googleStatus === "loading") return;
-    setGoogleStatus("loading");
-    window.setTimeout(() => setGoogleStatus("disabled"), 700);
+    // Google Identity Services se integra en F5 junto con su clave; mientras
+    // tanto se consulta al servidor, que responde si está configurado o no.
+    setGoogleMessage("");
+    googleMutation.mutate("pendiente-de-configurar");
   }
-
-  const remainingAttempts = MAX_ATTEMPTS - attempts;
 
   return (
     <div className="min-h-dvh w-full bg-panel lg:flex">
@@ -181,14 +195,7 @@ export default function LoginPage() {
                   className="mt-4 flex items-start gap-1.5 overflow-hidden rounded-lg border-2 border-red bg-red/10 px-3 py-2 text-xs font-medium text-red"
                 >
                   <AlertIcon className="mt-0.5 shrink-0" />
-                  <span>
-                    Correo o contraseña incorrectos.{" "}
-                    {remainingAttempts <= 2 && remainingAttempts > 0 && (
-                      <>
-                        Te quedan {remainingAttempts} {remainingAttempts === 1 ? "intento" : "intentos"}.
-                      </>
-                    )}
-                  </span>
+                  <span>{errorMessage}</span>
                 </motion.p>
               )}
               {status === "locked" && (
@@ -200,8 +207,7 @@ export default function LoginPage() {
                   className="mt-4 flex items-start gap-1.5 overflow-hidden rounded-lg border-2 border-amber bg-amber/10 px-3 py-2 text-xs font-medium text-amber"
                 >
                   <AlertIcon className="mt-0.5 shrink-0" />
-                  Demasiados intentos. Inténtalo de nuevo en{" "}
-                  <span className="tabular font-medium">{formatClock(lockSeconds)}</span> minutos.
+                  <span>{errorMessage}</span>
                 </motion.p>
               )}
             </AnimatePresence>
@@ -221,7 +227,7 @@ export default function LoginPage() {
                 : status === "loading"
                   ? "Verificando…"
                   : status === "locked"
-                    ? `Bloqueado · ${formatClock(lockSeconds)}`
+                    ? "Cuenta bloqueada"
                     : "Iniciar sesión"}
             </motion.button>
           </form>
@@ -232,11 +238,11 @@ export default function LoginPage() {
             <span className="h-px flex-1 bg-placard-border" />
           </div>
 
-          <LeverButton icon={<GoogleMark />} busy={googleStatus === "loading"} onClick={handleGoogle}>
+          <LeverButton icon={<GoogleMark />} busy={googleMutation.isPending} onClick={handleGoogle}>
             Continuar con Google
           </LeverButton>
           <AnimatePresence>
-            {googleStatus === "disabled" && (
+            {googleMessage && (
               <motion.p
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -244,19 +250,7 @@ export default function LoginPage() {
                 className="mt-2.5 flex items-start gap-1.5 overflow-hidden rounded-lg border-2 border-red bg-red/10 px-3 py-2 text-xs font-medium text-red"
               >
                 <AlertIcon className="mt-0.5 shrink-0" />
-                Tu cuenta no está habilitada. Contacta al administrador.
-              </motion.p>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {status === "success" && (
-              <motion.p
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 flex items-center gap-1.5 rounded-lg border-2 border-green bg-green/10 px-3 py-2 text-xs font-medium text-green"
-              >
-                <CheckIcon /> Bienvenida, Ana. Tu tablero se abrirá aquí.
+                <span>{googleMessage}</span>
               </motion.p>
             )}
           </AnimatePresence>

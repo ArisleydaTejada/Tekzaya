@@ -6,4 +6,6 @@ export * from "./ticket";
 export * from "./message";
 export * from "./settings";
 export * from "./health";
+export * from "./auth";
 export * from "./sla";
+export * from "./permissions";

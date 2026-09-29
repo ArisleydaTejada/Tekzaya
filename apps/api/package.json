@@ -13,15 +13,21 @@
   "dependencies": {
     "@tekzaya/shared": "*",
     "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "google-auth-library": "^11.1.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.13.3",
     "tsx": "^4.23.15",
     "typescript": "~6.0.2",
