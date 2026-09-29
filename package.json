@@ -1,0 +1,27 @@
+{
+  "name": "tekzaya",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Tekzaya — soporte interno por tickets con IA",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev --workspace @tekzaya/api",
+    "dev:web": "npm run dev --workspace @tekzaya/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "typescript": "~6.0.2"
+  }
+}

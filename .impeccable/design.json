@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-28T00:00:00.000Z",
+  "title": "Design System: Tekzaya",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Índigo IA", "canonical": "#6c5ce7", "tonalRamp": ["#211c47", "#332a6e", "#453995", "#5747bb", "#6c5ce7", "#8b7cf6", "#ab9cf9", "#d3ccfb"] },
+      "steel": { "role": "secondary", "displayName": "Acero", "canonical": "#7c8cae", "tonalRamp": ["#1c212e", "#2c3446", "#3e4a63", "#576a8e", "#7c8cae", "#9fadc7", "#c2cbdc", "#e2e7ee"] },
+      "panel": { "role": "neutral", "displayName": "Panel nocturno", "canonical": "#0b0c10", "tonalRamp": ["#000000", "#0b0c10", "#14171d", "#1b1f27", "#272b34", "#3a4049", "#525a68", "#8b93a3"] },
+      "placard": { "role": "neutral", "displayName": "Placa clara", "canonical": "#eceff5", "tonalRamp": ["#12141a", "#5b6472", "#8890a0", "#b6bcc8", "#dbe0e9", "#eceff5", "#f5f7fa", "#ffffff"] },
+      "green": { "role": "success", "displayName": "SLA en tiempo", "canonical": "#39d98a", "tonalRamp": ["#0d2b1e", "#154430", "#1e5f42", "#288057", "#39d98a", "#6be8ac", "#a3f2cd", "#d6faea"] },
+      "amber": { "role": "warning", "displayName": "SLA en riesgo", "canonical": "#f5a623", "tonalRamp": ["#3d2905", "#5e3d08", "#87560c", "#b3720f", "#f5a623", "#f8bd5c", "#fad594", "#fdecca"] },
+      "red": { "role": "error", "displayName": "SLA vencido / urgente", "canonical": "#e5484d", "tonalRamp": ["#3a0f10", "#5c181a", "#872327", "#b12f34", "#e5484d", "#ee7b7e", "#f5adaf", "#fbd6d7"] },
+      "chart-alta": { "role": "chart-categorical", "displayName": "Magenta de gráfica (Alta)", "canonical": "#d6449c", "tonalRamp": ["#3a0f28", "#5c1a41", "#87255d", "#b12f79", "#d6449c", "#e06bb0", "#ec9ac9", "#f6cbe2"] },
+      "chart-urgente": { "role": "chart-categorical", "displayName": "Azul de gráfica (Urgente / barra única)", "canonical": "#2f6fcb", "tonalRamp": ["#0f1f3a", "#17315c", "#204587", "#285bb1", "#2f6fcb", "#5b8fe0", "#8fb2ec", "#c4d8f6"] },
+      "chart-media": { "role": "chart-categorical", "displayName": "Verde azulado de gráfica (Media)", "canonical": "#0e9c8e", "tonalRamp": ["#062e29", "#0a4841", "#0e645b", "#118377", "#0e9c8e", "#1d9a78", "#5fc4b8", "#a3e2da"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Títulos de pantalla y el wordmark TEKZAYA." },
+      "label": { "displayName": "Plate Label", "purpose": "Etiquetas grabadas dentro de placas de instrumento (diales, franjas de estado). Nunca un eyebrow sobre un encabezado." },
+      "body": { "displayName": "Body", "purpose": "Todo el texto de trabajo: formularios, párrafos, botones." }
+    },
+    "shadows": [
+      { "name": "shadow-instrument", "value": "inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 30px -12px rgba(0,0,0,0.6)", "purpose": "Placas y diales sobre el panel oscuro." },
+      { "name": "shadow-placard", "value": "0 1px 2px rgba(18,20,26,0.04), 0 12px 24px -14px rgba(18,20,26,0.18)", "purpose": "Tarjetas sobre la placa clara." },
+      { "name": "lever-rest", "value": "0 1px 0 #fff inset, 0 4px 0 var(--color-placard-border), 0 10px 18px -10px rgba(18,20,26,0.4)", "purpose": "Botón tipo palanca (Continuar con Google) en reposo." }
+    ],
+    "motion": [
+      { "name": "gauge-spring", "value": "type: spring, stiffness: 90, damping: 16 (arco) / stiffness: 70, damping: 9, mass: 0.6 (aguja)", "purpose": "Movimiento amortiguado de diales, nunca lineal ni instantáneo." },
+      { "name": "lever-press", "value": "whileTap: translateY(3px), spring stiffness 500 damping 30", "purpose": "Recorrido físico del botón tipo palanca al presionar." }
+    ],
+    "breakpoints": [
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "SLA Needle",
+      "kind": "custom",
+      "refersTo": "sla-needle",
+      "description": "Marca de instrumento miniatura exclusiva de una lectura de SLA (nunca de prioridad); arco + aguja en currentColor junto al texto de estado.",
+      "html": "<span class=\"ds-sla\" style=\"color:#39d98a\"><svg class=\"ds-sla-icon\" viewBox=\"0 0 16 16\" width=\"14\" height=\"14\"><path d=\"M2.5 11.5A6 6 0 0 1 13.5 11.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" opacity=\"0.35\"/><line x1=\"8\" y1=\"11.5\" x2=\"11\" y2=\"6.8\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><circle cx=\"8\" cy=\"11.5\" r=\"1.1\" fill=\"currentColor\"/></svg>En tiempo</span>",
+      "css": ".ds-sla { display: inline-flex; align-items: center; gap: 4px; font-family: 'Hanken Grotesk Variable', system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; }"
+    },
+    {
+      "name": "Avatar Stack",
+      "kind": "custom",
+      "refersTo": "avatar-stack",
+      "description": "Responsables apilados, 24px, solapamiento máximo -6px, el avatar más a la izquierda pinta encima para que sus iniciales nunca queden cortadas.",
+      "html": "<span class=\"ds-stack\"><span class=\"ds-avatar\" style=\"z-index:2\">LF</span><span class=\"ds-avatar\" style=\"z-index:1;margin-left:-6px\">MG</span></span>",
+      "css": ".ds-stack { display: inline-flex; align-items: center; } .ds-avatar { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 9999px; background: rgba(124,140,174,0.2); border: 2px solid var(--content-bg, #eceff5); font-family: 'Big Shoulders Variable', 'Arial Narrow', sans-serif; font-weight: 600; font-size: 10px; text-transform: uppercase; color: var(--content-ink, #12141a); }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de un formulario (p. ej. Iniciar sesión).",
+      "html": "<button class=\"ds-btn-primary\">Iniciar sesión</button>",
+      "css": ".ds-btn-primary { background: #6c5ce7; color: #ffffff; padding: 12px 16px; border-radius: 12px; font-family: 'Hanken Grotesk Variable', system-ui, sans-serif; font-weight: 600; font-size: 0.875rem; border: none; box-shadow: 0 10px 20px -10px rgba(108,92,231,0.65); transition: background 0.15s ease; } .ds-btn-primary:hover { background: #4b3fa8; } .ds-btn-primary:focus-visible { outline: 2px solid #8b7cf6; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }"
+    },
+    {
+      "name": "Lever Button",
+      "kind": "button",
+      "refersTo": "button-lever",
+      "description": "Botón secundario con identidad física de palanca (p. ej. Continuar con Google); ranura recesada visible en reposo.",
+      "html": "<button class=\"ds-btn-lever\">Continuar con Google<span class=\"ds-btn-lever-groove\"></span></button>",
+      "css": ".ds-btn-lever { position: relative; width: 100%; background: #ffffff; color: #12141a; border: 1px solid #dbe0e9; border-radius: 12px; padding: 12px 16px 16px; font-family: 'Hanken Grotesk Variable', system-ui, sans-serif; font-weight: 600; font-size: 0.875rem; box-shadow: 0 1px 0 #fff inset, 0 4px 0 #dbe0e9, 0 10px 18px -10px rgba(18,20,26,0.4); transition: transform 0.15s ease, box-shadow 0.15s ease; } .ds-btn-lever:active { transform: translateY(3px); box-shadow: 0 1px 0 #fff inset; } .ds-btn-lever-groove { position: absolute; left: 24px; right: 24px; bottom: 6px; height: 3px; border-radius: 9999px; background: rgba(219,224,233,0.8); box-shadow: inset 0 1px 1px rgba(18,20,26,0.35); }"
+    },
+    {
+      "name": "Status Card — Error",
+      "kind": "custom",
+      "refersTo": "status-card-error",
+      "description": "Banner de estado semántico (error, cuenta no habilitada); borde sólido de 2px, nunca solo tinte.",
+      "html": "<div class=\"ds-status ds-status-error\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><path d=\"M12 3.5 22 20.5H2Z\"/><path d=\"M12 10v4.2\"/><circle cx=\"12\" cy=\"17.3\" r=\"0.9\" fill=\"currentColor\" stroke=\"none\"/></svg><span>Correo o contraseña incorrectos.</span></div>",
+      "css": ".ds-status { display: flex; align-items: flex-start; gap: 6px; border-radius: 8px; padding: 8px 12px; font-family: 'Hanken Grotesk Variable', system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; border-width: 2px; border-style: solid; } .ds-status-error { background: rgba(229,72,77,0.1); border-color: #e5484d; color: #e5484d; } .ds-status-warning { background: rgba(245,166,35,0.1); border-color: #f5a623; color: #f5a623; } .ds-status-success { background: rgba(57,217,138,0.1); border-color: #39d98a; color: #39d98a; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Campo de formulario con icono y estados de foco/error.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Correo electrónico</span><span class=\"ds-field-box\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2.5\"/><path d=\"m4 7 8 6 8-6\"/></svg><input type=\"email\" placeholder=\"tu.nombre@empresa.com\" /></span></label>",
+      "css": ".ds-field-label { display: block; margin-bottom: 6px; font-size: 0.75rem; font-weight: 500; color: #5b6472; font-family: 'Hanken Grotesk Variable', system-ui, sans-serif; } .ds-field-box { display: flex; align-items: center; gap: 10px; border-radius: 12px; border: 1px solid #dbe0e9; background: #ffffff; padding: 10px 14px; } .ds-field-box:focus-within { border-color: #6c5ce7; box-shadow: 0 0 0 2px rgba(108,92,231,0.25); } .ds-field-box input { border: none; outline: none; background: transparent; font-size: 0.875rem; color: #12141a; width: 100%; }"
+    },
+    {
+      "name": "Instrument Gauge",
+      "kind": "custom",
+      "refersTo": "gauge-dial",
+      "description": "Componente de firma: dial circular con bisel metálico, arco de 270°, aguja amortiguada, remaches de esquina y placa de etiqueta grabada. Usado para todo KPI, lectura de SLA o confianza de IA.",
+      "html": "<div class=\"ds-gauge\"><span class=\"ds-gauge-rivet\" style=\"left:8px;top:8px\"></span><span class=\"ds-gauge-rivet\" style=\"right:8px;top:8px\"></span><span class=\"ds-gauge-rivet\" style=\"left:8px;bottom:8px\"></span><span class=\"ds-gauge-rivet\" style=\"right:8px;bottom:8px\"></span><div class=\"ds-gauge-face\"><span class=\"ds-gauge-value\">96%</span></div><span class=\"ds-gauge-label\">Precisión de la IA</span></div>",
+      "css": ".ds-gauge { position: relative; display: flex; flex-direction: column; align-items: center; border-radius: 16px; border: 1px solid #272b34; background: #1b1f27; padding: 16px 12px 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 30px -12px rgba(0,0,0,0.6); } .ds-gauge-rivet { position: absolute; width: 5px; height: 5px; border-radius: 9999px; background: radial-gradient(circle at 35% 30%, #767f8f, #1a1d23 75%); box-shadow: 0 0.5px 0 rgba(255,255,255,0.15), 0 1px 1px rgba(0,0,0,0.6); } .ds-gauge-face { width: 96px; height: 96px; border-radius: 9999px; background: radial-gradient(circle at 50% 36%, #242933, #12151b); display: flex; align-items: center; justify-content: center; border: 1px solid #050608; } .ds-gauge-value { font-family: 'Big Shoulders Variable', 'Arial Narrow', sans-serif; font-weight: 600; font-size: 1.0625rem; color: #f5f7fa; font-variant-numeric: tabular-nums; } .ds-gauge-label { margin-top: 6px; padding: 4px 10px; border-radius: 6px; background: #0b0c10; box-shadow: inset 0 1px 2px rgba(0,0,0,0.5); font-family: 'Big Shoulders Variable', 'Arial Narrow', sans-serif; font-size: 0.625rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #8b93a3; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El panel de instrumentos nocturno",
+    "overview": "Tekzaya no se presenta como un formulario con un degradado de marca al lado: se presenta como un instrumento que ya está trabajando antes de que la persona escriba una sola letra. El mundo nace en el login (dirección \"Panel de instrumentos nocturno\", fusión de signals-instruments-night-flight-six-pack, seed 4369c73d) y hoy es el único mundo construido. Cada pantalla se materializa como dos placas físicamente unidas: un panel de instrumentos casi negro donde vive la IA, y una placa clara donde vive la tarea del usuario, unidas por una costura visible.",
+    "keyCharacteristics": [
+      "Diales circulares para toda lectura numérica que importe: KPI, SLA, confianza de la IA.",
+      "El índigo-violeta es exclusivo de la IA y de la acción primaria; nunca decorativo.",
+      "Toda tarjeta de estado semántico lleva un borde de 2px de su color, no solo un tinte de fondo.",
+      "La textura de material viene de un patrón de puntos en mosaico, nunca de ruido feTurbulence.",
+      "El mundo se traduce a tema claro y oscuro por igual: placa clara y panel oscuro son las dos caras del mismo sistema."
+    ],
+    "rules": [
+      { "name": "The Reserved Glow Rule", "body": "El índigo vivo solo puede significar \"la IA está actuando\" o \"esta es la acción principal\".", "section": "colors" },
+      { "name": "The Semantic Three Rule", "body": "Verde = SLA en tiempo/éxito. Ámbar = SLA en riesgo/advertencia. Rojo = SLA vencido/urgente/error. Nada más usa estos colores.", "section": "colors" },
+      { "name": "The Plate Label Rule", "body": "Una etiqueta en mayúsculas con tracking amplio solo existe dentro de una placa de instrumento física, nunca como eyebrow sobre un encabezado.", "section": "typography" },
+      { "name": "The Grain, Never Turbulence Rule", "body": "La textura de material se produce con un patrón de puntos en mosaico (radial-gradient), nunca con el filtro SVG feTurbulence.", "section": "elevation" },
+      { "name": "The SLA Needle Rule", "body": "SLA y prioridad llevan marcas distintas: prioridad es un punto sólido, SLA es la mini-aguja de instrumento. Nunca el mismo glifo para ambas.", "section": "components" }
+    ],
+    "dos": [
+      "Do reservar el índigo vivo exclusivamente a la IA y a la acción primaria.",
+      "Do dar a toda tarjeta de estado semántico un borde sólido de 2px de su color.",
+      "Do construir la textura de material con el patrón de puntos en mosaico.",
+      "Do mostrar una versión compacta del dial protagonista + la franja de ticket entrante en cualquier viewport donde el panel completo no quepa.",
+      "Do etiquetar todo dato de ejemplo como \"dato de ejemplo\".",
+      "Do usar la paleta chart-categorical (magenta/azul/verde azulado + acero) cuando un color de gráfica identifica una categoría, nunca el trío semántico ni el índigo.",
+      "Do reemplazar todo glifo Unicode por un icono dibujado del sistema."
+    ],
+    "donts": [
+      "Don't usar los colores semánticos para nada que no sea SLA, prioridad o el resultado directo de una acción — tampoco identidad de categoría en una gráfica.",
+      "Don't poner una etiqueta en mayúsculas flotando sola sobre un encabezado.",
+      "Don't usar una sombra de elevación genérica de tarjeta SaaS.",
+      "Don't dejar que el panel oscuro y la placa clara se toquen en un corte de color plano sin costura de montaje.",
+      "Don't usar un emoji o glifo Unicode como icono."
+    ]
+  }
+}

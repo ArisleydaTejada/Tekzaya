@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@import "@fontsource-variable/oswald";
+@import "@fontsource-variable/hanken-grotesk";
+
+@theme {
+  --font-display: "Oswald Variable", "Arial Narrow", sans-serif;
+  --font-body: "Hanken Grotesk Variable", system-ui, sans-serif;
+
+  /* Instrument panel (left, dark) — dark charcoal-violet, not blue-black */
+  --color-panel: #221f2c;
+  --color-panel-surface: #201c29;
+  --color-panel-surface-2: #292432;
+  --color-panel-bezel: #3a3444;
+  --color-panel-ink: #f5f3f7;
+  --color-panel-ink-dim: #948da3;
+
+  /* Placard (right, light) */
+  --color-placard: #eceff5;
+  --color-placard-surface: #ffffff;
+  --color-placard-border: #dbe0e9;
+  --color-placard-ink: #12141a;
+  --color-placard-ink-dim: #5b6472;
+
+  /* Shared accent + semantic */
+  --color-accent: #6c5ce7;
+  --color-accent-bright: #8b7cf6;
+  --color-accent-dim: #4b3fa8;
+  --color-amber: #f5a623;
+  --color-red: #e5484d;
+  --color-green: #39d98a;
+  --color-steel: #7c8cae;
+
+  --shadow-instrument: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-placard: 0 1px 2px rgba(18, 20, 26, 0.04), 0 12px 24px -14px rgba(18, 20, 26, 0.18);
+}
+
+:root {
+  --content-bg: var(--color-placard);
+  --content-surface: var(--color-placard-surface);
+  --content-border: var(--color-placard-border);
+  --content-ink: var(--color-placard-ink);
+  --content-ink-dim: var(--color-placard-ink-dim);
+  --content-shadow: var(--shadow-placard);
+
+  /* Chart-safe steps — validated with scripts/validate_palette.js (dataviz skill).
+     Distinct from the small UI accent/status dots: chart fills need more chroma
+     and lightness headroom than a badge dot does. */
+  --chart-recibidos: #6c5ce7;
+  --chart-resueltos: #1f9a63;
+  --chart-bar: #2f6fcb;
+  --chart-urgente: #e5484d;
+  --chart-alta: #c67f1e;
+  --chart-media: #2f6fcb;
+  --chart-baja: #1f9a63;
+  --chart-grid: var(--color-placard-border);
+  --chart-axis: var(--color-placard-ink-dim);
+}
+
+[data-theme="dark"] {
+  --content-bg: var(--color-panel-surface);
+  --content-surface: var(--color-panel-surface-2);
+  --content-border: var(--color-panel-bezel);
+  --content-ink: var(--color-panel-ink);
+  --content-ink-dim: var(--color-panel-ink-dim);
+  --content-shadow: var(--shadow-instrument);
+  color-scheme: dark;
+
+  --chart-recibidos: #8b7cf6;
+  --chart-resueltos: #2fa374;
+  --chart-bar: #5b8fe0;
+  --chart-urgente: #d9585c;
+  --chart-alta: #e0a24a;
+  --chart-media: #5b8fe0;
+  --chart-baja: #2fa374;
+  --chart-grid: var(--color-panel-bezel);
+  --chart-axis: var(--color-panel-ink-dim);
+}
+
+@layer base {
+  html {
+    /* Native form controls (checkboxes, scrollbars…) must follow the app's light/dark
+       theme, not always default to dark — a static "dark light" here made unchecked
+       checkboxes render with dark UA styling even on the light placard/content surfaces. */
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--color-panel);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-bright);
+    outline-offset: 2px;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Browser autofill (Chrome/Edge) paints its own gray/yellow background via an
+     internal UA shadow layer that `bg-transparent` can't reach — fake transparency
+     with a huge inset box-shadow matching the field surface instead. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    box-shadow: 0 0 0 1000px var(--color-placard-surface) inset;
+    -webkit-box-shadow: 0 0 0 1000px var(--color-placard-surface) inset;
+    -webkit-text-fill-color: var(--color-placard-ink);
+    caret-color: var(--color-placard-ink);
+    transition: background-color 99999s ease-in-out 0s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
