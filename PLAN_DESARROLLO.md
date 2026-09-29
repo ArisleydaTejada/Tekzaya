@@ -46,7 +46,9 @@ Esto es deuda, no producto. Todo vive en `apps/web/src/data/mock.ts` (22 tickets
 
 ### 1.3 Lo que no existe en absoluto
 
-`apps/api`, `packages/shared`, MongoDB, autenticación (JWT/Google), Socket.IO, Gemini, jobs programados, adjuntos, pruebas, CI, `.env.example`, script de semilla, y **`package.json` raíz** (hoy `apps/web` es un proyecto suelto, no un monorepo).
+Autenticación (JWT/Google), Socket.IO, Gemini, jobs programados, adjuntos y pruebas de API.
+
+> **Cerrado en F0 y F1:** monorepo con workspaces, `packages/shared` (contrato Zod + motor de SLA con 21 pruebas), `apps/api` (Express 5, modelos Mongoose con índices, semilla de 101 tickets), MongoDB Community, CI y `.env.example`.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -113,7 +115,7 @@ Tekzaya/
 
 ## 3. Fases
 
-### F0 · Fundaciones del monorepo y contratos — *1 semana*
+### F0 · Fundaciones del monorepo y contratos — *hecha*
 
 **Objetivo:** que exista un esqueleto ejecutable y un contrato de tipos compartido.
 
@@ -127,7 +129,7 @@ Tekzaya/
 
 ---
 
-### F1 · Modelo de datos, semillas y motor de SLA — *1,5 semanas*
+### F1 · Modelo de datos, semillas y motor de SLA — *hecha*
 
 **Objetivo:** datos reales y creíbles en la base, y el cálculo más delicado resuelto y probado.
 
