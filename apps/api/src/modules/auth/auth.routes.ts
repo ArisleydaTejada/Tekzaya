@@ -19,6 +19,9 @@ const loginLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  // La suite de pruebas inicia decenas de sesiones desde la misma IP; el límite
+  // es una defensa contra fuerza bruta, no parte del contrato de los endpoints.
+  skip: () => env.NODE_ENV === "test",
   handler: (_req, res) => {
     res.status(429).json({
       error: {

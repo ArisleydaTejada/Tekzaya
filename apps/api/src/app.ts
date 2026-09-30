@@ -4,9 +4,12 @@ import express from "express";
 import { env } from "./config/env";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/errors";
+import areasRoutes from "./modules/areas/areas.routes";
+import attachmentsRoutes from "./modules/attachments/attachments.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import healthRoutes from "./modules/health/health.routes";
 import meRoutes from "./modules/me/me.routes";
+import ticketsRoutes from "./modules/tickets/tickets.routes";
 
 export function createApp() {
   const app = express();
@@ -22,6 +25,9 @@ export function createApp() {
 
   // Todo lo que va debajo exige sesión; la autorización fina la aplica cada ruta.
   app.use("/api/v1", requireAuth, meRoutes);
+  app.use("/api/v1", requireAuth, areasRoutes);
+  app.use("/api/v1", requireAuth, ticketsRoutes);
+  app.use("/api/v1", requireAuth, attachmentsRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

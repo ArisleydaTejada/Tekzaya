@@ -20,6 +20,10 @@ const envSchema = z.object({
   // Solo es el valor inicial; una vez sembrados los ajustes, manda la base de datos.
   COMPANY_TIMEZONE: z.string().refine(isValidTimeZone, "Zona horaria desconocida").default("America/La_Paz"),
 
+  // Adjuntos: directorio en disco FUERA de lo que sirve el servidor web. Los
+  // archivos solo salen por el endpoint protegido GET /attachments/:id (spec §10.4).
+  UPLOAD_DIR: z.string().default("uploads"),
+
   // Se usan a partir de F2 y F5; opcionales para que la API arranque sin ellas.
   JWT_SECRET: z.string().min(32).optional(),
   JWT_REFRESH_SECRET: z.string().min(32).optional(),
@@ -71,3 +75,8 @@ export const secrets = {
 };
 
 export const isGoogleConfigured = Boolean(env.GOOGLE_CLIENT_ID);
+
+/** Ruta absoluta del almacén de adjuntos; relativa se resuelve desde la raíz del repo. */
+export const uploadDir = path.isAbsolute(env.UPLOAD_DIR)
+  ? env.UPLOAD_DIR
+  : path.join(repoRoot, env.UPLOAD_DIR);

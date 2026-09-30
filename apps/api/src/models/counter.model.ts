@@ -12,7 +12,7 @@ export async function nextTicketNumber(): Promise<number> {
   const counter = await Counter.findByIdAndUpdate(
     "ticket",
     { $inc: { seq: 1 } },
-    { new: true, upsert: true },
+    { returnDocument: "after", upsert: true },
   ).lean();
   return counter!.seq;
 }

@@ -1,4 +1,4 @@
-import { userById } from "../data/mock";
+import { initialsOf } from "@tekzaya/shared";
 
 interface AvatarProps {
   name?: string;
@@ -9,7 +9,7 @@ interface AvatarProps {
 }
 
 export function Avatar({ name, initials, size = "md", available, className = "" }: AvatarProps) {
-  const label = initials ?? (name ? name.split(" ").map((p) => p[0]).slice(0, 2).join("") : "?");
+  const label = initials ?? (name ? initialsOf(name) : "?");
   const dim = size === "sm" ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-xs";
   return (
     <span className={`relative inline-flex shrink-0 ${className}`}>
@@ -31,20 +31,24 @@ export function Avatar({ name, initials, size = "md", available, className = "" 
   );
 }
 
-export function AvatarStack({ userIds, max = 3 }: { userIds: string[]; max?: number }) {
-  if (userIds.length === 0) return null;
-  const shown = userIds.slice(0, max);
-  const rest = userIds.length - shown.length;
+/** Personas ya resueltas por el servidor: aquí no se busca a nadie por identificador. */
+export function AvatarStack({
+  users,
+  max = 3,
+}: {
+  users: readonly { id: string; name: string }[];
+  max?: number;
+}) {
+  if (users.length === 0) return null;
+  const shown = users.slice(0, max);
+  const rest = users.length - shown.length;
   return (
     <span className="flex items-center">
-      {shown.map((id, i) => {
-        const u = userById(id);
-        return (
-          <span key={id} className={`relative ${i > 0 ? "-ml-1.5" : ""}`} style={{ zIndex: shown.length - i }}>
-            <Avatar name={u?.name} initials={u?.initials} size="sm" className="ring-2 ring-[var(--content-bg)]" />
-          </span>
-        );
-      })}
+      {shown.map((user, i) => (
+        <span key={user.id} className={`relative ${i > 0 ? "-ml-1.5" : ""}`} style={{ zIndex: shown.length - i }}>
+          <Avatar name={user.name} size="sm" className="ring-2 ring-[var(--content-bg)]" />
+        </span>
+      ))}
       {rest > 0 && (
         <span
           className="-ml-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--content-border)] bg-[var(--content-surface)] text-[10px] font-medium text-[var(--content-ink-dim)] ring-2 ring-[var(--content-bg)]"

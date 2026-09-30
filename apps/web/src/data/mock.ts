@@ -1,4 +1,12 @@
+import type {
+  AreaRef,
+  Priority as ContractPriority,
+  SlaState as ContractSlaState,
+  TicketStatus as ContractTicketStatus,
+} from "@tekzaya/shared";
 import type { Area, AreaId, Priority, SlaState, Ticket, TicketStatus, User } from "./types";
+
+export { formatWhen } from "../lib/format";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -535,20 +543,6 @@ export function isActive(t: Ticket) {
   return ACTIVE_STATUSES.includes(t.status);
 }
 
-export function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  const diffMs = now() - d.getTime();
-  const sameDay = new Date(now()).toDateString() === d.toDateString();
-  if (sameDay) {
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "justo ahora";
-    if (mins < 60) return `hace ${mins} min`;
-    const hrs = Math.floor(mins / 60);
-    return `hace ${hrs} h`;
-  }
-  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
-}
-
 export function initialsFor(name: string) {
   return name
     .split(" ")
@@ -556,4 +550,43 @@ export function initialsFor(name: string) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+}
+
+// ── Puente hacia el contrato ──────────────────────────────────
+// Tablero y Reportes siguen leyendo del mock (migran en F6 y F7), pero los
+// componentes compartidos ya hablan el contrato en inglés. Estas tablas son el
+// único punto de traducción, y desaparecen con el mock.
+
+export const CONTRACT_PRIORITY: Record<Priority, ContractPriority> = {
+  urgente: "urgent",
+  alta: "high",
+  media: "medium",
+  baja: "low",
+};
+
+export const CONTRACT_STATUS: Record<TicketStatus, ContractTicketStatus> = {
+  abierto: "open",
+  asignado: "assigned",
+  en_progreso: "in_progress",
+  en_espera: "on_hold",
+  resuelto: "resolved",
+  cerrado: "closed",
+  reabierto: "reopened",
+  cancelado: "cancelled",
+  fusionado: "merged",
+};
+
+export const CONTRACT_SLA: Record<SlaState, ContractSlaState> = {
+  en_tiempo: "on_time",
+  en_riesgo: "at_risk",
+  vencido: "breached",
+};
+
+export function areaRefOf(id: AreaId): AreaRef {
+  const area = areaById(id);
+  return { id: area.id, name: area.name, color: area.color };
+}
+
+export function usersOf(ids: readonly string[]): { id: string; name: string }[] {
+  return ids.map((id) => ({ id, name: userById(id)?.name ?? "Desconocido" }));
 }

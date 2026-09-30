@@ -4,7 +4,10 @@ import { model, Schema } from "mongoose";
 // ── attachments ───────────────────────────────────────────────
 const attachmentSchema = new Schema(
   {
-    ticketId: { type: Schema.Types.ObjectId, ref: "Ticket", required: true },
+    // Vacío mientras el archivo es un borrador: se sube ANTES de que el ticket
+    // exista (formulario de nuevo ticket) y se enlaza al crearlo o al enviar el
+    // mensaje. Un borrador sin enlazar solo lo ve quien lo subió.
+    ticketId: { type: Schema.Types.ObjectId, ref: "Ticket" },
     messageId: { type: Schema.Types.ObjectId, ref: "Message" },
     uploaderId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     fileName: { type: String, required: true },
@@ -16,6 +19,7 @@ const attachmentSchema = new Schema(
   { timestamps: true },
 );
 attachmentSchema.index({ ticketId: 1 });
+attachmentSchema.index({ uploaderId: 1, ticketId: 1 });
 
 export const Attachment = model("Attachment", attachmentSchema, "attachments");
 

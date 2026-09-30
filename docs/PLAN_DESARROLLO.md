@@ -35,20 +35,30 @@ Dependencias de la especificación **ya instaladas**: `recharts`, `@dnd-kit/core
 
 ### 1.2 Lo que parece funcionar pero es simulado
 
-Esto es deuda, no producto. Todo vive en `apps/web/src/data/mock.ts` (22 tickets):
+Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
-- **No hay sesión.** El login navega; no autentica. `CURRENT_USER` es una constante.
-- **No hay permisos.** El rol se lee de una constante; nada se valida.
-- **La "IA" son palabras clave.** `suggestArea()` / `suggestPriority()` en `CreateTicketPage.tsx` son `if` sobre substrings. El autocompletado con Tab es texto fijo.
-- **El SLA es un dato escrito a mano.** `slaResponse` / `slaResolution` vienen precocinados en el mock; no se calcula nada.
-- **Las mutaciones se pierden al recargar.** Las páginas **mutan el array importado** (p. ej. `dup.status = "fusionado"` en `TicketDetailPage.tsx`) y fuerzan un re-render. No hay persistencia ni capa de datos.
-- **Reportes:** solo la pestaña Plantillas tiene contenido; *Mis reportes* y *Nuevo* son estados vacíos.
+- **Tablero:** los 4 KPI, los filtros de alcance y período y la disponibilidad del equipo salen del mock. Migra en **F6**.
+- **Reportes:** solo la pestaña Plantillas tiene contenido, y con datos del mock; *Mis reportes* y *Nuevo* son estados vacíos. Migra en **F7**.
+- **Administración:** Usuarios y Áreas leen del mock. Migra en **F4**.
+- **La "IA" son palabras clave.** Hasta F5 no hay clasificación real: un ticket nuevo entra con prioridad *Media* y `ai.classificationStatus: "pending"`. El fantasma de autocompletado del redactor se retiró junto con el mock; vuelve en **F5** con Gemini detrás.
+
+> Mientras queden páginas con mock, `mock.ts` traduce los enumerados al contrato
+> (`CONTRACT_PRIORITY`, `CONTRACT_STATUS`, `CONTRACT_SLA`). Es el único punto de
+> traducción y desaparece con la última página migrada.
+
+**Ya no es simulado:** sesión y permisos (F2), y tickets, conversación, SLA,
+adjuntos e historial (F3). Las páginas de Tickets, Nuevo ticket y Detalle no
+importan nada de `mock.ts`.
 
 ### 1.3 Lo que no existe en absoluto
 
-Autenticación (JWT/Google), Socket.IO, Gemini, jobs programados, adjuntos y pruebas de API.
+Socket.IO, Gemini, jobs programados y E2E con Playwright.
 
 > **Cerrado en F0 y F1:** monorepo con workspaces, `packages/shared` (contrato Zod + motor de SLA con 21 pruebas), `apps/api` (Express 5, modelos Mongoose con índices, semilla de 101 tickets), MongoDB Community, CI y `.env.example`.
+>
+> **Cerrado en F2:** autenticación con JWT en cookies `httpOnly`, Google Identity Services, `/me`, disponibilidad y motor de permisos probado fila a fila.
+>
+> **Cerrado en F3:** endpoints de tickets, conversación y adjuntos, con 26 pruebas de integración (Supertest contra Mongo) y un servicio de MongoDB en CI.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -160,7 +170,7 @@ Frontend: capa de datos (`src/api/` + TanStack Query + React Hook Form/Zod), `Au
 
 ---
 
-### F3 · Tickets núcleo y conversación — *2,5 semanas*
+### F3 · Tickets núcleo y conversación — *hecha*
 
 **Objetivo:** el corazón del producto, sin IA y sin tiempo real.
 
@@ -174,6 +184,15 @@ Frontend migrado: `TicketsPage` (Lista y Grupos), `CreateTicketPage`, `TicketDet
 
 **DoD:** crear → conversar → resolver funciona de extremo a extremo sin mock; existe una prueba que verifica que **el solicitante no recibe notas internas** ni siquiera perteneciendo al área destino.
 
+Decisiones tomadas al ejecutarla:
+
+- **Los permisos viajan con el ticket.** `GET /tickets/:id` devuelve un bloque `permissions` ya resuelto por el servidor. La interfaz pinta botones a partir de él en vez de deducir el rol; el servidor vuelve a comprobarlo en cada llamada, así que el bloque es comodidad, no autorización.
+- **El estado del SLA se calcula al leer**, comparando fechas precalculadas (`responseRiskAt`, `resolutionDueAt`) con el motor de F1. No hace falta un job para que la lista muestre *En riesgo*; el job de F4 solo hará falta para notificar.
+- **Máquina de estados en el servidor.** `ALLOWED_TRANSITIONS` rechaza con 409 lo que el ciclo de vida no permite. Estaba previsto para F4 y entra aquí porque el `PATCH` lo necesitaba desde el primer día.
+- **Resolver exige nota de solución**, que se publica en la conversación: es lo que el solicitante lee al confirmar el cierre.
+- **Adjuntos:** el tipo se decide por los bytes reales del archivo, no por la extensión ni por el `Content-Type`. Se suben como borrador (sin ticket) y se enlazan al crear el ticket o enviar el mensaje; solo los enlaza quien los subió.
+- **Adelantado de F4** para no dejar botones muertos en el detalle: `PUT /tickets/:id/assignees`, `POST /tickets/:id/take`, `GET /areas`, `GET /areas/:id/members` y el **Kanban persistente** (soltar una tarjeta emite `PATCH` y el tablero vuelve a su sitio si el servidor rechaza la transición). Queda para F4 lo que sí es trabajo propio de esa fase: transferencias, fusión, jobs y solicitudes de unirse.
+
 ---
 
 ### F4 · Asignación, ciclo de vida y trabajos programados — *2 semanas*
@@ -185,6 +204,8 @@ Frontend migrado: `TicketsPage` (Lista y Grupos), `CreateTicketPage`, `TicketDet
 - **Jobs (node-cron):** recálculo de estados de SLA, auto-cierre de *Resuelto* a los 3 días hábiles, recordatorio de *En espera* a los 5 días y cierre a los 10.
 - **Kanban persistente:** soltar una tarjeta emite `PATCH` y revierte visualmente si el backend rechaza la transición.
 - Transferencia devuelve a *Abierto* sin responsables y queda en historial.
+
+> Ya hecho en F3: `PUT /assignees`, `POST /take`, `GET /areas/:id/members`, la validación de transiciones (409) y el Kanban persistente. F4 arranca por los jobs y la transferencia.
 
 **DoD:** arrastrar en Kanban persiste tras recargar; un ticket pasa solo a *En riesgo* y a *Vencido*; fusionar y deshacer la fusión funciona conservando el historial.
 
@@ -295,10 +316,10 @@ Suma de fases: **~16,5 semanas** a un frente; **~12 semanas** con backend y fron
 
 | Semana | Fases |
 |---|---|
-| 1 | F0 |
-| 2–3 | F1 |
-| 3–5 | F2 |
-| 5–7 | F3 |
+| 1 | F0 — *hecha* |
+| 2–3 | F1 — *hecha* |
+| 3–5 | F2 — *hecha* |
+| 5–7 | F3 — *hecha* |
 | 7–9 | F4 |
 | 9–10 | F5 |
 | 10–11 | F6 |
@@ -330,10 +351,11 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 
 | Qué | Cómo | Cuándo |
 |---|---|---|
-| Motor de SLA (horario, pausas, festivos, reapertura) | Vitest, función pura, casos borde exhaustivos | F1 |
-| Matriz de permisos §4.3 | Supertest, **una prueba por fila**, los 4 roles | F2 |
-| Filtrado de notas internas | Supertest: el solicitante del área destino **no** las recibe | F3 |
-| Transiciones de estado inválidas | Supertest: rechazo con 409 | F4 |
+| Motor de SLA (horario, pausas, festivos, reapertura) | Vitest, función pura, casos borde exhaustivos | F1 ✓ |
+| Matriz de permisos §4.3 | Vitest sobre el motor puro, **una prueba por fila** | F2 ✓ |
+| Filtrado de notas internas | Supertest: el solicitante del área destino **no** las recibe | F3 ✓ |
+| Transiciones de estado inválidas | Supertest: rechazo con 409 | F3 ✓ |
+| Tipo real de los adjuntos | Vitest + Supertest: un ejecutable renombrado a `.png` se rechaza | F3 ✓ |
 | Degradación sin IA | Suite con `GEMINI_API_KEY` vacía | F5 |
 | Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 |
 | Recorridos de la defensa | Playwright E2E | F8 |

@@ -1,104 +1,167 @@
-import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  formatTicketNumber,
+  PRIORITIES,
+  PRIORITY_LABEL,
+  TICKET_STATUS_LABEL,
+  type Priority,
+  type TicketListItem,
+  type TicketListQuery,
+  type TicketScope,
+  type TicketStatus,
+} from "@tekzaya/shared";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { listTickets, ticketKeys, updateTicket } from "../api/tickets";
 import { AvatarStack } from "../components/Avatar";
 import { AreaTag, PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
+import {
+  DownloadIcon,
+  GroupIcon,
+  KanbanIcon,
+  ListIcon,
+  PaperclipIcon,
+  SearchIcon,
+} from "../components/icons";
+import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
-import { Modal } from "../components/Modal";
-import { DownloadIcon, GroupIcon, KanbanIcon, ListIcon, PaperclipIcon, SearchIcon } from "../components/icons";
-import { AREAS, CURRENT_USER, STATUS_META, TICKETS, formatWhen, isActive } from "../data/mock";
-import type { Ticket, TicketStatus } from "../data/types";
+import { formatWhen } from "../lib/format";
 
 type ViewMode = "lista" | "grupos" | "kanban";
-type TabId = "mis-solicitudes" | "asignados" | "mi-area" | "sin-asignar" | "todos";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "mis-solicitudes", label: "Mis solicitudes" },
-  { id: "asignados", label: "Asignados a mí" },
-  { id: "mi-area", label: "Mi área" },
-  { id: "sin-asignar", label: "Sin asignar" },
-  { id: "todos", label: "Todos" },
+const TABS: { scope: TicketScope; label: string }[] = [
+  { scope: "mine", label: "Mis solicitudes" },
+  { scope: "assigned", label: "Asignados a mí" },
+  { scope: "area", label: "Mi área" },
+  { scope: "unassigned", label: "Sin asignar" },
+  { scope: "all", label: "Todos" },
 ];
 
-const KANBAN_STATUSES: TicketStatus[] = ["abierto", "asignado", "en_progreso", "en_espera", "resuelto"];
-const KANBAN_LABELS: Record<string, string> = {
-  abierto: "Abierto",
-  asignado: "Asignado",
-  en_progreso: "En progreso",
-  en_espera: "En espera",
-  resuelto: "Resuelto",
-};
+const FILTER_STATUSES: TicketStatus[] = [
+  "open",
+  "assigned",
+  "in_progress",
+  "on_hold",
+  "resolved",
+  "closed",
+  "cancelled",
+];
 
-const SLA_RANK = { vencido: 0, en_riesgo: 1, en_tiempo: 2 };
-const PRIORITY_RANK = { urgente: 0, alta: 1, media: 2, baja: 3 };
-function worstSla(t: Ticket) {
-  return SLA_RANK[t.slaResponse] <= SLA_RANK[t.slaResolution] ? t.slaResponse : t.slaResolution;
-}
-function defaultSort(a: Ticket, b: Ticket) {
-  return (
-    SLA_RANK[worstSla(a)] - SLA_RANK[worstSla(b)] ||
-    PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
-    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
-}
+const KANBAN_STATUSES: TicketStatus[] = [
+  "open",
+  "assigned",
+  "in_progress",
+  "on_hold",
+  "resolved",
+];
 
-function tabTickets(tab: TabId): Ticket[] {
-  switch (tab) {
-    case "mis-solicitudes":
-      return TICKETS.filter((t) => t.requester === CURRENT_USER.name || t.createdBy === CURRENT_USER.name);
-    case "asignados":
-      return TICKETS.filter((t) => t.assignees.includes(CURRENT_USER.id));
-    case "mi-area":
-      return TICKETS.filter((t) => t.areaId === CURRENT_USER.areaId);
-    case "sin-asignar":
-      return TICKETS.filter((t) => t.areaId === CURRENT_USER.areaId && t.assignees.length === 0 && isActive(t));
-    case "todos":
-      return TICKETS;
-  }
-}
+const PAGE_SIZE = 25;
 
 export default function TicketsPage() {
-  const [tab, setTab] = useState<TabId>("mi-area");
+  const queryClient = useQueryClient();
+  const [scope, setScope] = useState<TicketScope>("area");
   const [view, setView] = useState<ViewMode>("lista");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [priorityFilter, setPriorityFilter] = useState<string>("");
-  const [, forceTick] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
+  const [priorityFilter, setPriorityFilter] = useState<Priority | "">("");
+  const [page, setPage] = useState(1);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
-  const base = useMemo(() => tabTickets(tab), [tab]);
-  const filtered = useMemo(() => {
-    return base
-      .filter((t) => (statusFilter ? t.status === statusFilter : true))
-      .filter((t) => (priorityFilter ? t.priority === priorityFilter : true))
-      .filter((t) =>
-        search.trim()
-          ? t.title.toLowerCase().includes(search.toLowerCase()) || t.number.toLowerCase().includes(search.toLowerCase())
-          : true
-      )
-      .sort(defaultSort);
-  }, [base, statusFilter, priorityFilter, search]);
+  const query: Partial<TicketListQuery> = {
+    scope,
+    page,
+    limit: view === "kanban" ? 100 : PAGE_SIZE,
+    ...(search.trim() ? { q: search.trim() } : {}),
+    ...(statusFilter ? { status: [statusFilter] } : {}),
+    ...(priorityFilter ? { priority: [priorityFilter] } : {}),
+  };
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ticketKeys.list(query),
+    queryFn: () => listTickets(query),
+    placeholderData: (previous) => previous,
+  });
+
+  // Los contadores de las pestañas son la misma consulta pidiendo una sola fila:
+  // lo que interesa de la respuesta es el total, no los tickets.
+  const counts = useQueries({
+    queries: TABS.map((tab) => ({
+      queryKey: [...ticketKeys.list({ scope: tab.scope, limit: 1 }), "count"],
+      queryFn: () => listTickets({ scope: tab.scope, limit: 1 }),
+      staleTime: 30_000,
+    })),
+  });
+
+  function resetFilters() {
+    setSearch("");
+    setStatusFilter("");
+    setPriorityFilter("");
+    setPage(1);
+  }
+
+  function changeScope(next: TicketScope) {
+    setScope(next);
+    setPage(1);
+  }
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const lastPage = Math.max(1, Math.ceil(total / (query.limit ?? PAGE_SIZE)));
 
   function exportCsv() {
-    const header = ["Número", "Título", "Área", "Categoría", "Prioridad", "Estado", "Solicitante", "Creado"];
-    const rows = filtered.map((t) => [
-      t.number,
-      t.title,
-      AREAS.find((a) => a.id === t.areaId)?.name ?? "",
-      t.category,
-      t.priority,
-      t.status,
-      t.requester,
-      t.createdAt,
+    const header = [
+      "Número",
+      "Título",
+      "Área",
+      "Categoría",
+      "Prioridad",
+      "Estado",
+      "Solicitante",
+      "Creado",
+    ];
+    const rows = items.map((ticket) => [
+      formatTicketNumber(ticket.number),
+      ticket.title,
+      ticket.area.name,
+      ticket.categoryName ?? "",
+      PRIORITY_LABEL[ticket.priority],
+      TICKET_STATUS_LABEL[ticket.status],
+      ticket.requester.name,
+      ticket.createdAt,
     ]);
-    const csv = "﻿" + [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "tickets.csv";
-    a.click();
+    // El BOM inicial evita que Excel destroce los acentos.
+    const csv =
+      "﻿" +
+      [header, ...rows]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "tickets.csv";
+    link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function moveTo(ticket: TicketListItem, status: TicketStatus, note?: string) {
+    setMoveError(null);
+    try {
+      await updateTicket(ticket.id, { status, ...(note ? { note } : {}) });
+      await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+    } catch (cause) {
+      // El tablero vuelve solo a su sitio: la tarjeta nunca se movió en la base.
+      setMoveError(cause instanceof Error ? cause.message : "No se pudo mover el ticket");
+    }
   }
 
   return (
@@ -108,7 +171,8 @@ export default function TicketsPage() {
         actions={
           <button
             onClick={exportCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+            disabled={items.length === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
           >
             <DownloadIcon className="h-3.5 w-3.5" /> Exportar CSV
           </button>
@@ -116,68 +180,88 @@ export default function TicketsPage() {
       />
 
       <div className="mb-4 flex flex-wrap gap-1 border-b border-[var(--content-border)]">
-        {TABS.map((t) => {
-          const count = tabTickets(t.id).length;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
-                tab === t.id ? "text-accent" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-              }`}
-            >
-              {t.label}
-              <span className="rounded-full bg-[var(--content-surface)] px-1.5 py-0.5 font-display text-[10px] tabular">{count}</span>
-              {tab === t.id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent" />}
-            </button>
-          );
-        })}
+        {TABS.map((tab, index) => (
+          <button
+            key={tab.scope}
+            onClick={() => changeScope(tab.scope)}
+            className={`relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+              scope === tab.scope
+                ? "text-accent"
+                : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+            }`}
+          >
+            {tab.label}
+            <span className="rounded-full bg-[var(--content-surface)] px-1.5 py-0.5 font-display text-[10px] tabular">
+              {counts[index]?.data?.total ?? "—"}
+            </span>
+            {scope === tab.scope && (
+              <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent" />
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
+        <div className="relative min-w-[180px] max-w-xs flex-1">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-ink-dim)]" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por número o título…"
             className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(event) => {
+            setStatusFilter(event.target.value as TicketStatus | "");
+            setPage(1);
+          }}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Todos los estados</option>
-          {(["abierto", "asignado", "en_progreso", "en_espera", "resuelto", "cerrado", "cancelado"] as TicketStatus[]).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_META[s].label}
+          {FILTER_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {TICKET_STATUS_LABEL[status]}
             </option>
           ))}
         </select>
         <select
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
+          onChange={(event) => {
+            setPriorityFilter(event.target.value as Priority | "");
+            setPage(1);
+          }}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Toda prioridad</option>
-          <option value="urgente">Urgente</option>
-          <option value="alta">Alta</option>
-          <option value="media">Media</option>
-          <option value="baja">Baja</option>
+          {PRIORITIES.map((priority) => (
+            <option key={priority} value={priority}>
+              {PRIORITY_LABEL[priority]}
+            </option>
+          ))}
         </select>
         <div className="ml-auto flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
-          {([
-            { id: "lista", icon: ListIcon },
-            { id: "grupos", icon: GroupIcon },
-            { id: "kanban", icon: KanbanIcon },
-          ] as { id: ViewMode; icon: typeof ListIcon }[]).map(({ id, icon: Icon }) => (
+          {(
+            [
+              { id: "lista", icon: ListIcon },
+              { id: "grupos", icon: GroupIcon },
+              { id: "kanban", icon: KanbanIcon },
+            ] as { id: ViewMode; icon: typeof ListIcon }[]
+          ).map(({ id, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setView(id)}
+              onClick={() => {
+                setView(id);
+                setPage(1);
+              }}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium capitalize transition-colors ${
-                view === id ? "bg-accent text-white" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                view === id
+                  ? "bg-accent text-white"
+                  : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
               }`}
             >
               <Icon className="h-3.5 w-3.5" /> {id}
@@ -186,49 +270,98 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {moveError && (
+        <div
+          role="alert"
+          className="mb-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red"
+        >
+          {moveError}
+        </div>
+      )}
+
+      {isError ? (
         <Plate className="flex flex-col items-center gap-3 py-16 text-center">
-          <p className="text-sm text-[var(--content-ink-dim)]">Ningún ticket coincide con los filtros.</p>
+          <p className="text-sm text-red">
+            {error instanceof Error ? error.message : "No se pudieron cargar los tickets."}
+          </p>
+        </Plate>
+      ) : isLoading ? (
+        <Plate className="flex items-center justify-center py-16">
+          <span
+            className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--content-border)] border-t-accent"
+            aria-label="Cargando tickets"
+          />
+        </Plate>
+      ) : items.length === 0 ? (
+        <Plate className="flex flex-col items-center gap-3 py-16 text-center">
+          <p className="text-sm text-[var(--content-ink-dim)]">
+            Ningún ticket coincide con los filtros.
+          </p>
           <button
-            onClick={() => {
-              setSearch("");
-              setStatusFilter("");
-              setPriorityFilter("");
-            }}
+            onClick={resetFilters}
             className="rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
           >
             Limpiar filtros
           </button>
         </Plate>
       ) : view === "lista" ? (
-        <ListView tickets={filtered} />
+        <ListView tickets={items} />
       ) : view === "grupos" ? (
-        <GroupedView tickets={filtered} />
+        <GroupedView tickets={items} />
       ) : (
-        <KanbanView tickets={filtered} onChanged={() => forceTick((v) => v + 1)} />
+        <KanbanView tickets={items} onMove={moveTo} />
       )}
 
-      <p className="mt-3 text-xs text-[var(--content-ink-dim)]">Mostrando {filtered.length} tickets.</p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          Mostrando {items.length} de {total} tickets.
+        </p>
+        {view !== "kanban" && lastPage > 1 && (
+          <div className="flex items-center gap-2 text-xs">
+            <button
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-[var(--content-border)] px-2.5 py-1.5 font-medium text-[var(--content-ink)] disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <span className="tabular text-[var(--content-ink-dim)]">
+              {page} / {lastPage}
+            </span>
+            <button
+              onClick={() => setPage((current) => Math.min(lastPage, current + 1))}
+              disabled={page >= lastPage}
+              className="rounded-lg border border-[var(--content-border)] px-2.5 py-1.5 font-medium text-[var(--content-ink)] disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function TicketTitleCell({ t }: { t: Ticket }) {
+function TicketLink({ ticket }: { ticket: TicketListItem }) {
   return (
-    <Link to={`/tickets/${t.number}`} className="flex min-w-0 items-center gap-1.5 hover:underline">
-      <span className="truncate">{t.title}</span>
-      {t.hasAttachments && <PaperclipIcon className="h-3.5 w-3.5 shrink-0 text-[var(--content-ink-dim)]" />}
+    <Link
+      to={`/tickets/${formatTicketNumber(ticket.number)}`}
+      className="flex min-w-0 items-center gap-1.5 hover:underline"
+    >
+      <span className="truncate">{ticket.title}</span>
+      {ticket.attachmentsCount > 0 && (
+        <PaperclipIcon className="h-3.5 w-3.5 shrink-0 text-[var(--content-ink-dim)]" />
+      )}
     </Link>
   );
 }
 
-function ListView({ tickets }: { tickets: Ticket[] }) {
+function ListView({ tickets }: { tickets: TicketListItem[] }) {
   return (
     <Plate className="overflow-x-auto">
       <table className="w-full min-w-[980px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
-            <th className="w-8 px-3 py-2.5"><input type="checkbox" aria-label="Seleccionar todos" className="h-4 w-4 accent-accent" /></th>
             <th className="px-3 py-2.5 font-medium">ID</th>
             <th className="px-3 py-2.5 font-medium">Título</th>
             <th className="px-3 py-2.5 font-medium">Solicitante</th>
@@ -241,20 +374,47 @@ function ListView({ tickets }: { tickets: Ticket[] }) {
           </tr>
         </thead>
         <tbody>
-          {tickets.map((t) => (
-            <tr key={t.number} className="border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)]">
-              <td className="px-3 py-2.5"><input type="checkbox" aria-label={`Seleccionar ${t.number}`} className="h-4 w-4 accent-accent" /></td>
-              <td className="px-3 py-2.5 font-display tabular text-[var(--content-ink)]">{t.number}</td>
-              <td className="max-w-[220px] px-3 py-2.5 text-[var(--content-ink)]"><TicketTitleCell t={t} /></td>
-              <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">{t.requester}</td>
-              <td className="px-3 py-2.5"><AreaTag areaId={t.areaId} /></td>
-              <td className="px-3 py-2.5"><PriorityBadge priority={t.priority} /></td>
-              <td className="px-3 py-2.5">
-                {t.assignees.length ? <AvatarStack userIds={t.assignees} /> : <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>}
+          {tickets.map((ticket) => (
+            <tr
+              key={ticket.id}
+              className="border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)]"
+            >
+              <td className="px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
+                {formatTicketNumber(ticket.number)}
               </td>
-              <td className="px-3 py-2.5"><StatusBadge status={t.status} /></td>
-              <td className="px-3 py-2.5"><SlaTag state={t.slaResolution} /></td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[var(--content-ink-dim)]">{formatWhen(t.createdAt)}</td>
+              <td className="max-w-[220px] px-3 py-2.5 text-[var(--content-ink)]">
+                <TicketLink ticket={ticket} />
+              </td>
+              <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">
+                {ticket.requester.name}
+              </td>
+              <td className="px-3 py-2.5">
+                <AreaTag area={ticket.area} />
+                {ticket.categoryName && (
+                  <span className="ml-1.5 text-xs text-[var(--content-ink-dim)]">
+                    {ticket.categoryName}
+                  </span>
+                )}
+              </td>
+              <td className="px-3 py-2.5">
+                <PriorityBadge priority={ticket.priority} />
+              </td>
+              <td className="px-3 py-2.5">
+                {ticket.assignees.length ? (
+                  <AvatarStack users={ticket.assignees} />
+                ) : (
+                  <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>
+                )}
+              </td>
+              <td className="px-3 py-2.5">
+                <StatusBadge status={ticket.status} />
+              </td>
+              <td className="px-3 py-2.5">
+                <SlaTag state={ticket.resolutionState} />
+              </td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-[var(--content-ink-dim)]">
+                {formatWhen(ticket.createdAt)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -263,39 +423,47 @@ function ListView({ tickets }: { tickets: Ticket[] }) {
   );
 }
 
-function GroupedView({ tickets }: { tickets: Ticket[] }) {
+function GroupedView({ tickets }: { tickets: TicketListItem[] }) {
   const groups = useMemo(() => {
-    const map = new Map<string, Ticket[]>();
-    for (const t of tickets) {
-      const key = t.status;
-      map.set(key, [...(map.get(key) ?? []), t]);
+    const map = new Map<TicketStatus, TicketListItem[]>();
+    for (const ticket of tickets) {
+      map.set(ticket.status, [...(map.get(ticket.status) ?? []), ticket]);
     }
-    return Array.from(map.entries());
+    return [...map.entries()];
   }, [tickets]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   return (
     <div className="flex flex-col gap-3">
-      {groups.map(([status, items]) => (
+      {groups.map(([status, group]) => (
         <Plate key={status} className="overflow-hidden">
           <button
-            onClick={() => setCollapsed((c) => ({ ...c, [status]: !c[status] }))}
+            onClick={() => setCollapsed((current) => ({ ...current, [status]: !current[status] }))}
             className="flex w-full items-center justify-between px-4 py-3 text-left"
           >
             <span className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
-              <StatusBadge status={status as TicketStatus} /> {items.length}
+              <StatusBadge status={status} /> {group.length}
             </span>
-            <span className="text-xs text-[var(--content-ink-dim)]">{collapsed[status] ? "Mostrar" : "Ocultar"}</span>
+            <span className="text-xs text-[var(--content-ink-dim)]">
+              {collapsed[status] ? "Mostrar" : "Ocultar"}
+            </span>
           </button>
           {!collapsed[status] && (
             <ul className="divide-y divide-[var(--content-border)] border-t border-[var(--content-border)]">
-              {items.map((t) => (
-                <li key={t.number}>
-                  <Link to={`/tickets/${t.number}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--content-bg)]">
-                    <span className="font-display tabular text-[var(--content-ink)]">{t.number}</span>
-                    <span className="min-w-0 flex-1 truncate text-[var(--content-ink)]">{t.title}</span>
-                    <PriorityBadge priority={t.priority} />
-                    {t.assignees.length > 0 && <AvatarStack userIds={t.assignees} />}
+              {group.map((ticket) => (
+                <li key={ticket.id}>
+                  <Link
+                    to={`/tickets/${formatTicketNumber(ticket.number)}`}
+                    className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--content-bg)]"
+                  >
+                    <span className="font-display tabular text-[var(--content-ink)]">
+                      {formatTicketNumber(ticket.number)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[var(--content-ink)]">
+                      {ticket.title}
+                    </span>
+                    <PriorityBadge priority={ticket.priority} />
+                    <AvatarStack users={ticket.assignees} />
                   </Link>
                 </li>
               ))}
@@ -307,9 +475,14 @@ function GroupedView({ tickets }: { tickets: Ticket[] }) {
   );
 }
 
-function KanbanCard({ t }: { t: Ticket }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: t.number });
-  const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)` } : undefined;
+function KanbanCard({ ticket }: { ticket: TicketListItem }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: ticket.id,
+  });
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
   return (
     <div
       ref={setNodeRef}
@@ -321,26 +494,32 @@ function KanbanCard({ t }: { t: Ticket }) {
       }`}
     >
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">{t.number}</span>
-        <PriorityBadge priority={t.priority} />
+        <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+          {formatTicketNumber(ticket.number)}
+        </span>
+        <PriorityBadge priority={ticket.priority} />
       </div>
-      <Link to={`/tickets/${t.number}`} onClick={(e) => e.stopPropagation()} className="text-sm font-medium text-[var(--content-ink)] hover:underline">
-        {t.title}
+      <Link
+        to={`/tickets/${formatTicketNumber(ticket.number)}`}
+        onClick={(event) => event.stopPropagation()}
+        className="text-sm font-medium text-[var(--content-ink)] hover:underline"
+      >
+        {ticket.title}
       </Link>
       <div className="mt-2 flex items-center justify-between">
-        <AreaTag areaId={t.areaId} />
-        <SlaTag state={t.slaResolution} />
+        <AreaTag area={ticket.area} />
+        <SlaTag state={ticket.resolutionState} />
       </div>
-      {t.assignees.length > 0 && (
+      {ticket.assignees.length > 0 && (
         <div className="mt-2">
-          <AvatarStack userIds={t.assignees} />
+          <AvatarStack users={ticket.assignees} />
         </div>
       )}
     </div>
   );
 }
 
-function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: Ticket[] }) {
+function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: TicketListItem[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
     <div
@@ -351,50 +530,57 @@ function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: Tick
     >
       <div className="flex items-center justify-between px-1 py-1">
         <span className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
-          {KANBAN_LABELS[status]}
+          {TICKET_STATUS_LABEL[status]}
         </span>
-        <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">{tickets.length}</span>
+        <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+          {tickets.length}
+        </span>
       </div>
       <div className="flex flex-col gap-2">
-        {tickets.map((t) => (
-          <KanbanCard key={t.number} t={t} />
+        {tickets.map((ticket) => (
+          <KanbanCard key={ticket.id} ticket={ticket} />
         ))}
       </div>
     </div>
   );
 }
 
-function KanbanView({ tickets, onChanged }: { tickets: Ticket[]; onChanged: () => void }) {
+function KanbanView({
+  tickets,
+  onMove,
+}: {
+  tickets: TicketListItem[];
+  onMove: (ticket: TicketListItem, status: TicketStatus, note?: string) => Promise<void>;
+}) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const [pendingResolve, setPendingResolve] = useState<Ticket | null>(null);
+  const [pendingResolve, setPendingResolve] = useState<TicketListItem | null>(null);
   const [note, setNote] = useState("");
 
-  const columns = KANBAN_STATUSES.map((s) => ({ status: s, tickets: tickets.filter((t) => t.status === s) }));
-
-  function applyStatus(ticket: Ticket, status: TicketStatus) {
-    ticket.status = status;
-    onChanged();
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    const ticketNumber = e.active.id as string;
-    const target = e.over?.id as TicketStatus | undefined;
+  function handleDragEnd(event: DragEndEvent) {
+    const target = event.over?.id as TicketStatus | undefined;
     if (!target) return;
-    const ticket = tickets.find((t) => t.number === ticketNumber);
+    const ticket = tickets.find((item) => item.id === event.active.id);
     if (!ticket || ticket.status === target) return;
-    if (target === "resuelto") {
+
+    // Resolver exige contar cómo se resolvió; el servidor rechaza el cambio sin
+    // nota, así que se pide antes de enviarlo.
+    if (target === "resolved") {
       setPendingResolve(ticket);
       return;
     }
-    applyStatus(ticket, target);
+    void onMove(ticket, target);
   }
 
   return (
     <>
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {columns.map((c) => (
-            <KanbanColumn key={c.status} status={c.status} tickets={c.tickets} />
+          {KANBAN_STATUSES.map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              tickets={tickets.filter((ticket) => ticket.status === status)}
+            />
           ))}
         </div>
       </DndContext>
@@ -402,19 +588,22 @@ function KanbanView({ tickets, onChanged }: { tickets: Ticket[]; onChanged: () =
       <Modal
         open={pendingResolve !== null}
         onClose={() => setPendingResolve(null)}
-        title={`Resolver ${pendingResolve?.number ?? ""}`}
+        title={`Resolver ${pendingResolve ? formatTicketNumber(pendingResolve.number) : ""}`}
         footer={
           <>
-            <button onClick={() => setPendingResolve(null)} className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]">
+            <button
+              onClick={() => setPendingResolve(null)}
+              className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+            >
               Cancelar
             </button>
             <button
               onClick={() => {
-                if (pendingResolve) applyStatus(pendingResolve, "resuelto");
+                if (pendingResolve) void onMove(pendingResolve, "resolved", note.trim());
                 setPendingResolve(null);
                 setNote("");
               }}
-              disabled={!note.trim()}
+              disabled={note.trim().length < 3}
               className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Marcar como resuelto
@@ -422,10 +611,12 @@ function KanbanView({ tickets, onChanged }: { tickets: Ticket[]; onChanged: () =
           </>
         }
       >
-        <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Nota de solución (obligatoria)</label>
+        <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+          Nota de solución (obligatoria)
+        </label>
         <textarea
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(event) => setNote(event.target.value)}
           rows={3}
           placeholder="¿Cómo se resolvió el problema?"
           className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"

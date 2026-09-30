@@ -21,7 +21,19 @@ import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { StatTile } from "../components/StatTile";
 import { CheckIcon, ClockIcon, DownloadIcon, ShieldIcon, StarIcon, TicketIcon } from "../components/icons";
-import { CURRENT_USER, PRIORITY_META, TICKETS, areaById, formatWhen, userById } from "../data/mock";
+import {
+  CONTRACT_PRIORITY,
+  CONTRACT_SLA,
+  CONTRACT_STATUS,
+  CURRENT_USER,
+  PRIORITY_META,
+  TICKETS,
+  areaById,
+  areaRefOf,
+  formatWhen,
+  userById,
+  usersOf,
+} from "../data/mock";
 import { useTheme } from "../theme/ThemeContext";
 import type { Priority, Ticket } from "../data/types";
 
@@ -336,11 +348,11 @@ function TicketsOfPeriod({ tickets }: { tickets: Ticket[] }) {
                   </Link>
                 </td>
                 <td className="max-w-[200px] truncate px-3 py-2.5 text-[var(--content-ink)]">{t.title}</td>
-                <td className="px-3 py-2.5"><AreaTag areaId={t.areaId} /></td>
-                <td className="px-3 py-2.5"><PriorityBadge priority={t.priority} /></td>
-                <td className="px-3 py-2.5"><StatusBadge status={t.status} /></td>
-                <td className="px-3 py-2.5">{t.assignees.length ? <AvatarStack userIds={t.assignees} /> : "—"}</td>
-                <td className="px-3 py-2.5"><SlaTag state={t.slaResolution} /></td>
+                <td className="px-3 py-2.5"><AreaTag area={areaRefOf(t.areaId)} /></td>
+                <td className="px-3 py-2.5"><PriorityBadge priority={CONTRACT_PRIORITY[t.priority]} /></td>
+                <td className="px-3 py-2.5"><StatusBadge status={CONTRACT_STATUS[t.status]} /></td>
+                <td className="px-3 py-2.5">{t.assignees.length ? <AvatarStack users={usersOf(t.assignees)} /> : "—"}</td>
+                <td className="px-3 py-2.5"><SlaTag state={CONTRACT_SLA[t.slaResolution]} /></td>
                 <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">
                   {t.csat ? (
                     <span className="inline-flex items-center gap-1">

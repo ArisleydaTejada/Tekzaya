@@ -23,6 +23,8 @@ import {
   formatWhen,
   isActive,
   ticketsForArea,
+  CONTRACT_PRIORITY,
+  CONTRACT_SLA,
 } from "../data/mock";
 import type { Ticket } from "../data/types";
 
@@ -318,8 +320,8 @@ function AssignedPanel({ tickets }: { tickets: Ticket[] }) {
                   <span className="truncate text-[var(--content-ink)]">{t.title}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <PriorityBadge priority={t.priority} />
-                  <SlaTag state={t.slaResolution} />
+                  <PriorityBadge priority={CONTRACT_PRIORITY[t.priority]} />
+                  <SlaTag state={CONTRACT_SLA[t.slaResolution]} />
                 </div>
               </Link>
             </li>
