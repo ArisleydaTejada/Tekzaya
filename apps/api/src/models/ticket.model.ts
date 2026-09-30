@@ -53,6 +53,8 @@ const aiSchema = new Schema(
     },
     summary: { type: String },
     summaryUpdatedAt: { type: Date },
+    /** Mensajes que tenía la conversación al generarlo; a los 3 nuevos, caduca. */
+    summaryMessageCount: { type: Number },
   },
   { _id: false },
 );

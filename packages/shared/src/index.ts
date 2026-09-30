@@ -9,3 +9,4 @@ export * from "./health";
 export * from "./auth";
 export * from "./sla";
 export * from "./permissions";
+export * from "./ai";

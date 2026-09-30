@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import { z } from "zod";
-import { isValidTimeZone } from "@tekzaya/shared";
+import { DEFAULT_GEMINI_MODEL, isValidTimeZone } from "@tekzaya/shared";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../../../..");
@@ -30,6 +30,8 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   ALLOWED_GOOGLE_DOMAIN: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
+  // Los nombres de modelo cambian con el tiempo; se puede ajustar sin tocar código.
+  GEMINI_MODEL: z.string().default(DEFAULT_GEMINI_MODEL),
 });
 
 // Una variable presente pero vacía en el .env equivale a no definirla.
@@ -75,6 +77,12 @@ export const secrets = {
 };
 
 export const isGoogleConfigured = Boolean(env.GOOGLE_CLIENT_ID);
+
+/**
+ * Sin clave no hay IA, y eso es un modo de funcionamiento previsto, no un fallo:
+ * la aplicación entera sigue siendo usable (spec §6.3).
+ */
+export const isAiConfigured = Boolean(env.GEMINI_API_KEY);
 
 /** Ruta absoluta del almacén de adjuntos; relativa se resuelve desde la raíz del repo. */
 export const uploadDir = path.isAbsolute(env.UPLOAD_DIR)

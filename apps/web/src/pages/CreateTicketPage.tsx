@@ -5,13 +5,15 @@ import {
   MAX_ATTACHMENT_BYTES,
   PRIORITY_LABEL,
   type Area,
+  type AreaSuggestion,
   type Attachment,
   type TicketDetail,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { aiKeys, getAiStatus, suggestArea } from "../api/ai";
 import { ApiRequestError } from "../api/client";
 import {
   areaKeys,
@@ -36,13 +38,48 @@ export default function CreateTicketPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [areaId, setAreaId] = useState("");
+  const [areaTouched, setAreaTouched] = useState(false);
   const [categoryId, setCategoryId] = useState("");
+  const [suggestion, setSuggestion] = useState<AreaSuggestion | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [files, setFiles] = useState<Attachment[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [created, setCreated] = useState<TicketDetail | null>(null);
 
   const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
+  const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
+  const aiSuggests = Boolean(ai?.configured && ai.enabled.suggestArea);
+
+  // IA-1: mientras se escribe, con 800 ms de pausa y un mínimo de 20 caracteres
+  // (spec §6.2). Si no hay IA no se monta nada: ni un "analizando…" que no vaya
+  // a terminar.
+  const debounce = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!aiSuggests) return;
+    const text = `${title} ${description}`.trim();
+    if (text.length < 20) {
+      setSuggestion(null);
+      setAnalyzing(false);
+      return;
+    }
+
+    setAnalyzing(true);
+    window.clearTimeout(debounce.current);
+    debounce.current = window.setTimeout(() => {
+      void suggestArea({ title, description })
+        .then((result) => {
+          setSuggestion(result);
+          // Solo rellena lo que nadie ha tocado: la última palabra es de quien
+          // reporta, no del modelo.
+          if (result && !areaTouched && result.confidence >= 0.6) setAreaId(result.areaId);
+        })
+        .catch(() => setSuggestion(null))
+        .finally(() => setAnalyzing(false));
+    }, 800);
+
+    return () => window.clearTimeout(debounce.current);
+  }, [title, description, areaTouched, aiSuggests]);
   const { data: colleagues = [] } = useQuery({
     queryKey: areaKeys.members(me?.areaId ?? ""),
     queryFn: () => listAreaMembers(me!.areaId),
@@ -249,12 +286,19 @@ export default function CreateTicketPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="descripcion"
-              className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]"
-            >
-              Descripción
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label
+                htmlFor="descripcion"
+                className="text-xs font-medium text-[var(--content-ink-dim)]"
+              >
+                Descripción
+              </label>
+              {analyzing && (
+                <span className="flex items-center gap-1 text-xs text-accent">
+                  <SparkleIcon className="animate-pulse" /> IA analizando…
+                </span>
+              )}
+            </div>
             <textarea
               id="descripcion"
               value={description}
@@ -280,6 +324,7 @@ export default function CreateTicketPage() {
                 value={areaId}
                 onChange={(event) => {
                   setAreaId(event.target.value);
+                  setAreaTouched(true);
                   setCategoryId("");
                 }}
                 className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
@@ -292,6 +337,25 @@ export default function CreateTicketPage() {
                 ))}
               </select>
               <FieldError messages={fieldErrors["areaId"]} />
+
+              <AnimatePresence>
+                {suggestion && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-2 overflow-hidden rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-[var(--content-ink)]"
+                  >
+                    <p className="flex items-center gap-1.5 font-medium text-accent">
+                      <SparkleIcon /> Sugerido por IA: {suggestion.areaName} ·{" "}
+                      {Math.round(suggestion.confidence * 100)}% de confianza
+                    </p>
+                    <p className="mt-0.5 text-[var(--content-ink-dim)]">
+                      {suggestion.rationale ?? "Puedes cambiarlo si no es correcto."}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div>

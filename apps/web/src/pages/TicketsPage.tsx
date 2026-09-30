@@ -25,6 +25,7 @@ import { listTickets, ticketKeys, updateTicket } from "../api/tickets";
 import { AvatarStack } from "../components/Avatar";
 import { AreaTag, PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
 import {
+  AlertIcon,
   DownloadIcon,
   GroupIcon,
   KanbanIcon,
@@ -384,6 +385,15 @@ function ListView({ tickets }: { tickets: TicketListItem[] }) {
               </td>
               <td className="max-w-[220px] px-3 py-2.5 text-[var(--content-ink)]">
                 <TicketLink ticket={ticket} />
+                {ticket.incidentLabel && (
+                  <span
+                    title={`Incidente: ${ticket.incidentLabel}`}
+                    className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-amber"
+                  >
+                    <AlertIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{ticket.incidentLabel}</span>
+                  </span>
+                )}
               </td>
               <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">
                 {ticket.requester.name}
@@ -506,6 +516,12 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
       >
         {ticket.title}
       </Link>
+      {ticket.incidentLabel && (
+        <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-amber">
+          <AlertIcon className="h-3 w-3 shrink-0" />
+          <span className="truncate">{ticket.incidentLabel}</span>
+        </p>
+      )}
       <div className="mt-2 flex items-center justify-between">
         <AreaTag area={ticket.area} />
         <SlaTag state={ticket.resolutionState} />

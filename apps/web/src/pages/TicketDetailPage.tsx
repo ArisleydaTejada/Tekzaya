@@ -11,8 +11,16 @@ import {
   type TicketStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import {
+  aiKeys,
+  autocomplete,
+  dismissIncident,
+  getAiStatus,
+  getSummary,
+  regenerateSummary,
+} from "../api/ai";
 import {
   areaKeys,
   attachmentUrl,
@@ -94,6 +102,9 @@ export default function TicketDetailPage() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(true);
+  const [ghost, setGhost] = useState("");
+
+  const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
 
   async function refresh() {
     await Promise.all([
@@ -149,6 +160,12 @@ export default function TicketDetailPage() {
     onError: (error) => setActionError(error.message),
   });
 
+  const dismiss = useMutation({
+    mutationFn: () => dismissIncident(ticket!.id),
+    onSuccess: refresh,
+    onError: (error) => setActionError(error.message),
+  });
+
   const upload = useMutation({
     mutationFn: uploadAttachment,
     onSuccess: (attachment) => {
@@ -157,6 +174,28 @@ export default function TicketDetailPage() {
     },
     onError: (error) => setFileError(error.message),
   });
+
+  // IA-4: tras 600 ms de pausa se pide una continuación. El servidor la descarta
+  // a los 1,5 s y limita a una petición cada 2 s por persona (spec §6.2).
+  const ghostTimer = useRef<number | undefined>(undefined);
+  const aiCompletes = Boolean(ai?.configured && ai.enabled.autocomplete);
+  const ticketId = ticket?.id;
+  const canGhost = Boolean(ticket?.permissions.viewInternalNotes);
+
+  useEffect(() => {
+    if (!aiCompletes || !canGhost || !ticketId) return;
+    window.clearTimeout(ghostTimer.current);
+    setGhost("");
+    if (draft.trim().length < 6) return;
+
+    ghostTimer.current = window.setTimeout(() => {
+      void autocomplete({ ticketId, draft, type: composerTab })
+        .then((completion) => setGhost(completion ?? ""))
+        .catch(() => setGhost(""));
+    }, 600);
+
+    return () => window.clearTimeout(ghostTimer.current);
+  }, [draft, composerTab, aiCompletes, canGhost, ticketId]);
 
   if (ticketQuery.isLoading) {
     return (
@@ -305,25 +344,12 @@ export default function TicketDetailPage() {
           )}
         </Plate>
 
-        {isAgentView && ticket.ai?.summary && (
-          <Plate className="p-4">
-            <button
-              onClick={() => setSummaryOpen((open) => !open)}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <span className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-accent">
-                <SparkleIcon /> Resumen de IA
-              </span>
-              <ChevronDownIcon
-                className={`text-[var(--content-ink-dim)] transition-transform ${summaryOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {summaryOpen && (
-              <p className="mt-2 text-sm leading-relaxed text-[var(--content-ink-dim)]">
-                {ticket.ai.summary}
-              </p>
-            )}
-          </Plate>
+        {isAgentView && ai?.configured && ai.enabled.summary && (
+          <SummaryPanel
+            ticketId={ticket.id}
+            open={summaryOpen}
+            onToggle={() => setSummaryOpen((open) => !open)}
+          />
         )}
 
         <Plate className="p-4">
@@ -379,18 +405,44 @@ export default function TicketDetailPage() {
                     : "border-[var(--content-border)] bg-[var(--content-bg)]"
                 }`}
               >
-                <textarea
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  rows={3}
-                  maxLength={5000}
-                  placeholder={
-                    composerTab === "internal"
-                      ? "Nota interna para el equipo…"
-                      : "Escribe tu respuesta…"
-                  }
-                  className="w-full resize-none bg-transparent text-sm text-[var(--content-ink)] outline-none"
-                />
+                <div className="relative">
+                  <textarea
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Tab" && ghost) {
+                        event.preventDefault();
+                        setDraft((current) => current + ghost);
+                        setGhost("");
+                      } else if (event.key === "Escape") {
+                        setGhost("");
+                      }
+                    }}
+                    rows={3}
+                    maxLength={5000}
+                    placeholder={
+                      composerTab === "internal"
+                        ? "Nota interna para el equipo…"
+                        : "Escribe tu respuesta…"
+                    }
+                    className="w-full resize-none bg-transparent text-sm text-[var(--content-ink)] outline-none"
+                  />
+                  {/* El fantasma se pinta debajo, alineado con lo ya escrito. */}
+                  {ghost && (
+                    <p
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-0 whitespace-pre-wrap text-sm"
+                    >
+                      <span className="invisible">{draft}</span>
+                      <span className="italic text-[var(--content-ink-dim)]">{ghost}</span>
+                    </p>
+                  )}
+                </div>
+                {ghost && (
+                  <p className="mt-1 text-[10px] text-[var(--content-ink-dim)]">
+                    Tab para aceptar · Esc para descartar
+                  </p>
+                )}
 
                 {files.length > 0 && (
                   <ul className="mb-2 flex flex-wrap gap-1.5">
@@ -485,12 +537,32 @@ export default function TicketDetailPage() {
           <DetailRow label="Vence" value={formatDateTime(ticket.resolutionDueAt)} />
         </Plate>
 
-        {isAgentView && ticket.ai?.incident && (
+        {isAgentView && ticket.ai?.incident?.status === "detected" && (
           <Plate className="border-amber/40 bg-amber/10 p-4 text-sm">
             <p className="flex items-center gap-1.5 font-medium text-amber">
               <AlertIcon /> Parte de un incidente
             </p>
             <p className="mt-1 text-[var(--content-ink-dim)]">{ticket.ai.incident.label}</p>
+            <p className="mt-0.5 text-xs text-[var(--content-ink-dim)]">
+              Detectado con {Math.round(ticket.ai.incident.confidence * 100)}% de confianza. La IA
+              no fusiona nada por su cuenta.
+            </p>
+            {permissions.manageAssignees && (
+              <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                {permissions.merge && (
+                  <button onClick={() => setMergeOpen(true)} className="text-accent hover:underline">
+                    Ver tickets del incidente
+                  </button>
+                )}
+                <button
+                  onClick={() => dismiss.mutate()}
+                  disabled={dismiss.isPending}
+                  className="text-[var(--content-ink-dim)] hover:underline disabled:opacity-50"
+                >
+                  No es un incidente
+                </button>
+              </div>
+            )}
           </Plate>
         )}
 
@@ -579,6 +651,68 @@ export default function TicketDetailPage() {
         onDone={refresh}
       />
     </div>
+  );
+}
+
+
+/**
+ * IA-3. El resumen se guarda en el ticket y se reutiliza hasta que la
+ * conversación avanza tres mensajes; "Regenerar" fuerza uno nuevo. Si no llega
+ * ninguno, el panel lo dice y no pasa nada más (spec §6.3).
+ */
+function SummaryPanel({
+  ticketId,
+  open,
+  onToggle,
+}: {
+  ticketId: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: aiKeys.summary(ticketId),
+    queryFn: () => getSummary(ticketId),
+  });
+
+  const regenerate = useMutation({
+    mutationFn: () => regenerateSummary(ticketId),
+    onSuccess: (result) => queryClient.setQueryData(aiKeys.summary(ticketId), result),
+  });
+
+  return (
+    <Plate className="p-4">
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={onToggle} className="flex flex-1 items-center justify-between text-left">
+          <span className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-accent">
+            <SparkleIcon /> Resumen de IA
+          </span>
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => regenerate.mutate()}
+            disabled={regenerate.isPending}
+            className="text-xs text-[var(--content-ink-dim)] hover:text-[var(--content-ink)] disabled:opacity-50"
+          >
+            {regenerate.isPending ? "Generando…" : "Regenerar"}
+          </button>
+          <button onClick={onToggle} aria-label={open ? "Ocultar resumen" : "Mostrar resumen"}>
+            <ChevronDownIcon
+              className={`text-[var(--content-ink-dim)] transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <p className="mt-2 text-sm leading-relaxed text-[var(--content-ink-dim)]">
+          {isLoading
+            ? "Preparando el resumen…"
+            : (data?.summary ??
+              "Todavía no hay resumen. Pulsa «Regenerar» para pedirlo.")}
+        </p>
+      )}
+    </Plate>
   );
 }
 

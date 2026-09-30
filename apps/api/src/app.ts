@@ -5,6 +5,7 @@ import { env } from "./config/env";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/errors";
 import adminAreasRoutes from "./modules/admin/areas.admin.routes";
+import aiRoutes from "./modules/ai/ai.routes";
 import adminUsersRoutes from "./modules/admin/users.routes";
 import areasRoutes from "./modules/areas/areas.routes";
 import attachmentsRoutes from "./modules/attachments/attachments.routes";
@@ -35,6 +36,7 @@ export function createApp() {
   app.use("/api/v1", requireAuth, settingsRoutes);
   app.use("/api/v1", requireAuth, adminUsersRoutes);
   app.use("/api/v1", requireAuth, adminAreasRoutes);
+  app.use("/api/v1", requireAuth, aiRoutes);
   app.use("/api/v1", requireAuth, attachmentsRoutes);
 
   app.use(notFound);

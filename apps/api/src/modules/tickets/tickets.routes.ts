@@ -1,6 +1,5 @@
 import {
   ACTIVE_TICKET_STATUSES,
-  addBusinessMinutes,
   canChangeCategory,
   canChangePriority,
   canCreateOnBehalfOf,
@@ -36,6 +35,7 @@ import { nextTicketNumber } from "../../models/counter.model";
 import { Message } from "../../models/message.model";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
+import { enqueueClassification } from "../ai/classification.queue";
 import { bindAttachments } from "../attachments/attachments.service";
 import { getCalendar, slaPolicyFor } from "../settings/settings.service";
 import {
@@ -47,7 +47,13 @@ import {
   type LeanTicket,
   type TicketDoc,
 } from "./ticket.access";
-import { applyStatusChange, assertTransition, canApplyStatus, recordSystemEvent } from "./ticket.lifecycle";
+import {
+  applyStatusChange,
+  assertTransition,
+  canApplyStatus,
+  recomputeSlaForPriority,
+  recordSystemEvent,
+} from "./ticket.lifecycle";
 import { hydrate, hydrateAuthors, toDetail, toListItem, toMessageViews } from "./ticket.view";
 
 const router = Router();
@@ -100,7 +106,7 @@ router.get("/tickets", validateQuery(ticketListQuery), async (_req, res) => {
   const hydration = await hydrate(items);
 
   res.json({
-    items: items.map((ticket) => toListItem(ticket, hydration)),
+    items: items.map((ticket) => toListItem(ticket, hydration, actor)),
     total: page?.total[0]?.value ?? 0,
     page: query.page,
     limit: query.limit,
@@ -189,6 +195,10 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
     updatedAt: createdAt,
   });
 
+  // La IA clasifica en segundo plano: quien crea el ticket ya tiene su número
+  // y su plazo, y no espera a Gemini para nada (spec §6.3).
+  enqueueClassification(String(ticketId));
+
   res.status(201).json(await detailOf(plainOf(ticket), actor));
 });
 
@@ -254,27 +264,15 @@ router.patch("/tickets/:id", validateBody(updateTicketInput), async (req, res) =
     if (!canChangePriority(actor, ref)) {
       throw new AppError(403, "forbidden", "Solo el supervisor del área cambia la prioridad");
     }
-    const [policy, calendar] = await Promise.all([slaPolicyFor(input.priority), getCalendar()]);
-    const targets = computeTicketSla(ticket.get("createdAt") as Date, policy, calendar);
-    // El plazo se recalcula con la nueva política desde el origen, y se le vuelve
-    // a sumar el tiempo que el ticket ya estuvo en pausa.
-    const pausedMinutes = Math.round((ticket.get("sla")?.pausedMs ?? 0) / 60_000);
-    const shift = (date: Date) =>
-      pausedMinutes > 0 ? addBusinessMinutes(date, pausedMinutes, calendar) : date;
-
-    ticket.set("sla.responseDueAt", shift(targets.response.dueAt));
-    ticket.set("sla.responseRiskAt", shift(targets.response.riskAt));
-    ticket.set("sla.resolutionDueAt", shift(targets.resolution.dueAt));
-    ticket.set("sla.resolutionRiskAt", shift(targets.resolution.riskAt));
-    ticket.set("stats.priorityChangedByHuman", true);
-
     events.push({
       kind: "priority_changed",
       from: ticket.get("priority"),
       to: input.priority,
       reason: input.reason!,
     });
-    ticket.set("priority", input.priority);
+    await recomputeSlaForPriority(ticket, input.priority);
+    // Marca que lo decidió una persona: la clasificación de la IA no lo pisará.
+    ticket.set("stats.priorityChangedByHuman", true);
   }
 
   // ── Categoría ──

@@ -150,7 +150,15 @@ export function slaStatesOf(ticket: LeanTicket, now = new Date()): {
   };
 }
 
-export function toListItem(ticket: LeanTicket, h: Hydration): TicketListItem {
+/** La etiqueta de incidente es información del área, no del solicitante. */
+function incidentLabelFor(ticket: LeanTicket, actor?: Actor): string | undefined {
+  const incident = ticket["ai"]?.incident;
+  if (!incident?.label || incident.status === "dismissed") return undefined;
+  if (!actor || !canReadInternalNotes(actor, refOf(ticket))) return undefined;
+  return incident.label as string;
+}
+
+export function toListItem(ticket: LeanTicket, h: Hydration, actor?: Actor): TicketListItem {
   const area = h.areas.get(String(ticket["areaId"])) ?? {
     id: String(ticket["areaId"]),
     name: "Área",
@@ -177,6 +185,7 @@ export function toListItem(ticket: LeanTicket, h: Hydration): TicketListItem {
     responseDueAt: (ticket["sla"].responseDueAt as Date).toISOString(),
     resolutionDueAt: (ticket["sla"].resolutionDueAt as Date).toISOString(),
     attachmentsCount: (ticket["attachmentsCount"] as number | undefined) ?? 0,
+    ...(incidentLabelFor(ticket, actor) ? { incidentLabel: incidentLabelFor(ticket, actor)! } : {}),
     createdAt: (ticket["createdAt"] as Date).toISOString(),
     lastActivityAt: (ticket["lastActivityAt"] as Date).toISOString(),
   };
@@ -208,7 +217,7 @@ export async function toDetail(
   h: Hydration,
   actor: Actor,
 ): Promise<TicketDetail> {
-  const base = toListItem(ticket, h);
+  const base = toListItem(ticket, h, actor);
   const sla = ticket["sla"] ?? {};
   const permissions = permissionsOf(actor, ticket);
 

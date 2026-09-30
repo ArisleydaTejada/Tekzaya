@@ -149,6 +149,12 @@ export const ticketListItem = z.object({
   responseDueAt: isoDateTime,
   resolutionDueAt: isoDateTime,
   attachmentsCount: z.number().int().min(0),
+  /**
+   * Etiqueta del incidente al que pertenece, si lo hay. Solo viaja hacia quien
+   * atiende el ticket: el solicitante no ve que su problema es uno de veinte
+   * (spec §6.2, IA-5).
+   */
+  incidentLabel: z.string().optional(),
   createdAt: isoDateTime,
   lastActivityAt: isoDateTime,
 });

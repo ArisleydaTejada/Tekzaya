@@ -1,11 +1,14 @@
 import {
+  addBusinessMinutes,
   businessMinutesBetween,
   canCancel,
   canChangeStatus,
   computeSlaTargets,
+  computeTicketSla,
   isOwnTicket,
   shiftTargets,
   type Actor,
+  type Priority,
   type SystemEvent,
   type TicketStatus,
 } from "@tekzaya/shared";
@@ -60,6 +63,30 @@ export function assertTransition(from: TicketStatus, to: TicketStatus): void {
       `Un ticket ${from} no puede pasar a ${to}`,
     );
   }
+}
+
+/**
+ * Recalcula el plazo con la política de otra prioridad, desde el origen del
+ * ticket, y le vuelve a sumar el tiempo que ya estuvo en pausa. Lo usan tanto el
+ * cambio manual de prioridad como la clasificación de la IA: un ticket que pasa
+ * a Urgente tiene que vencer como un urgente, venga de donde venga el cambio.
+ */
+export async function recomputeSlaForPriority(
+  ticket: TicketDoc,
+  priority: Priority,
+): Promise<void> {
+  const [policy, calendar] = await Promise.all([slaPolicyFor(priority), getCalendar()]);
+  const targets = computeTicketSla(ticket.get("createdAt") as Date, policy, calendar);
+
+  const pausedMinutes = Math.round((ticket.get("sla")?.pausedMs ?? 0) / 60_000);
+  const shift = (date: Date): Date =>
+    pausedMinutes > 0 ? addBusinessMinutes(date, pausedMinutes, calendar) : date;
+
+  ticket.set("sla.responseDueAt", shift(targets.response.dueAt));
+  ticket.set("sla.responseRiskAt", shift(targets.response.riskAt));
+  ticket.set("sla.resolutionDueAt", shift(targets.resolution.dueAt));
+  ticket.set("sla.resolutionRiskAt", shift(targets.resolution.riskAt));
+  ticket.set("priority", priority);
 }
 
 /** Mensaje de sistema: el historial es requisito no funcional (spec §13). */
