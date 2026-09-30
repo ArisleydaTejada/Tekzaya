@@ -1,6 +1,9 @@
 import {
   area,
   areaMember,
+  areaWorkloadMember,
+  duplicateCandidate,
+  settings as settingsSchema,
   messageListResponse,
   messageView,
   ticketDetail,
@@ -11,10 +14,16 @@ import {
   type CreateTicketInput,
   type MessageListResponse,
   type MessageView,
+  type JoinRequestInput,
+  type MergeTicketsInput,
   type SetAssigneesInput,
+  type Settings,
   type TicketDetail,
   type TicketListQuery,
   type TicketListResponse,
+  type TransferTicketInput,
+  type UnmergeTicketInput,
+  type UpdateSettingsInput,
   type UpdateTicketInput,
 } from "@tekzaya/shared";
 import { z } from "zod";
@@ -22,6 +31,8 @@ import { apiFetch, apiUpload, queryString } from "./client";
 
 const areasResponse = z.object({ items: z.array(area) });
 const membersResponse = z.object({ items: z.array(areaMember) });
+const workloadResponse = z.object({ items: z.array(areaWorkloadMember) });
+const candidatesResponse = z.object({ items: z.array(duplicateCandidate) });
 
 /**
  * Claves de caché en un solo sitio: invalidar después de una mutación es acertar
@@ -38,7 +49,10 @@ export const ticketKeys = {
 export const areaKeys = {
   all: ["areas"] as const,
   members: (areaId: string) => ["areas", areaId, "members"] as const,
+  workload: (areaId: string) => ["areas", areaId, "workload"] as const,
 };
+
+export const settingsKey = ["settings"] as const;
 
 // ── Tickets ───────────────────────────────────────────────────
 
@@ -71,6 +85,40 @@ export function setAssignees(id: string, input: SetAssigneesInput): Promise<Tick
 
 export function takeTicket(id: string): Promise<TicketDetail> {
   return apiFetch(`/tickets/${id}/take`, ticketDetail, { method: "POST" });
+}
+
+// ── Movimientos del ticket (F4) ───────────────────────────────
+
+export function transferTicket(id: string, input: TransferTicketInput): Promise<TicketDetail> {
+  return apiFetch(`/tickets/${id}/transfer`, ticketDetail, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listDuplicateCandidates(id: string) {
+  return (await apiFetch(`/tickets/${id}/duplicate-candidates`, candidatesResponse)).items;
+}
+
+export function mergeTickets(id: string, input: MergeTicketsInput): Promise<TicketDetail> {
+  return apiFetch(`/tickets/${id}/merge`, ticketDetail, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function unmergeTicket(id: string, input: UnmergeTicketInput): Promise<TicketDetail> {
+  return apiFetch(`/tickets/${id}/unmerge`, ticketDetail, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function requestJoin(id: string, input: JoinRequestInput): Promise<TicketDetail> {
+  return apiFetch(`/tickets/${id}/join-request`, ticketDetail, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 // ── Conversación ──────────────────────────────────────────────
@@ -106,4 +154,22 @@ export async function listAreas() {
 
 export async function listAreaMembers(areaId: string) {
   return (await apiFetch(`/areas/${areaId}/members`, membersResponse)).items;
+}
+
+/** Carga por persona: es lo que el supervisor mira antes de asignar (spec §7.5). */
+export async function listAreaWorkload(areaId: string) {
+  return (await apiFetch(`/areas/${areaId}/workload`, workloadResponse)).items;
+}
+
+// ── Configuración ─────────────────────────────────────────────
+
+export function getSettings(): Promise<Settings> {
+  return apiFetch("/settings", settingsSchema);
+}
+
+export function updateSettings(input: UpdateSettingsInput): Promise<Settings> {
+  return apiFetch("/settings", settingsSchema, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }

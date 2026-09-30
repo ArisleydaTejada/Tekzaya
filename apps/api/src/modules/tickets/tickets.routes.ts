@@ -423,16 +423,31 @@ router.get("/tickets/:id/messages", async (req, res) => {
   const ticket = await loadVisibleTicket(routeParam(req.params["id"]), actor);
   const plain = plainOf(ticket);
 
+  // La conversación del principal incluye la de los duplicados que absorbió: no
+  // se copian mensajes, se leen donde están (spec §7.5.1).
+  const mergedIds = (ticket.get("mergedTicketIds") as unknown[]) ?? [];
+  const origins = new Map<string, { id: string; number: number }>();
+  if (mergedIds.length) {
+    const merged = await Ticket.find({ _id: { $in: mergedIds } })
+      .select("number")
+      .lean();
+    for (const item of merged) {
+      origins.set(String(item._id), { id: String(item._id), number: item.number! });
+    }
+  }
+
   // El filtro va en la consulta, no en el cliente: una nota interna que el
   // solicitante no puede leer nunca llega a salir de la base (spec §10.4).
-  const filter: Record<string, unknown> = { ticketId: idOf(ticket) };
+  const filter: Record<string, unknown> = {
+    ticketId: { $in: [idOf(ticket), ...mergedIds] },
+  };
   if (!canReadInternalNotes(actor, refOf(plain))) filter["type"] = { $ne: "internal" };
 
   const messages = (await Message.find(filter).sort({ createdAt: 1, _id: 1 }).lean()) as LeanTicket[];
   const hydration = await hydrate([plain]);
   await hydrateAuthors(messages, hydration);
 
-  res.json({ items: await toMessageViews(messages, hydration) });
+  res.json({ items: await toMessageViews(messages, hydration, origins) });
 });
 
 router.post("/tickets/:id/messages", validateBody(createMessageInput), async (req, res) => {

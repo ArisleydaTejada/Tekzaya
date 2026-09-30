@@ -9,6 +9,8 @@ import attachmentsRoutes from "./modules/attachments/attachments.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import healthRoutes from "./modules/health/health.routes";
 import meRoutes from "./modules/me/me.routes";
+import settingsRoutes from "./modules/settings/settings.routes";
+import ticketActionsRoutes from "./modules/tickets/ticketActions.routes";
 import ticketsRoutes from "./modules/tickets/tickets.routes";
 
 export function createApp() {
@@ -27,6 +29,8 @@ export function createApp() {
   app.use("/api/v1", requireAuth, meRoutes);
   app.use("/api/v1", requireAuth, areasRoutes);
   app.use("/api/v1", requireAuth, ticketsRoutes);
+  app.use("/api/v1", requireAuth, ticketActionsRoutes);
+  app.use("/api/v1", requireAuth, settingsRoutes);
   app.use("/api/v1", requireAuth, attachmentsRoutes);
 
   app.use(notFound);

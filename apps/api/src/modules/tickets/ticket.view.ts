@@ -4,9 +4,13 @@ import {
   canChangePriority,
   canChangeStatus,
   canManageAssignees,
+  canMerge,
   canReadInternalNotes,
+  canRequestJoin,
   canReplyPublicly,
   canSelfAssign,
+  canTransfer,
+  canUnmerge,
   canWriteInternalNote,
   slaStateAt,
   type Actor,
@@ -23,6 +27,9 @@ import { Attachment as AttachmentModel } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { refOf, type LeanTicket } from "./ticket.access";
+
+/** Estados en los que el ticket ya no admite fusiones (spec §7.5.1). */
+const FINAL: readonly TicketStatus[] = ["resolved", "closed", "cancelled", "merged"];
 
 /** Catálogos resueltos de una tacada para toda la página de resultados. */
 export interface Hydration {
@@ -58,6 +65,9 @@ function collectUserIds(ticket: LeanTicket, into: Set<string>): void {
   into.add(String(ticket["requesterId"]));
   into.add(String(ticket["createdById"]));
   for (const id of (ticket["assigneeIds"] as unknown[] | undefined) ?? []) into.add(String(id));
+  for (const id of (ticket["additionalRequesterIds"] as unknown[] | undefined) ?? []) {
+    into.add(String(id));
+  }
   for (const entry of (ticket["statusHistory"] as { byId?: unknown }[] | undefined) ?? []) {
     if (entry.byId) into.add(String(entry.byId));
   }
@@ -184,6 +194,12 @@ function permissionsOf(actor: Actor, ticket: LeanTicket): TicketDetail["permissi
     manageAssignees: canManageAssignees(actor, ref),
     selfAssign: canSelfAssign(actor, ref),
     cancel: canCancel(actor, ref),
+    transfer: canTransfer(actor, ref),
+    // Fusionar exige dos tickets; aquí solo se sabe del principal, así que se
+    // comprueba contra sí mismo: quien no pase este filtro no pasará ninguno.
+    merge: canMerge(actor, ref, ref) && !FINAL.includes(ref.status),
+    unmerge: canUnmerge(actor, ref),
+    requestJoin: canRequestJoin(actor, ref),
   };
 }
 
@@ -216,6 +232,9 @@ export async function toDetail(
     ...base,
     description: ticket["description"] as string,
     createdBy: userOf(h, ticket["createdById"]),
+    additionalRequesters: ((ticket["additionalRequesterIds"] as unknown[] | undefined) ?? []).map(
+      (id) => userOf(h, id),
+    ),
     sla: {
       responseDueAt: (sla.responseDueAt as Date).toISOString(),
       resolutionDueAt: (sla.resolutionDueAt as Date).toISOString(),
@@ -286,6 +305,8 @@ export async function toDetail(
 export async function toMessageViews(
   messages: LeanTicket[],
   h: Hydration,
+  /** Duplicados absorbidos, por id: sus mensajes se marcan con su ticket de origen. */
+  origins?: Map<string, { id: string; number: number }>,
 ): Promise<MessageView[]> {
   const attachmentIds = messages.flatMap(
     (message) => (message["attachments"] as unknown[] | undefined) ?? [],
@@ -314,6 +335,9 @@ export async function toMessageViews(
       .map((id) => byId.get(String(id)))
       .filter((file): file is Attachment => Boolean(file)),
     ...(message["systemEvent"]?.kind ? { systemEvent: message["systemEvent"] } : {}),
+    ...(origins?.get(String(message["ticketId"]))
+      ? { fromTicket: origins.get(String(message["ticketId"]))! }
+      : {}),
     createdAt: (message["createdAt"] as Date).toISOString(),
   }));
 }

@@ -200,3 +200,27 @@ export function businessMinutesBetween(
 
   return Math.round(totalMs / 60_000);
 }
+
+/**
+ * Minutos que dura una jornada. Es lo que convierte "3 días hábiles" en algo que
+ * se puede comparar con `businessMinutesBetween`, sin contar noches ni fines de
+ * semana: los plazos de cierre automático se miden en tiempo de trabajo, igual
+ * que el SLA (spec §5.2).
+ */
+export function businessMinutesPerDay(hours: BusinessHours): number {
+  const [startHour = 0, startMinute = 0] = hours.start.split(":").map(Number);
+  const [endHour = 0, endMinute = 0] = hours.end.split(":").map(Number);
+  return Math.max(0, endHour * 60 + endMinute - (startHour * 60 + startMinute));
+}
+
+/** ¿Han pasado ya `days` días hábiles desde `from`? */
+export function businessDaysPassed(
+  from: Date,
+  now: Date,
+  days: number,
+  calendar: BusinessCalendar,
+): boolean {
+  const perDay = businessMinutesPerDay(calendar.hours);
+  if (perDay <= 0) return false;
+  return businessMinutesBetween(from, now, calendar) >= days * perDay;
+}

@@ -126,6 +126,10 @@ export const ticketPermissions = z.object({
   manageAssignees: z.boolean(),
   selfAssign: z.boolean(),
   cancel: z.boolean(),
+  transfer: z.boolean(),
+  merge: z.boolean(),
+  unmerge: z.boolean(),
+  requestJoin: z.boolean(),
 });
 export type TicketPermissions = z.infer<typeof ticketPermissions>;
 
@@ -163,6 +167,8 @@ export type TicketHistoryEntry = z.infer<typeof ticketHistoryEntry>;
 export const ticketDetail = ticketListItem.extend({
   description: z.string(),
   createdBy: userSummary,
+  /** Solicitantes heredados al absorber duplicados (spec §7.5.1). */
+  additionalRequesters: z.array(userSummary),
   sla: ticketSla,
   /** Solo se envía a quien atiende el ticket; el solicitante no ve el rastro de la IA. */
   ai: ticketAi.optional(),
@@ -221,3 +227,42 @@ export const setAssigneesInput = z.object({
   assigneeIds: z.array(objectId).max(10),
 });
 export type SetAssigneesInput = z.infer<typeof setAssigneesInput>;
+
+// ── Movimientos del ticket (spec §7.5) ────────────────────────
+
+export const transferTicketInput = z.object({
+  areaId: objectId,
+  reason: z.string().trim().min(3, "Explica por qué cambia de área").max(280),
+});
+export type TransferTicketInput = z.infer<typeof transferTicketInput>;
+
+export const mergeTicketsInput = z.object({
+  /** Los duplicados que absorbe este ticket; el principal es el de la ruta. */
+  duplicateIds: z.array(objectId).min(1, "Elige al menos un duplicado").max(20),
+  reason: z.string().trim().min(3, "El motivo es obligatorio").max(280),
+  /** Sumar los responsables de los duplicados a los del principal. */
+  addAssignees: z.boolean().default(true),
+  notifyRequesters: z.boolean().default(true),
+});
+export type MergeTicketsInput = z.infer<typeof mergeTicketsInput>;
+
+export const unmergeTicketInput = z.object({ duplicateId: objectId });
+export type UnmergeTicketInput = z.infer<typeof unmergeTicketInput>;
+
+export const joinRequestInput = z.object({
+  message: z.string().trim().max(280).optional(),
+});
+export type JoinRequestInput = z.infer<typeof joinRequestInput>;
+
+/** Posible duplicado propuesto por búsqueda de texto, sin gastar cuota de IA. */
+export const duplicateCandidate = z.object({
+  id: objectId,
+  number: z.number().int().positive(),
+  title: z.string(),
+  status: ticketStatus,
+  requesterName: z.string(),
+  createdAt: isoDateTime,
+  /** Parte del mismo grupo de incidente que el principal: llega preseleccionado. */
+  sameIncident: z.boolean(),
+});
+export type DuplicateCandidate = z.infer<typeof duplicateCandidate>;

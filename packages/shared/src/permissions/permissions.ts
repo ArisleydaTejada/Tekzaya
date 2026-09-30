@@ -20,6 +20,13 @@ export interface TicketRef {
   createdById: string;
   assigneeIds: readonly string[];
   status: TicketStatus;
+  /**
+   * Solicitantes que llegaron al absorber duplicados (spec §7.5.1). Cuentan como
+   * solicitantes a todos los efectos: ven el ticket y **no** ven las notas
+   * internas. Olvidarlos aquí sería filtrar la trastienda del área a quien solo
+   * reportó un problema.
+   */
+  additionalRequesterIds?: readonly string[];
 }
 
 export interface UserRef {
@@ -45,7 +52,11 @@ export function isSupervisorOf(actor: Actor, areaId: string): boolean {
 
 /** El ticket es suyo: lo pidió o lo registró. Actúa como solicitante, no como agente. */
 export function isOwnTicket(actor: Actor, ticket: TicketRef): boolean {
-  return ticket.requesterId === actor.id || ticket.createdById === actor.id;
+  return (
+    ticket.requesterId === actor.id ||
+    ticket.createdById === actor.id ||
+    (ticket.additionalRequesterIds?.includes(actor.id) ?? false)
+  );
 }
 
 export function isAssignee(actor: Actor, ticket: TicketRef): boolean {
@@ -129,6 +140,26 @@ export function canMerge(actor: Actor, principal: TicketRef, duplicate: TicketRe
   if (principal.areaId !== duplicate.areaId) return false;
   if (isSupervisorOf(actor, principal.areaId)) return true;
   return isAssignee(actor, principal) && isAssignee(actor, duplicate);
+}
+
+/**
+ * Deshacer la fusión es más restrictivo que hacerla: solo el supervisor del área
+ * y el administrador (spec §7.5.1). Separar un ticket devuelve a su solicitante
+ * una conversación que llevaba días viviendo dentro de otra.
+ */
+export function canUnmerge(actor: Actor, principal: TicketRef): boolean {
+  return isSupervisorOf(actor, principal.areaId);
+}
+
+/**
+ * "Unirme": lo pide quien pertenece al área pero no atiende el ticket, y solo si
+ * ya hay responsables — sin ellos el botón que corresponde es "Tomar" (spec §7.5).
+ */
+export function canRequestJoin(actor: Actor, ticket: TicketRef): boolean {
+  if (isOwnTicket(actor, ticket)) return false;
+  if (isAssignee(actor, ticket)) return false;
+  if (ticket.assigneeIds.length === 0) return false;
+  return isAreaMember(actor, ticket.areaId) || isAdmin(actor);
 }
 
 // ── Personas ──────────────────────────────────────────────────

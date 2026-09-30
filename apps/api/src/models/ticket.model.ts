@@ -23,6 +23,12 @@ const slaSchema = new Schema(
 
     responseBreached: { type: Boolean, default: false },
     resolutionBreached: { type: Boolean, default: false },
+
+    // Marcas de "ya se avisó": el job corre cada pocos minutos y sin ellas
+    // repetiría la misma notificación hasta que alguien atendiera el ticket.
+    riskNotifiedAt: { type: Date },
+    breachNotifiedAt: { type: Date },
+    onHoldReminderAt: { type: Date },
   },
   { _id: false },
 );
@@ -122,6 +128,7 @@ ticketSchema.index({ requesterId: 1, createdAt: -1 });
 ticketSchema.index({ createdById: 1, createdAt: -1 });
 ticketSchema.index({ areaId: 1, createdAt: -1 });
 ticketSchema.index({ areaId: 1, "sla.resolvedAt": -1 });
+ticketSchema.index({ status: 1, "sla.resolutionDueAt": 1 });
 ticketSchema.index({ title: "text", description: "text" });
 
 export const Ticket = model("Ticket", ticketSchema, "tickets");

@@ -4,6 +4,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   TICKET_STATUS_LABEL,
+  type Area,
   type Attachment,
   type MessageView,
   type TicketDetail,
@@ -17,11 +18,17 @@ import {
   attachmentUrl,
   createMessage,
   getTicketByNumber,
-  listAreaMembers,
+  listAreaWorkload,
+  listAreas,
+  listDuplicateCandidates,
   listMessages,
+  mergeTickets,
+  requestJoin,
   setAssignees,
   takeTicket,
   ticketKeys,
+  transferTicket,
+  unmergeTicket,
   updateTicket,
   uploadAttachment,
 } from "../api/tickets";
@@ -29,11 +36,14 @@ import { Avatar, AvatarStack } from "../components/Avatar";
 import { AreaTag, PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
 import {
   AlertIcon,
+  ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
   LockIcon,
+  MergeIcon,
   PaperclipIcon,
   SparkleIcon,
+  StarIcon,
   XIcon,
 } from "../components/icons";
 import { Modal } from "../components/Modal";
@@ -80,6 +90,8 @@ export default function TicketDetailPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(true);
 
@@ -118,6 +130,21 @@ export default function TicketDetailPage() {
 
   const take = useMutation({
     mutationFn: () => takeTicket(ticket!.id),
+    onSuccess: refresh,
+    onError: (error) => setActionError(error.message),
+  });
+
+  const join = useMutation({
+    mutationFn: () => requestJoin(ticket!.id, {}),
+    onSuccess: async () => {
+      setActionError(null);
+      await refresh();
+    },
+    onError: (error) => setActionError(error.message),
+  });
+
+  const unmerge = useMutation({
+    mutationFn: (duplicateId: string) => unmergeTicket(ticket!.id, { duplicateId }),
     onSuccess: refresh,
     onError: (error) => setActionError(error.message),
   });
@@ -210,12 +237,39 @@ export default function TicketDetailPage() {
                   Tomar
                 </button>
               )}
+              {/* Quien puede asignar no pide permiso: se añade y ya. */}
+              {permissions.requestJoin && !permissions.manageAssignees && (
+                <button
+                  onClick={() => join.mutate()}
+                  disabled={join.isPending}
+                  title="Pide al supervisor que te sume a este ticket"
+                  className="rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
+                >
+                  {join.isSuccess ? "Solicitud enviada" : "Unirme"}
+                </button>
+              )}
               {permissions.manageAssignees && (
                 <button
                   onClick={() => setAssignOpen(true)}
                   className="rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
                 >
                   Asignar
+                </button>
+              )}
+              {permissions.transfer && (
+                <button
+                  onClick={() => setTransferOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                >
+                  <ArrowRightIcon className="h-3.5 w-3.5" /> Transferir
+                </button>
+              )}
+              {permissions.merge && (
+                <button
+                  onClick={() => setMergeOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                >
+                  <MergeIcon className="h-3.5 w-3.5" /> Fusionar…
                 </button>
               )}
               {permissions.changeStatus && (
@@ -398,6 +452,12 @@ export default function TicketDetailPage() {
           {ticket.createdBy.id !== ticket.requester.id && (
             <DetailRow label="Registrado por" value={ticket.createdBy.name} />
           )}
+          {ticket.additionalRequesters.length > 0 && (
+            <DetailRow
+              label="También lo reportaron"
+              value={ticket.additionalRequesters.map((person) => person.name).join(", ")}
+            />
+          )}
           <DetailRow label="Área" value={<AreaTag area={ticket.area} />} />
           <DetailRow label="Categoría" value={ticket.categoryName ?? "Sin categoría"} />
           <DetailRow
@@ -450,15 +510,24 @@ export default function TicketDetailPage() {
                 </Link>
               </p>
             )}
-            <ul className="space-y-1 text-xs text-[var(--content-ink-dim)]">
+            <ul className="space-y-1.5 text-xs text-[var(--content-ink-dim)]">
               {ticket.mergedTickets.map((merged) => (
-                <li key={merged.id}>
+                <li key={merged.id} className="flex items-start justify-between gap-2">
                   <Link
                     to={`/tickets/${formatTicketNumber(merged.number)}`}
-                    className="hover:underline"
+                    className="min-w-0 hover:underline"
                   >
                     {formatTicketNumber(merged.number)} — {merged.title}
                   </Link>
+                  {permissions.unmerge && (
+                    <button
+                      onClick={() => unmerge.mutate(merged.id)}
+                      disabled={unmerge.isPending}
+                      className="shrink-0 text-[var(--content-ink-dim)] underline hover:text-[var(--content-ink)] disabled:opacity-50"
+                    >
+                      Separar
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -495,6 +564,20 @@ export default function TicketDetailPage() {
           patch.mutate({ status: "resolved", note });
         }}
       />
+
+      <TransferModal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        ticket={ticket}
+        onDone={refresh}
+      />
+
+      <MergeModal
+        open={mergeOpen}
+        onClose={() => setMergeOpen(false)}
+        ticket={ticket}
+        onDone={refresh}
+      />
     </div>
   );
 }
@@ -527,7 +610,7 @@ function MessageBubble({ message }: { message: MessageView }) {
       <div
         className={`min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm ${
           internal ? "border border-amber/40 bg-amber/10" : "bg-[var(--content-bg)]"
-        }`}
+        } ${message.fromTicket ? "border-l-2 border-l-[var(--content-ink-dim)]/40" : ""}`}
       >
         <div className="mb-0.5 flex flex-wrap items-center gap-2">
           <span className="font-medium text-[var(--content-ink)]">
@@ -541,6 +624,15 @@ function MessageBubble({ message }: { message: MessageView }) {
           <span className="text-xs text-[var(--content-ink-dim)]">
             {formatWhen(message.createdAt)}
           </span>
+          {/* Viene de un duplicado absorbido: se lee aquí, pero vive allí. */}
+          {message.fromTicket && (
+            <Link
+              to={`/tickets/${formatTicketNumber(message.fromTicket.number)}`}
+              className="rounded-full border border-[var(--content-border)] px-1.5 py-0.5 text-[10px] text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+            >
+              Original de {formatTicketNumber(message.fromTicket.number)}
+            </Link>
+          )}
         </div>
         <p className="whitespace-pre-wrap text-[var(--content-ink)]">{message.body}</p>
         {message.attachments.length > 0 && (
@@ -579,6 +671,14 @@ function describeEvent(event: MessageView["systemEvent"]): string {
       return `Categoría: ${event.to}`;
     case "assignees_changed":
       return `Responsables: ${event.to}`;
+    case "transferred":
+      return `Transferido de ${event.from} a ${event.to}${event.reason ? ` · ${event.reason}` : ""}`;
+    case "merged":
+      return `Fusionado con ${event.to}${event.reason ? ` · ${event.reason}` : ""}`;
+    case "unmerged":
+      return `Fusión deshecha: ${event.to}`;
+    case "join_requested":
+      return `${event.to} pidió unirse${event.reason ? ` · ${event.reason}` : ""}`;
     default:
       return "Actualización";
   }
@@ -640,6 +740,7 @@ function AssignModal({
   const [selected, setSelected] = useState<string[]>(() =>
     ticket.assignees.map((person) => person.id),
   );
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Al abrirse, la selección vuelve a partir de los responsables actuales. Es el
@@ -651,8 +752,8 @@ function AssignModal({
   }
 
   const { data: members = [] } = useQuery({
-    queryKey: areaKeys.members(ticket.area.id),
-    queryFn: () => listAreaMembers(ticket.area.id),
+    queryKey: areaKeys.workload(ticket.area.id),
+    queryFn: () => listAreaWorkload(ticket.area.id),
     enabled: open,
   });
 
@@ -665,11 +766,22 @@ function AssignModal({
     onError: (cause) => setError(cause.message),
   });
 
+  const visible = members.filter((member) =>
+    member.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  // La barra se mide contra la persona más cargada del área, no contra un tope
+  // inventado: lo que importa es el reparto relativo.
+  const peak = Math.max(1, ...members.map((member) => member.load));
+  const awaySelected = members.filter(
+    (member) => member.availability.state === "away" && selected.includes(member.id),
+  );
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Asignar responsables"
+      wide
       footer={
         <>
           <button
@@ -689,17 +801,24 @@ function AssignModal({
       }
     >
       {error && <p className="mb-2 text-sm text-red">{error}</p>}
+
+      <input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Buscar en el área…"
+        className="mb-3 w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+      />
+
       <ul className="space-y-1">
-        {members.map((member) => {
+        {visible.map((member) => {
           const away = member.availability.state === "away";
+          const checked = selected.includes(member.id);
           return (
             <li key={member.id}>
               <label className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--content-bg)]">
                 <input
                   type="checkbox"
-                  checked={selected.includes(member.id)}
-                  // Alguien ausente se puede desasignar, pero no cargar de nuevo.
-                  disabled={away && !selected.includes(member.id)}
+                  checked={checked}
                   onChange={(event) =>
                     setSelected((current) =>
                       event.target.checked
@@ -710,24 +829,322 @@ function AssignModal({
                   className="h-4 w-4 accent-accent"
                 />
                 <Avatar name={member.name} available={!away} size="sm" />
-                <span className="flex-1 text-sm text-[var(--content-ink)]">{member.name}</span>
-                <span className="text-xs text-[var(--content-ink-dim)]">
-                  {away
-                    ? member.availability.awayUntil
-                      ? `Ausente hasta ${formatWhen(member.availability.awayUntil)}`
-                      : "Ausente"
-                    : `${member.openTickets} abiertos`}
+
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-sm text-[var(--content-ink)]">
+                    {member.name}
+                    {member.suggested && (
+                      <span
+                        className="flex items-center gap-0.5 text-[10px] font-medium text-amber"
+                        title="Disponible y con menos carga"
+                      >
+                        <StarIcon /> Sugerido
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-[var(--content-border)]">
+                    <span
+                      className={`block h-full rounded-full ${
+                        member.load / peak > 0.75
+                          ? "bg-red"
+                          : member.load / peak > 0.4
+                            ? "bg-amber"
+                            : "bg-green"
+                      }`}
+                      style={{ width: `${Math.round((member.load / peak) * 100)}%` }}
+                    />
+                  </span>
+                </span>
+
+                <span className="w-44 shrink-0 text-right text-xs text-[var(--content-ink-dim)]">
+                  {away ? (
+                    member.availability.awayUntil ? (
+                      `Ausente hasta ${formatWhen(member.availability.awayUntil)}`
+                    ) : (
+                      "Ausente"
+                    )
+                  ) : (
+                    <>
+                      {member.openTickets} abiertos
+                      {member.urgentOrHigh > 0 && ` · ${member.urgentOrHigh} urg./alta`}
+                      {member.atRisk > 0 && (
+                        <span className="text-red"> · {member.atRisk} en riesgo</span>
+                      )}
+                      <span className="block">{member.resolvedThisWeek} resueltos esta semana</span>
+                    </>
+                  )}
                 </span>
               </label>
             </li>
           );
         })}
-        {members.length === 0 && (
-          <p className="text-sm text-[var(--content-ink-dim)]">
-            El área no tiene personas activas.
-          </p>
+        {visible.length === 0 && (
+          <p className="text-sm text-[var(--content-ink-dim)]">Nadie coincide con la búsqueda.</p>
         )}
       </ul>
+
+      {/* Asignar a alguien ausente se permite, pero nunca en silencio (spec §7.5). */}
+      {awaySelected.length > 0 && (
+        <p className="mt-3 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-xs text-amber">
+          {awaySelected.map((member) => member.name).join(", ")}{" "}
+          {awaySelected.length === 1 ? "está ausente" : "están ausentes"}: puede que nadie atienda
+          el ticket hasta su regreso.
+        </p>
+      )}
+    </Modal>
+  );
+}
+
+function TransferModal({
+  open,
+  onClose,
+  ticket,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  ticket: TicketDetail;
+  onDone: () => Promise<void>;
+}) {
+  const [areaId, setAreaId] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: areas = [] } = useQuery({
+    queryKey: areaKeys.all,
+    queryFn: listAreas,
+    enabled: open,
+  });
+
+  const transfer = useMutation({
+    mutationFn: () => transferTicket(ticket.id, { areaId, reason: reason.trim() }),
+    onSuccess: async () => {
+      await onDone();
+      setAreaId("");
+      setReason("");
+      onClose();
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Transferir a otra área"
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => transfer.mutate()}
+            disabled={!areaId || reason.trim().length < 3 || transfer.isPending}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Transferir
+          </button>
+        </>
+      }
+    >
+      {error && <p className="mb-2 text-sm text-red">{error}</p>}
+
+      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+        Área destino
+      </label>
+      <select
+        value={areaId}
+        onChange={(event) => setAreaId(event.target.value)}
+        className="mb-3 w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+      >
+        <option value="">Selecciona un área</option>
+        {areas
+          .filter((area: Area) => area.id !== ticket.area.id)
+          .map((area: Area) => (
+            <option key={area.id} value={area.id}>
+              {area.name}
+            </option>
+          ))}
+      </select>
+
+      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+        Motivo (obligatorio)
+      </label>
+      <input
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        placeholder="Ej. Es una consulta de nómina, no de sistemas"
+        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+      />
+
+      <p className="mt-3 text-xs text-[var(--content-ink-dim)]">
+        El ticket vuelve a <strong>Abierto</strong> en el área nueva y se queda sin responsables. El
+        plazo del SLA sigue corriendo: mide lo que lleva esperando el solicitante.
+      </p>
+    </Modal>
+  );
+}
+
+function MergeModal({
+  open,
+  onClose,
+  ticket,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  ticket: TicketDetail;
+  onDone: () => Promise<void>;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [reason, setReason] = useState("");
+  const [addAssignees, setAddAssignees] = useState(true);
+  const [notifyRequesters, setNotifyRequesters] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: candidates = [], isLoading } = useQuery({
+    queryKey: [...ticketKeys.all, ticket.id, "duplicates"],
+    queryFn: () => listDuplicateCandidates(ticket.id),
+    enabled: open,
+  });
+
+  // Si el ticket pertenece a un incidente, sus compañeros llegan marcados; el
+  // usuario siempre confirma (spec §7.5.1).
+  const [primed, setPrimed] = useState(false);
+  if (open && !primed && candidates.length > 0) {
+    setPrimed(true);
+    setPicked(candidates.filter((item) => item.sameIncident).map((item) => item.id));
+  }
+  if (!open && primed) setPrimed(false);
+
+  const merge = useMutation({
+    mutationFn: () =>
+      mergeTickets(ticket.id, {
+        duplicateIds: picked,
+        reason: reason.trim(),
+        addAssignees,
+        notifyRequesters,
+      }),
+    onSuccess: async () => {
+      await onDone();
+      setPicked([]);
+      setReason("");
+      onClose();
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Fusionar tickets duplicados"
+      wide
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => merge.mutate()}
+            disabled={picked.length === 0 || reason.trim().length < 3 || merge.isPending}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Confirmar fusión
+          </button>
+        </>
+      }
+    >
+      {error && <p className="mb-2 text-sm text-red">{error}</p>}
+
+      <p className="mb-3 text-sm text-[var(--content-ink-dim)]">
+        Posibles duplicados en {ticket.area.name}, creados en las últimas 48 h con palabras
+        parecidas en el título.
+      </p>
+
+      {isLoading ? (
+        <p className="text-sm text-[var(--content-ink-dim)]">Buscando duplicados…</p>
+      ) : candidates.length === 0 ? (
+        <p className="text-sm text-[var(--content-ink-dim)]">
+          No se encontraron posibles duplicados.
+        </p>
+      ) : (
+        <ul className="mb-4 space-y-1">
+          {candidates.map((candidate) => (
+            <li key={candidate.id}>
+              <label className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--content-bg)]">
+                <input
+                  type="checkbox"
+                  checked={picked.includes(candidate.id)}
+                  onChange={(event) =>
+                    setPicked((current) =>
+                      event.target.checked
+                        ? [...current, candidate.id]
+                        : current.filter((id) => id !== candidate.id),
+                    )
+                  }
+                  className="h-4 w-4 accent-accent"
+                />
+                <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+                  {formatTicketNumber(candidate.number)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm text-[var(--content-ink)]">
+                  {candidate.title}
+                </span>
+                {candidate.sameIncident && (
+                  <span className="shrink-0 rounded-full bg-amber/15 px-1.5 py-0.5 text-[10px] font-medium text-amber">
+                    Mismo incidente
+                  </span>
+                )}
+                <span className="shrink-0 text-xs text-[var(--content-ink-dim)]">
+                  {candidate.requesterName} · {formatWhen(candidate.createdAt)}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mb-3 flex items-center gap-2 text-sm text-[var(--content-ink)]">
+        <ArrowRightIcon className="h-3.5 w-3.5 text-[var(--content-ink-dim)]" />
+        Ticket principal:{" "}
+        <span className="font-display tabular">{formatTicketNumber(ticket.number)}</span>
+      </div>
+
+      <label className="mb-1.5 flex items-center gap-2 text-sm text-[var(--content-ink)]">
+        <input
+          type="checkbox"
+          checked={addAssignees}
+          onChange={(event) => setAddAssignees(event.target.checked)}
+          className="h-4 w-4 accent-accent"
+        />
+        Añadir a los responsables de los duplicados
+      </label>
+      <label className="mb-3 flex items-center gap-2 text-sm text-[var(--content-ink)]">
+        <input
+          type="checkbox"
+          checked={notifyRequesters}
+          onChange={(event) => setNotifyRequesters(event.target.checked)}
+          className="h-4 w-4 accent-accent"
+        />
+        Avisar a los solicitantes
+      </label>
+
+      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+        Motivo (obligatorio)
+      </label>
+      <input
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        placeholder="Ej. Mismo fallo de wifi en Ventas"
+        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+      />
     </Modal>
   );
 }

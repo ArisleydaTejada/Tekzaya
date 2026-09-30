@@ -43,3 +43,22 @@ export const areaMember = z.object({
   openTickets: z.number().int().min(0),
 });
 export type AreaMember = z.infer<typeof areaMember>;
+
+/**
+ * Carga de trabajo para el modal de asignación (spec §7.5). El servidor la calcula
+ * y marca la sugerencia: la persona **disponible** con menos carga ponderada por
+ * prioridad. Quien está ausente nunca se sugiere.
+ */
+export const areaWorkloadMember = areaMember.extend({
+  /** Abiertos que además son urgentes o altos. */
+  urgentOrHigh: z.number().int().min(0),
+  atRisk: z.number().int().min(0),
+  resolvedThisWeek: z.number().int().min(0),
+  /** Suma de pesos por prioridad; es lo que ordena la sugerencia. */
+  load: z.number().min(0),
+  suggested: z.boolean(),
+});
+export type AreaWorkloadMember = z.infer<typeof areaWorkloadMember>;
+
+/** Un ticket urgente pesa lo que cuatro bajos: la carga no se mide contando filas. */
+export const WORKLOAD_WEIGHTS = { urgent: 4, high: 3, medium: 2, low: 1 } as const;

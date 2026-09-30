@@ -21,6 +21,7 @@ export const systemEvent = z.object({
     "merged",
     "unmerged",
     "reopened",
+    "join_requested",
   ]),
   from: z.string().optional(),
   to: z.string().optional(),
@@ -62,6 +63,12 @@ export const messageView = z.object({
   author: userSummary.optional(),
   attachments: z.array(attachment),
   systemEvent: systemEvent.optional(),
+  /**
+   * Presente cuando el mensaje viene de un duplicado absorbido: la conversación
+   * del principal los muestra como bloques "Mensaje original de TK-000124"
+   * (spec §7.5.1). Los mensajes no se copian; se leen donde están.
+   */
+  fromTicket: z.object({ id: objectId, number: z.number().int().positive() }).optional(),
   createdAt: isoDateTime,
 });
 export type MessageView = z.infer<typeof messageView>;

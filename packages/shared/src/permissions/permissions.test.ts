@@ -8,11 +8,13 @@ import {
   canManageAssignees,
   canManageSystem,
   canMerge,
+  canRequestJoin,
   canReadInternalNotes,
   canReplyPublicly,
   canSelfAssign,
   canSetAvailabilityOf,
   canTransfer,
+  canUnmerge,
   canViewTicket,
   canWriteInternalNote,
   isScopeAllowed,
@@ -306,5 +308,65 @@ describe("§4.3 · Alcance de reportes", () => {
     expect(isScopeAllowed(supervisorIT, { type: "area", areaId: RRHH })).toBe(false);
     expect(isScopeAllowed(supervisorIT, { type: "global" })).toBe(false);
     expect(isScopeAllowed(supervisorIT, { type: "area", areaId: IT })).toBe(true);
+  });
+});
+
+describe("§7.5.1 · Fusión de duplicados", () => {
+  const principal: TicketRef = {
+    areaId: IT,
+    requesterId: empleadoVentas.id,
+    createdById: empleadoVentas.id,
+    assigneeIds: [empleadoIT.id],
+    status: "in_progress",
+  };
+
+  it("el solicitante de un duplicado absorbido tampoco ve las notas internas", () => {
+    // Llega al principal por la fusión, no por pertenecer al área: sigue siendo
+    // un solicitante, y la trastienda del área no es para él.
+    const conAbsorbidos: TicketRef = {
+      ...principal,
+      additionalRequesterIds: [otroEmpleadoIT.id],
+    };
+
+    expect(canViewTicket(otroEmpleadoIT, conAbsorbidos)).toBe(true);
+    expect(canReadInternalNotes(otroEmpleadoIT, conAbsorbidos)).toBe(false);
+    expect(canWriteInternalNote(otroEmpleadoIT, conAbsorbidos)).toBe(false);
+    // Sin la fusión, ese mismo empleado del área sí las leería.
+    expect(canReadInternalNotes(otroEmpleadoIT, principal)).toBe(true);
+  });
+
+  it("deshacer la fusión es solo del supervisor y del admin", () => {
+    expect(canUnmerge(supervisorIT, principal)).toBe(true);
+    expect(canUnmerge(admin, principal)).toBe(true);
+    expect(canUnmerge(empleadoIT, principal)).toBe(false);
+    expect(canUnmerge(supervisorRRHH, principal)).toBe(false);
+  });
+});
+
+describe("§7.5 · Unirme", () => {
+  const conResponsables: TicketRef = {
+    areaId: IT,
+    requesterId: empleadoVentas.id,
+    createdById: empleadoVentas.id,
+    assigneeIds: [empleadoIT.id],
+    status: "in_progress",
+  };
+  const sinResponsables: TicketRef = { ...conResponsables, assigneeIds: [], status: "open" };
+
+  it("lo pide quien es del área y no lo atiende", () => {
+    expect(canRequestJoin(otroEmpleadoIT, conResponsables)).toBe(true);
+  });
+
+  it("no lo pide quien ya es responsable", () => {
+    expect(canRequestJoin(empleadoIT, conResponsables)).toBe(false);
+  });
+
+  it("sin responsables no se pide unirse: se toma", () => {
+    expect(canRequestJoin(otroEmpleadoIT, sinResponsables)).toBe(false);
+    expect(canSelfAssign(otroEmpleadoIT, sinResponsables)).toBe(true);
+  });
+
+  it("no lo pide alguien de otra área ni el propio solicitante", () => {
+    expect(canRequestJoin(empleadoVentas, conResponsables)).toBe(false);
   });
 });

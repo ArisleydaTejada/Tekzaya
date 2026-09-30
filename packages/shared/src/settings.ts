@@ -92,3 +92,26 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   incidentDetection: { windowHours: 48, minConfidence: 0.6, minTickets: 3 },
 };
+
+/**
+ * Lo que el administrador puede editar en Administración → Configuración. Todo es
+ * opcional: la pantalla envía solo lo que cambió.
+ */
+export const updateSettingsInput = z.object({
+  slaPolicies: z.record(z.enum(PRIORITIES), slaPolicy).optional(),
+  businessHours: businessHours.optional(),
+  holidays: z.array(z.iso.date()).optional(),
+  autoCloseResolvedDays: z.number().int().min(1).max(90).optional(),
+  onHoldReminderDays: z.number().int().min(1).max(90).optional(),
+  onHoldAutoCloseDays: z.number().int().min(1).max(180).optional(),
+  aiEnabled: z
+    .object({
+      suggestArea: z.boolean(),
+      classify: z.boolean(),
+      summary: z.boolean(),
+      autocomplete: z.boolean(),
+      detectIncidents: z.boolean(),
+    })
+    .optional(),
+});
+export type UpdateSettingsInput = z.infer<typeof updateSettingsInput>;

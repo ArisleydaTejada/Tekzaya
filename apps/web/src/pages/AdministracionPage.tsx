@@ -1,3 +1,5 @@
+import { PRIORITIES, PRIORITY_LABEL, type Settings } from "@tekzaya/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
@@ -5,6 +7,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { CheckIcon, PlusIcon } from "../components/icons";
+import { getSettings, settingsKey, updateSettings } from "../api/tickets";
 import { AREAS, USERS } from "../data/mock";
 
 const TABS = [
@@ -187,58 +190,333 @@ function AreasTab() {
   );
 }
 
+const DAY_LABEL: Record<number, string> = {
+  1: "L",
+  2: "M",
+  3: "X",
+  4: "J",
+  5: "V",
+  6: "S",
+  7: "D",
+};
+
+const AI_LABEL: Record<keyof Settings["aiEnabled"], string> = {
+  suggestArea: "Sugerir área al crear un ticket",
+  classify: "Clasificar prioridad y categoría",
+  summary: "Resumir la conversación",
+  autocomplete: "Autocompletar respuestas",
+  detectIncidents: "Detectar incidentes",
+};
+
+/** Los plazos se guardan en minutos y se editan en horas: nadie piensa en 1440. */
+const toHours = (minutes: number): string => String(Math.round((minutes / 60) * 100) / 100);
+const toMinutes = (hours: string): number => Math.max(1, Math.round(Number(hours) * 60));
+
 function ConfiguracionTab() {
-  const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useQuery({ queryKey: settingsKey, queryFn: getSettings });
+  const [draft, setDraft] = useState<Settings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [newHoliday, setNewHoliday] = useState("");
+
+  // El borrador arranca del servidor y solo se reemplaza cuando llega otro
+  // distinto, para no pisar lo que el administrador está escribiendo.
+  const [loadedFrom, setLoadedFrom] = useState<Settings | null>(null);
+  if (settings && settings !== loadedFrom) {
+    setLoadedFrom(settings);
+    setDraft(structuredClone(settings));
+  }
+
+  const save = useMutation({
+    mutationFn: () => updateSettings(draft!),
+    onSuccess: async (saved) => {
+      setError(null);
+      queryClient.setQueryData(settingsKey, saved);
+      await queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  if (isLoading || !draft) {
+    return (
+      <Plate className="flex items-center justify-center py-16">
+        <span
+          className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--content-border)] border-t-accent"
+          aria-label="Cargando configuración"
+        />
+      </Plate>
+    );
+  }
+
+  const patch = (change: Partial<Settings>) => setDraft({ ...draft, ...change });
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Plate className="space-y-3 p-4">
-        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">SLA por prioridad (horas)</h3>
-        {[
-          { label: "Urgente", first: "0.25", res: "4" },
-          { label: "Alta", first: "1", res: "8" },
-          { label: "Media", first: "4", res: "24" },
-          { label: "Baja", first: "8", res: "72" },
-        ].map((p) => (
-          <div key={p.label} className="flex items-center gap-3 text-sm">
-            <span className="w-16 text-[var(--content-ink-dim)]">{p.label}</span>
-            <input defaultValue={p.first} className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]" />
-            <span className="text-xs text-[var(--content-ink-dim)]">1.ª resp.</span>
-            <input defaultValue={p.res} className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]" />
-            <span className="text-xs text-[var(--content-ink-dim)]">resolución</span>
-          </div>
-        ))}
+        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+          SLA por prioridad (horas laborables)
+        </h3>
+        {PRIORITIES.map((priority) => {
+          const policy = draft.slaPolicies[priority]!;
+          return (
+            <div key={priority} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="w-16 text-[var(--content-ink-dim)]">
+                {PRIORITY_LABEL[priority]}
+              </span>
+              <input
+                type="number"
+                step="0.25"
+                min="0.25"
+                value={toHours(policy.responseMinutes)}
+                onChange={(event) =>
+                  patch({
+                    slaPolicies: {
+                      ...draft.slaPolicies,
+                      [priority]: {
+                        ...policy,
+                        responseMinutes: toMinutes(event.target.value),
+                      },
+                    },
+                  })
+                }
+                aria-label={`Primera respuesta para prioridad ${PRIORITY_LABEL[priority]}`}
+                className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+              />
+              <span className="text-xs text-[var(--content-ink-dim)]">1.ª resp.</span>
+              <input
+                type="number"
+                step="0.5"
+                min="0.5"
+                value={toHours(policy.resolutionMinutes)}
+                onChange={(event) =>
+                  patch({
+                    slaPolicies: {
+                      ...draft.slaPolicies,
+                      [priority]: {
+                        ...policy,
+                        resolutionMinutes: toMinutes(event.target.value),
+                      },
+                    },
+                  })
+                }
+                aria-label={`Resolución para prioridad ${PRIORITY_LABEL[priority]}`}
+                className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+              />
+              <span className="text-xs text-[var(--content-ink-dim)]">resolución</span>
+            </div>
+          );
+        })}
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          El cambio afecta a los tickets nuevos. Los que ya existen conservan el plazo con el que
+          nacieron, para que una edición no los venza de golpe.
+        </p>
       </Plate>
 
       <Plate className="space-y-3 p-4">
-        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">General</h3>
-        <Field label="Horario laboral" defaultValue="L–V, 08:00–18:00" />
-        <Field label="Cierre automático de resueltos (días hábiles)" defaultValue="3" />
-        <Field label="Dominio corporativo para Google" defaultValue="@tekzaya.com" />
-        <Field label="Reportes guardados máx. por usuario" defaultValue="20" />
-        <Field label="Gráficas máx. por reporte" defaultValue="12" />
-        <label className="flex items-center justify-between text-sm text-[var(--content-ink)]">
-          Funciones de IA activas
-          <input type="checkbox" defaultChecked className="h-4 w-4 accent-accent" />
-        </label>
+        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+          Jornada laboral
+        </h3>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+            const active = draft.businessHours.days.includes(day);
+            return (
+              <button
+                key={day}
+                type="button"
+                aria-pressed={active}
+                onClick={() =>
+                  patch({
+                    businessHours: {
+                      ...draft.businessHours,
+                      days: active
+                        ? draft.businessHours.days.filter((value) => value !== day)
+                        : [...draft.businessHours.days, day].sort((a, b) => a - b),
+                    },
+                  })
+                }
+                className={`h-8 w-8 rounded-lg border text-xs font-medium transition-colors ${
+                  active
+                    ? "border-accent bg-accent text-white"
+                    : "border-[var(--content-border)] text-[var(--content-ink-dim)]"
+                }`}
+              >
+                {DAY_LABEL[day]}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <input
+            type="time"
+            value={draft.businessHours.start}
+            onChange={(event) =>
+              patch({ businessHours: { ...draft.businessHours, start: event.target.value } })
+            }
+            aria-label="Hora de apertura"
+            className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+          />
+          <span className="text-[var(--content-ink-dim)]">a</span>
+          <input
+            type="time"
+            value={draft.businessHours.end}
+            onChange={(event) =>
+              patch({ businessHours: { ...draft.businessHours, end: event.target.value } })
+            }
+            aria-label="Hora de cierre"
+            className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+          />
+        </div>
+        <Field
+          label="Zona horaria de la empresa"
+          value={draft.businessHours.timezone}
+          onChange={(event) =>
+            patch({ businessHours: { ...draft.businessHours, timezone: event.target.value } })
+          }
+        />
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          Es la zona en la que corre el reloj del SLA, igual para todo el equipo. Cada persona ve
+          las fechas en su propio reloj.
+        </p>
       </Plate>
 
-      <div className="lg:col-span-2">
+      <Plate className="space-y-3 p-4">
+        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+          Días festivos
+        </h3>
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={newHoliday}
+            onChange={(event) => setNewHoliday(event.target.value)}
+            aria-label="Nuevo día festivo"
+            className="flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+          />
+          <button
+            type="button"
+            disabled={!newHoliday || draft.holidays.includes(newHoliday)}
+            onClick={() => {
+              patch({ holidays: [...draft.holidays, newHoliday].sort() });
+              setNewHoliday("");
+            }}
+            className="flex items-center gap-1 rounded-lg border border-[var(--content-border)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] disabled:opacity-40"
+          >
+            <PlusIcon className="h-3.5 w-3.5" /> Añadir
+          </button>
+        </div>
+        {draft.holidays.length === 0 ? (
+          <p className="text-xs text-[var(--content-ink-dim)]">
+            Sin festivos: el SLA solo salta los fines de semana.
+          </p>
+        ) : (
+          <ul className="flex flex-wrap gap-1.5">
+            {draft.holidays.map((holiday) => (
+              <li
+                key={holiday}
+                className="flex items-center gap-1.5 rounded-full border border-[var(--content-border)] px-2.5 py-1 text-xs text-[var(--content-ink)]"
+              >
+                {holiday}
+                <button
+                  type="button"
+                  onClick={() =>
+                    patch({ holidays: draft.holidays.filter((value) => value !== holiday) })
+                  }
+                  aria-label={`Quitar ${holiday}`}
+                  className="text-[var(--content-ink-dim)] hover:text-red"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Plate>
+
+      <Plate className="space-y-3 p-4">
+        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+          Cierres automáticos (días hábiles)
+        </h3>
+        <Field
+          label="Cerrar un ticket resuelto tras"
+          type="number"
+          min="1"
+          value={String(draft.autoCloseResolvedDays)}
+          onChange={(event) => patch({ autoCloseResolvedDays: Number(event.target.value) })}
+        />
+        <Field
+          label="Recordar al solicitante en espera tras"
+          type="number"
+          min="1"
+          value={String(draft.onHoldReminderDays)}
+          onChange={(event) => patch({ onHoldReminderDays: Number(event.target.value) })}
+        />
+        <Field
+          label="Cerrar un ticket en espera tras"
+          type="number"
+          min="1"
+          value={String(draft.onHoldAutoCloseDays)}
+          onChange={(event) => patch({ onHoldAutoCloseDays: Number(event.target.value) })}
+        />
+      </Plate>
+
+      <Plate className="space-y-2 p-4 lg:col-span-2">
+        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+          Funciones de inteligencia artificial
+        </h3>
+        <p className="mb-1 text-xs text-[var(--content-ink-dim)]">
+          Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(Object.keys(AI_LABEL) as (keyof Settings["aiEnabled"])[]).map((key) => (
+            <label
+              key={key}
+              className="flex items-center justify-between gap-3 rounded-lg bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+            >
+              {AI_LABEL[key]}
+              <input
+                type="checkbox"
+                checked={draft.aiEnabled[key]}
+                onChange={(event) =>
+                  patch({ aiEnabled: { ...draft.aiEnabled, [key]: event.target.checked } })
+                }
+                className="h-4 w-4 accent-accent"
+              />
+            </label>
+          ))}
+        </div>
+      </Plate>
+
+      <div className="flex flex-wrap items-center gap-3 lg:col-span-2">
         <button
-          onClick={() => setSaved(true)}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dim"
+          onClick={() => save.mutate()}
+          disabled={save.isPending}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dim disabled:opacity-60"
         >
-          Guardar cambios
+          {save.isPending ? "Guardando…" : "Guardar cambios"}
         </button>
-        {saved && <span className="ml-3 text-xs text-green">Cambios guardados.</span>}
+        {save.isSuccess && !save.isPending && (
+          <span className="flex items-center gap-1 text-xs text-green">
+            <CheckIcon className="h-3.5 w-3.5" /> Cambios guardados.
+          </span>
+        )}
+        {error && (
+          <span role="alert" className="text-xs text-red">
+            {error}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function Field({ label, ...rest }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({
+  label,
+  ...rest
+}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+        {label}
+      </label>
       <input
         {...rest}
         className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"

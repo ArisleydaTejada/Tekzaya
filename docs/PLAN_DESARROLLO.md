@@ -39,26 +39,29 @@ Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
 - **Tablero:** los 4 KPI, los filtros de alcance y período y la disponibilidad del equipo salen del mock. Migra en **F6**.
 - **Reportes:** solo la pestaña Plantillas tiene contenido, y con datos del mock; *Mis reportes* y *Nuevo* son estados vacíos. Migra en **F7**.
-- **Administración:** Usuarios y Áreas leen del mock. Migra en **F4**.
+- **Administración:** *Configuración* ya es real (F4); *Usuarios* y *Áreas y categorías* siguen leyendo del mock y les falta su CRUD (pendiente heredado de F2).
 - **La "IA" son palabras clave.** Hasta F5 no hay clasificación real: un ticket nuevo entra con prioridad *Media* y `ai.classificationStatus: "pending"`. El fantasma de autocompletado del redactor se retiró junto con el mock; vuelve en **F5** con Gemini detrás.
 
 > Mientras queden páginas con mock, `mock.ts` traduce los enumerados al contrato
 > (`CONTRACT_PRIORITY`, `CONTRACT_STATUS`, `CONTRACT_SLA`). Es el único punto de
 > traducción y desaparece con la última página migrada.
 
-**Ya no es simulado:** sesión y permisos (F2), y tickets, conversación, SLA,
-adjuntos e historial (F3). Las páginas de Tickets, Nuevo ticket y Detalle no
-importan nada de `mock.ts`.
+**Ya no es simulado:** sesión y permisos (F2); tickets, conversación, SLA,
+adjuntos e historial (F3); y asignación, transferencias, fusión de duplicados,
+trabajos programados y configuración (F4). Las páginas de Tickets, Nuevo ticket
+y Detalle no importan nada de `mock.ts`.
 
 ### 1.3 Lo que no existe en absoluto
 
-Socket.IO, Gemini, jobs programados y E2E con Playwright.
+Socket.IO, Gemini, CSAT, notificaciones en pantalla y E2E con Playwright.
 
 > **Cerrado en F0 y F1:** monorepo con workspaces, `packages/shared` (contrato Zod + motor de SLA con 21 pruebas), `apps/api` (Express 5, modelos Mongoose con índices, semilla de 101 tickets), MongoDB Community, CI y `.env.example`.
 >
 > **Cerrado en F2:** autenticación con JWT en cookies `httpOnly`, Google Identity Services, `/me`, disponibilidad y motor de permisos probado fila a fila.
 >
 > **Cerrado en F3:** endpoints de tickets, conversación y adjuntos, con 26 pruebas de integración (Supertest contra Mongo) y un servicio de MongoDB en CI.
+>
+> **Cerrado en F4:** transferencia, fusión y separación de duplicados, "Unirme", carga del área, tres trabajos programados con `node-cron` y la configuración editable. 117 pruebas en total.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -195,7 +198,7 @@ Decisiones tomadas al ejecutarla:
 
 ---
 
-### F4 · Asignación, ciclo de vida y trabajos programados — *2 semanas*
+### F4 · Asignación, ciclo de vida y trabajos programados — *hecha*
 
 **Objetivo:** que el ticket se mueva solo y en equipo.
 
@@ -205,9 +208,21 @@ Decisiones tomadas al ejecutarla:
 - **Kanban persistente:** soltar una tarjeta emite `PATCH` y revierte visualmente si el backend rechaza la transición.
 - Transferencia devuelve a *Abierto* sin responsables y queda en historial.
 
-> Ya hecho en F3: `PUT /assignees`, `POST /take`, `GET /areas/:id/members`, la validación de transiciones (409) y el Kanban persistente. F4 arranca por los jobs y la transferencia.
+> Ya venía hecho de F3: `PUT /assignees`, `POST /take`, `GET /areas/:id/members`, la validación de transiciones (409) y el Kanban persistente.
 
 **DoD:** arrastrar en Kanban persiste tras recargar; un ticket pasa solo a *En riesgo* y a *Vencido*; fusionar y deshacer la fusión funciona conservando el historial.
+
+Decisiones tomadas al ejecutarla:
+
+- **La fusión cambia quién es solicitante, y eso cambia quién lee las notas internas.** Al absorber un duplicado, su solicitante pasa a serlo del principal (`additionalRequesterIds`). Si el motor de permisos no lo supiera, esa persona entraría al ticket como "miembro externo" y leería la trastienda del área. `isOwnTicket` los contempla y hay prueba de que no las ve.
+- **Los mensajes de los duplicados no se copian.** La conversación del principal los consulta donde están y los marca con su ticket de origen. Copiarlos habría duplicado adjuntos y roto el "deshacer".
+- **Deshacer la fusión corre el plazo** lo que el ticket estuvo absorbido, igual que una pausa de *En espera*: separarlo tres días después no puede devolverlo ya vencido.
+- **Transferir no reinicia el SLA.** El reloj mide lo que lleva esperando el solicitante, y él no eligió mal el área. Sí se limpian responsables y categoría, porque pertenecían al área anterior.
+- **Los trabajos son funciones puras que reciben la hora**; `node-cron` solo decide cuándo llamarlas. Las pruebas las invocan directamente, sin esperar a que dé un cuarto de hora, y en `NODE_ENV=test` el planificador no arranca.
+- **El estado del SLA se sigue calculando al leer** (F3). El trabajo programado no existe para pintar la lista, sino para **avisar** una sola vez al entrar en riesgo o vencer, y para dejar constancia histórica del incumplimiento (`responseBreached` / `resolutionBreached`), que los reportes de F7 no podrán recalcular después.
+- **Administración → Configuración pasa a ser real** (SLA por prioridad, jornada, festivos, días de cierre e interruptores de IA), porque es de donde los trabajos leen sus plazos. Cambiar una política **no** recalcula los tickets que ya existen: una edición no puede vencerlos de golpe.
+
+> **Pendiente heredado de F2:** las pestañas *Usuarios* y *Áreas y categorías* siguen leyendo de `mock.ts`. La trazabilidad (§4) asignaba los usuarios a F2, pero esa fase solo construyó la autenticación. Falta el CRUD de personas (invitar, editar, desactivar, enlace de restablecimiento) y el de áreas y categorías.
 
 ---
 
@@ -278,11 +293,11 @@ La pieza más grande y la que el spec ya señala como candidata a recorte (§16)
 | Listado Lista y Grupos, filtros | F3 |
 | Detalle, conversación pública e interna, adjuntos | F3 |
 | Estados y ciclo de vida §5.2 | F3 (base) → F4 (automatismos) |
-| SLA con horario laboral y pausas | F1 (motor) → F4 (jobs y alertas) |
-| Asignación múltiple, carga, Tomar/Unirme | F4 |
-| Transferir entre áreas | F4 |
-| Fusión de duplicados y deshacer | F4 |
-| Kanban persistente | F4 |
+| SLA con horario laboral y pausas | F1 (motor) → F4 (jobs y alertas) ✓ |
+| Asignación múltiple, carga, Tomar/Unirme | F3 (asignar/tomar) → F4 (carga, Unirme) ✓ |
+| Transferir entre áreas | F4 ✓ |
+| Fusión de duplicados y deshacer | F4 ✓ |
+| Kanban persistente | F3 ✓ |
 | IA: sugerir área, clasificar, resumir, autocompletar, incidentes | F5 |
 | Notificaciones en tiempo real | F6 |
 | Tableros por rol (4 KPI, sin gráficas) | F6 |
@@ -290,7 +305,8 @@ La pieza más grande y la que el spec ya señala como candidata a recorte (§16)
 | Exportación CSV | F6 (tickets/tablero) → F7 (reportes) |
 | Reportes personalizables, guardados, plantillas | F7 |
 | Exportación PDF | F7 |
-| Administración: usuarios, áreas, categorías, SLA | F2 (usuarios) → F4 (SLA) |
+| Administración: SLA y configuración | F4 ✓ |
+| Administración: usuarios, áreas y categorías | **pendiente** (heredado de F2) |
 | Requisitos no funcionales §13 | F8 |
 | Fase 2 (activos) | Fuera de alcance — "Próximamente" en el menú |
 
@@ -320,7 +336,7 @@ Suma de fases: **~16,5 semanas** a un frente; **~12 semanas** con backend y fron
 | 2–3 | F1 — *hecha* |
 | 3–5 | F2 — *hecha* |
 | 5–7 | F3 — *hecha* |
-| 7–9 | F4 |
+| 7–9 | F4 — *hecha* |
 | 9–10 | F5 |
 | 10–11 | F6 |
 | 11–12 | F7 (escalones 1–4) |
@@ -355,6 +371,9 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 | Matriz de permisos §4.3 | Vitest sobre el motor puro, **una prueba por fila** | F2 ✓ |
 | Filtrado de notas internas | Supertest: el solicitante del área destino **no** las recibe | F3 ✓ |
 | Transiciones de estado inválidas | Supertest: rechazo con 409 | F3 ✓ |
+| Notas internas tras una fusión | Supertest: el solicitante heredado **no** las recibe | F4 ✓ |
+| Fusionar y deshacer conservando el historial | Supertest: vuelve al estado previo, el paso queda registrado | F4 ✓ |
+| Trabajos programados | Vitest sobre las funciones, con la hora inyectada | F4 ✓ |
 | Tipo real de los adjuntos | Vitest + Supertest: un ejecutable renombrado a `.png` se rechaza | F3 ✓ |
 | Degradación sin IA | Suite con `GEMINI_API_KEY` vacía | F5 |
 | Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 |

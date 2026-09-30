@@ -39,6 +39,8 @@ export function refOf(ticket: LeanTicket): TicketRef {
     createdById: String(ticket["createdById"]),
     assigneeIds: (ticket["assigneeIds"] as unknown[] | undefined)?.map(String) ?? [],
     status: ticket["status"] as TicketRef["status"],
+    additionalRequesterIds:
+      (ticket["additionalRequesterIds"] as unknown[] | undefined)?.map(String) ?? [],
   };
 }
 
@@ -56,6 +58,8 @@ export function visibilityFilter(actor: Actor): Filter {
     $or: [
       { requesterId: oid(actor.id) },
       { createdById: oid(actor.id) },
+      // Solicitante heredado de un duplicado fusionado (spec §7.5.1).
+      { additionalRequesterIds: oid(actor.id) },
       { areaId: oid(actor.areaId) },
     ],
   };
@@ -72,7 +76,13 @@ function resolveAreaId(actor: Actor, requested: string | undefined): string {
 export function scopeFilter(actor: Actor, query: TicketListQuery): Filter {
   switch (query.scope) {
     case "mine":
-      return { $or: [{ requesterId: oid(actor.id) }, { createdById: oid(actor.id) }] };
+      return {
+        $or: [
+          { requesterId: oid(actor.id) },
+          { createdById: oid(actor.id) },
+          { additionalRequesterIds: oid(actor.id) },
+        ],
+      };
     case "assigned":
       return { assigneeIds: oid(actor.id) };
     case "area":
