@@ -38,7 +38,7 @@ export default function CreateTicketPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [areaId, setAreaId] = useState("");
-  const [areaTouched, setAreaTouched] = useState(false);
+  const areaTouched = useRef(false);
   const [categoryId, setCategoryId] = useState("");
   const [suggestion, setSuggestion] = useState<AreaSuggestion | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -51,35 +51,34 @@ export default function CreateTicketPage() {
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
   const aiSuggests = Boolean(ai?.configured && ai.enabled.suggestArea);
 
-  // IA-1: mientras se escribe, con 800 ms de pausa y un mínimo de 20 caracteres
-  // (spec §6.2). Si no hay IA no se monta nada: ni un "analizando…" que no vaya
-  // a terminar.
-  const debounce = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (!aiSuggests) return;
-    const text = `${title} ${description}`.trim();
-    if (text.length < 20) {
-      setSuggestion(null);
-      setAnalyzing(false);
-      return;
-    }
+  // Con menos de 20 caracteres no hay sugerencia que mostrar. Se decide al
+  // pintar, no corrigiendo el estado después: así borrar el texto la esconde
+  // en el mismo render, sin un parpadeo intermedio.
+  const longEnough = `${title} ${description}`.trim().length >= 20;
+  const visibleSuggestion = longEnough ? suggestion : null;
 
-    setAnalyzing(true);
-    window.clearTimeout(debounce.current);
-    debounce.current = window.setTimeout(() => {
+  // IA-1: se pregunta tras 800 ms de pausa al escribir (spec §6.2). El efecto
+  // solo programa el temporizador; el estado lo toca la respuesta cuando llega.
+  useEffect(() => {
+    if (!aiSuggests || !longEnough) return;
+
+    const timer = window.setTimeout(() => {
+      setAnalyzing(true);
       void suggestArea({ title, description })
         .then((result) => {
           setSuggestion(result);
           // Solo rellena lo que nadie ha tocado: la última palabra es de quien
           // reporta, no del modelo.
-          if (result && !areaTouched && result.confidence >= 0.6) setAreaId(result.areaId);
+          if (result && !areaTouched.current && result.confidence >= 0.6) {
+            setAreaId(result.areaId);
+          }
         })
         .catch(() => setSuggestion(null))
         .finally(() => setAnalyzing(false));
     }, 800);
 
-    return () => window.clearTimeout(debounce.current);
-  }, [title, description, areaTouched, aiSuggests]);
+    return () => window.clearTimeout(timer);
+  }, [title, description, aiSuggests, longEnough]);
   const { data: colleagues = [] } = useQuery({
     queryKey: areaKeys.members(me?.areaId ?? ""),
     queryFn: () => listAreaMembers(me!.areaId),
@@ -197,6 +196,8 @@ export default function CreateTicketPage() {
               setAreaId("");
               setCategoryId("");
               setOnBehalfOf("");
+              setSuggestion(null);
+              areaTouched.current = false;
               setFiles([]);
             }}
             className="rounded-lg border border-[var(--content-border)] px-4 py-2 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-surface)]"
@@ -324,7 +325,7 @@ export default function CreateTicketPage() {
                 value={areaId}
                 onChange={(event) => {
                   setAreaId(event.target.value);
-                  setAreaTouched(true);
+                  areaTouched.current = true;
                   setCategoryId("");
                 }}
                 className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
@@ -339,7 +340,7 @@ export default function CreateTicketPage() {
               <FieldError messages={fieldErrors["areaId"]} />
 
               <AnimatePresence>
-                {suggestion && (
+                {visibleSuggestion && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
@@ -347,11 +348,11 @@ export default function CreateTicketPage() {
                     className="mt-2 overflow-hidden rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-[var(--content-ink)]"
                   >
                     <p className="flex items-center gap-1.5 font-medium text-accent">
-                      <SparkleIcon /> Sugerido por IA: {suggestion.areaName} ·{" "}
-                      {Math.round(suggestion.confidence * 100)}% de confianza
+                      <SparkleIcon /> Sugerido por IA: {visibleSuggestion.areaName} ·{" "}
+                      {Math.round(visibleSuggestion.confidence * 100)}% de confianza
                     </p>
                     <p className="mt-0.5 text-[var(--content-ink-dim)]">
-                      {suggestion.rationale ?? "Puedes cambiarlo si no es correcto."}
+                      {visibleSuggestion.rationale ?? "Puedes cambiarlo si no es correcto."}
                     </p>
                   </motion.div>
                 )}

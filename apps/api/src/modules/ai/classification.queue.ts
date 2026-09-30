@@ -1,4 +1,5 @@
 import { Ticket } from "../../models/ticket.model";
+import { aiProvider } from "./ai.provider";
 import { classifyTicket, detectIncident } from "./ai.service";
 
 /**
@@ -75,6 +76,10 @@ function scheduleRetry(job: Job): void {
  * memoria en algo que se puede reiniciar sin perder tickets sin clasificar.
  */
 export async function requeuePendingClassifications(): Promise<number> {
+  // Sin IA configurada no hay nada que reintentar: los tickets se quedan en
+  // "pending" a propósito, listos por si algún día se pone la clave.
+  if (!aiProvider().configured) return 0;
+
   const stuck = await Ticket.find({
     "ai.classificationStatus": { $in: ["pending", "failed"] },
     createdAt: { $gte: new Date(Date.now() - 24 * 3_600_000) },

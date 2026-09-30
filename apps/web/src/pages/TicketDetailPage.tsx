@@ -11,7 +11,7 @@ import {
   type TicketStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   aiKeys,
@@ -102,7 +102,10 @@ export default function TicketDetailPage() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(true);
-  const [ghost, setGhost] = useState("");
+  // La sugerencia se guarda junto al borrador para el que se pidió. Si la
+  // persona sigue escribiendo, deja de coincidir y desaparece sola al pintar:
+  // no hace falta un efecto que la limpie, ni puede quedarse una obsoleta.
+  const [ghostFor, setGhostFor] = useState<{ draft: string; text: string } | null>(null);
 
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
 
@@ -123,6 +126,7 @@ export default function TicketDetailPage() {
       }),
     onSuccess: async () => {
       setDraft("");
+      setGhostFor(null);
       setFiles([]);
       setActionError(null);
       await refresh();
@@ -177,24 +181,23 @@ export default function TicketDetailPage() {
 
   // IA-4: tras 600 ms de pausa se pide una continuación. El servidor la descarta
   // a los 1,5 s y limita a una petición cada 2 s por persona (spec §6.2).
-  const ghostTimer = useRef<number | undefined>(undefined);
   const aiCompletes = Boolean(ai?.configured && ai.enabled.autocomplete);
   const ticketId = ticket?.id;
   const canGhost = Boolean(ticket?.permissions.viewInternalNotes);
+  const ghost = ghostFor?.draft === draft ? ghostFor.text : "";
 
   useEffect(() => {
-    if (!aiCompletes || !canGhost || !ticketId) return;
-    window.clearTimeout(ghostTimer.current);
-    setGhost("");
-    if (draft.trim().length < 6) return;
+    if (!aiCompletes || !canGhost || !ticketId || draft.trim().length < 6) return;
 
-    ghostTimer.current = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void autocomplete({ ticketId, draft, type: composerTab })
-        .then((completion) => setGhost(completion ?? ""))
-        .catch(() => setGhost(""));
+        .then((completion) => {
+          if (completion) setGhostFor({ draft, text: completion });
+        })
+        .catch(() => undefined);
     }, 600);
 
-    return () => window.clearTimeout(ghostTimer.current);
+    return () => window.clearTimeout(timer);
   }, [draft, composerTab, aiCompletes, canGhost, ticketId]);
 
   if (ticketQuery.isLoading) {
@@ -258,6 +261,16 @@ export default function TicketDetailPage() {
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <StatusBadge status={ticket.status} />
+                {/* La IA lo intentó y no pudo; se reintenta sola en segundo
+                    plano, pero el equipo merece saber por qué falta la ficha. */}
+                {ticket.ai?.classificationStatus === "failed" && (
+                  <span
+                    title="La clasificación automática falló; se reintentará"
+                    className="rounded-md border border-[var(--content-border)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--content-ink-dim)]"
+                  >
+                    Pendiente de clasificación
+                  </span>
+                )}
                 <PriorityBadge priority={ticket.priority} />
                 <SlaTag
                   state={ticket.resolutionState}
@@ -413,9 +426,9 @@ export default function TicketDetailPage() {
                       if (event.key === "Tab" && ghost) {
                         event.preventDefault();
                         setDraft((current) => current + ghost);
-                        setGhost("");
+                        setGhostFor(null);
                       } else if (event.key === "Escape") {
-                        setGhost("");
+                        setGhostFor(null);
                       }
                     }}
                     rows={3}

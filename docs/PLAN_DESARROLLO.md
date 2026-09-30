@@ -40,7 +40,7 @@ Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 - **Tablero:** los 4 KPI, los filtros de alcance y período y la disponibilidad del equipo salen del mock. Migra en **F6**.
 - **Reportes:** solo la pestaña Plantillas tiene contenido, y con datos del mock; *Mis reportes* y *Nuevo* son estados vacíos. Migra en **F7**.
 - ~~**Administración**~~ — migrada por completo: Usuarios, Áreas y categorías y Configuración.
-- **La "IA" son palabras clave.** Hasta F5 no hay clasificación real: un ticket nuevo entra con prioridad *Media* y `ai.classificationStatus: "pending"`. El fantasma de autocompletado del redactor se retiró junto con el mock; vuelve en **F5** con Gemini detrás.
+- **Sin `GEMINI_API_KEY`, no hay IA** — y es un modo de funcionamiento previsto, no una carencia: el ticket entra con prioridad *Media* y queda `pending`, listo por si algún día se pone la clave.
 
 > Mientras queden páginas con mock, `mock.ts` traduce los enumerados al contrato
 > (`CONTRACT_PRIORITY`, `CONTRACT_STATUS`, `CONTRACT_SLA`). Es el único punto de
@@ -48,18 +48,20 @@ Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
 **Ya no es simulado:** sesión y permisos (F2); tickets, conversación, SLA,
 adjuntos e historial (F3); asignación, transferencias, fusión de duplicados,
-trabajos programados y administración completa (F4). Solo Tablero y Reportes
-siguen importando de `mock.ts`.
+trabajos programados y administración completa (F4); y las cinco funciones de
+IA (F5). Solo Tablero y Reportes siguen importando de `mock.ts`.
 
 ### 1.3 Lo que no existe en absoluto
 
-Socket.IO, Gemini, CSAT, notificaciones en pantalla y E2E con Playwright.
+Socket.IO, CSAT, notificaciones en pantalla y E2E con Playwright.
 
 > **Cerrado en F0 y F1:** monorepo con workspaces, `packages/shared` (contrato Zod + motor de SLA con 21 pruebas), `apps/api` (Express 5, modelos Mongoose con índices, semilla de 101 tickets), MongoDB Community, CI y `.env.example`.
 >
 > **Cerrado en F2:** autenticación con JWT en cookies `httpOnly`, Google Identity Services, `/me`, disponibilidad y motor de permisos probado fila a fila.
 >
 > **Cerrado en F3:** endpoints de tickets, conversación y adjuntos, con 26 pruebas de integración (Supertest contra Mongo) y un servicio de MongoDB en CI.
+>
+> **Cerrado en F5:** `AIService` tras una interfaz propia, las cinco funciones de IA, la cola de clasificación con reintentos y el modo sin clave probado. 178 pruebas en total.
 >
 > **Cerrado en F4:** transferencia, fusión y separación de duplicados, "Unirme", carga del área, tres trabajos programados con `node-cron`, la administración completa (personas, áreas, categorías y configuración) y el circuito de invitaciones y restablecimiento de contraseña. 135 pruebas en total.
 
@@ -239,7 +241,7 @@ Decisiones de esa parte:
 
 ---
 
-### F5 · Inteligencia artificial con degradación elegante — *1,5 semanas*
+### F5 · Inteligencia artificial con degradación elegante — *hecha*
 
 **Objetivo:** el diferenciador del producto, sin que pueda tumbar la demo.
 
@@ -249,9 +251,19 @@ Decisiones de esa parte:
 - Interruptores por función en `settings.aiEnabled`.
 - Sustituye las heurísticas de `CreateTicketPage.tsx` y el fantasma fijo del redactor.
 
-**DoD:** **con `GEMINI_API_KEY` vacía, la aplicación completa sigue siendo usable** (se crea el ticket, con área elegida a mano y prioridad por defecto); la sugerencia de área aparece en menos de 2 s con la clave puesta.
+**DoD:** **con `GEMINI_API_KEY` vacía, la aplicación completa sigue siendo usable** (se crea el ticket, con área elegida a mano y prioridad por defecto) — **verificado en el navegador**: el formulario no muestra «IA analizando…» ni sugerencia, el detalle no monta el panel de resumen ni el fantasma, y crear → conversar → resolver funciona igual. La sugerencia de área en menos de 2 s con la clave puesta **queda por medir**: necesita una clave real.
 
 **Riesgo que retira:** *se agota la cuota gratuita durante la demo* — probado, no supuesto.
+
+Decisiones tomadas al ejecutarla:
+
+- **El blindaje contra inyección de instrucciones envuelve a cualquier proveedor**, no vive dentro de Gemini. Una prueba lo dejó claro a mitad de camino: tal como estaba, cambiar a Groq o a un modelo local se habría llevado la protección por delante. Ahora es un decorador que delimita el texto del usuario y añade la advertencia, y la defensa real —validar la salida contra un esquema Zod— está en el mismo sitio para todos.
+- **El modelo elige por número de lista, nunca por identificador.** Al sugerir área o categoría recibe una lista numerada y devuelve un número; así no puede inventarse un `ObjectId`, y si se sale del rango, el esquema lo rechaza y la respuesta se queda en `null`.
+- **La IA propone y nunca pisa lo que decidió una persona.** Si un supervisor ya fijó la prioridad, la clasificación no la toca; lo que proponía queda guardado en `ai.suggestedPriority` para poder medir su precisión. Cuando sí la cambia, recalcula el plazo del SLA con la política nueva.
+- **La clasificación va detrás de la creación, nunca dentro.** Quien crea un ticket recibe su número y su plazo al instante; la cola en memoria clasifica después, reintenta con espera creciente y se reencola al arrancar, porque el estado fiable está en el documento (`classificationStatus`), no en la cola.
+- **El resumen se reutiliza hasta que la conversación avanza tres mensajes** y solo se entrega a quien puede leer las notas internas, porque se construye con ellas dentro.
+- **La detección de incidentes hace una preselección sin IA**: si en el área no hay ya al menos dos tickets recientes parecidos, no se llama a Gemini. Es lo que evita gastar cuota en el caso normal, que es que no haya incidente.
+- **`GET /ai/status` decide qué se pinta.** Sin clave, la interfaz no monta nada de IA: ni un «analizando…» que no vaya a terminar, ni un botón de regenerar que no vaya a responder. Prometer algo que no puede ocurrir es peor que no ofrecerlo.
 
 ---
 
@@ -311,7 +323,7 @@ La pieza más grande y la que el spec ya señala como candidata a recorte (§16)
 | Transferir entre áreas | F4 ✓ |
 | Fusión de duplicados y deshacer | F4 ✓ |
 | Kanban persistente | F3 ✓ |
-| IA: sugerir área, clasificar, resumir, autocompletar, incidentes | F5 |
+| IA: sugerir área, clasificar, resumir, autocompletar, incidentes | F5 ✓ |
 | Notificaciones en tiempo real | F6 |
 | Tableros por rol (4 KPI, sin gráficas) | F6 |
 | CSAT | F6 |
@@ -350,7 +362,7 @@ Suma de fases: **~16,5 semanas** a un frente; **~12 semanas** con backend y fron
 | 3–5 | F2 — *hecha* |
 | 5–7 | F3 — *hecha* |
 | 7–9 | F4 — *hecha* |
-| 9–10 | F5 |
+| 9–10 | F5 — *hecha* |
 | 10–11 | F6 |
 | 11–12 | F7 (escalones 1–4) |
 | 12 | F8 |
@@ -390,7 +402,9 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 | Enlaces de invitación y restablecimiento | Supertest: un solo uso, caducidad y propósito cruzado | F4 ✓ |
 | Desactivar a alguien con tickets | Supertest: sale de sus tickets y los huérfanos vuelven a Abierto | F4 ✓ |
 | Tipo real de los adjuntos | Vitest + Supertest: un ejecutable renombrado a `.png` se rechaza | F3 ✓ |
-| Degradación sin IA | Suite con `GEMINI_API_KEY` vacía | F5 |
+| Degradación sin IA | Suite con proveedor desactivado + comprobación en el navegador | F5 ✓ |
+| Inyección de instrucciones | Vitest: el texto llega delimitado y la salida se valida contra el esquema | F5 ✓ |
+| La IA no pisa decisiones humanas | Vitest: la prioridad fijada por el supervisor sobrevive a la clasificación | F5 ✓ |
 | Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 |
 | Recorridos de la defensa | Playwright E2E | F8 |
 | Rendimiento con 10.000 tickets | Script de carga + medición contra §13 | F8 |
