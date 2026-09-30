@@ -8,6 +8,10 @@ export default defineConfig({
       NODE_ENV: "test",
       MONGODB_URI: "mongodb://localhost:27017/tekzaya_test",
       UPLOAD_DIR: "uploads/test",
+      // Nunca se llama a Gemini de verdad desde las pruebas: gastaría la cuota
+      // y las haría depender de que Google esté disponible. Cada prueba de IA
+      // inyecta su propio proveedor de mentira con `setAiProvider`.
+      GEMINI_API_KEY: "",
     },
     // Comparten una única base: en paralelo se pisarían las colecciones.
     fileParallelism: false,

@@ -1,2 +1,3 @@
 # TICKETS
 -cuando cambias de tabla en el kanban de abierto a asignado, deberia asignarselo a quien mismo lo movio, o preguntarle al administrador o supervisor a quien se lo quiere asignar
+-Cuando se vaya a crear un ticket, en el campo de departamento y categoria, podria aparecer un boton para que la ia lo clasifique automaticamente, pero solo dandole al boton para que no se acaben los tokens rapido

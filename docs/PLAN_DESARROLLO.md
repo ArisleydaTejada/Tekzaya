@@ -251,7 +251,7 @@ Decisiones de esa parte:
 - Interruptores por función en `settings.aiEnabled`.
 - Sustituye las heurísticas de `CreateTicketPage.tsx` y el fantasma fijo del redactor.
 
-**DoD:** **con `GEMINI_API_KEY` vacía, la aplicación completa sigue siendo usable** (se crea el ticket, con área elegida a mano y prioridad por defecto) — **verificado en el navegador**: el formulario no muestra «IA analizando…» ni sugerencia, el detalle no monta el panel de resumen ni el fantasma, y crear → conversar → resolver funciona igual. La sugerencia de área en menos de 2 s con la clave puesta **queda por medir**: necesita una clave real.
+**DoD:** **con `GEMINI_API_KEY` vacía, la aplicación completa sigue siendo usable** (se crea el ticket, con área elegida a mano y prioridad por defecto) — **verificado en el navegador**: el formulario no muestra «IA analizando…» ni sugerencia, el detalle no monta el panel de resumen ni el fantasma, y crear → conversar → resolver funciona igual. Con la clave puesta, **medido de extremo a extremo**: sugerencia de área 0,73 s, resumen 1,1 s, autocompletado 0,63 s. Todo por debajo de los 2 s que pide el DoD.
 
 **Riesgo que retira:** *se agota la cuota gratuita durante la demo* — probado, no supuesto.
 
@@ -263,6 +263,7 @@ Decisiones tomadas al ejecutarla:
 - **La clasificación va detrás de la creación, nunca dentro.** Quien crea un ticket recibe su número y su plazo al instante; la cola en memoria clasifica después, reintenta con espera creciente y se reencola al arrancar, porque el estado fiable está en el documento (`classificationStatus`), no en la cola.
 - **El resumen se reutiliza hasta que la conversación avanza tres mensajes** y solo se entrega a quien puede leer las notas internas, porque se construye con ellas dentro.
 - **La detección de incidentes hace una preselección sin IA**: si en el área no hay ya al menos dos tickets recientes parecidos, no se llama a Gemini. Es lo que evita gastar cuota en el caso normal, que es que no haya incidente.
+- **El modelo se eligió midiendo, no por catálogo.** Con la clave real, `gemini-3.5-flash` tardaba ~10 s y los más nuevos devolvían 503 por saturación; la variante **`gemini-3.5-flash-lite` responde en ~0,7 s** con JSON limpio y acierta el área. Para clasificar un ticket en tres frases, la rapidez vale más que la capacidad de razonar.
 - **`GET /ai/status` decide qué se pinta.** Sin clave, la interfaz no monta nada de IA: ni un «analizando…» que no vaya a terminar, ni un botón de regenerar que no vaya a responder. Prometer algo que no puede ocurrir es peor que no ofrecerlo.
 
 ---

@@ -95,10 +95,14 @@ export const incidentResponse = z.object({ incident: incidentGroup.nullable() })
 export type IncidentResponse = z.infer<typeof incidentResponse>;
 
 /**
- * Modelo por defecto: familia Flash, por velocidad y costo (spec §6.1).
+ * Modelo por defecto: familia Flash, por velocidad y costo (spec §6.1). Se eligió
+ * la variante *lite* tras medirlas con una clave real: responde en ~0,7 s frente
+ * a los ~10 s de `gemini-3.5-flash`, y los modelos más nuevos devolvían 503 por
+ * saturación. Para clasificar un ticket en tres frases, la rapidez vale más que
+ * la capacidad de razonar.
  *
- * Google retira nombres de modelo con el tiempo —`gemini-2.5-flash` dejó de
- * aceptar cuentas nuevas— así que esto es solo el punto de partida: `GEMINI_MODEL`
- * en el `.env` lo cambia sin tocar código, que es exactamente para lo que está.
+ * Google retira nombres con el tiempo (`gemini-2.5-flash` dejó de aceptar cuentas
+ * nuevas y la API responde 404 diciendo cuál usar). Por eso `GEMINI_MODEL` en el
+ * `.env` lo cambia sin tocar código.
  */
-export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
