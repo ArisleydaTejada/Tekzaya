@@ -94,5 +94,11 @@ export type IncidentGroup = z.infer<typeof incidentGroup>;
 export const incidentResponse = z.object({ incident: incidentGroup.nullable() });
 export type IncidentResponse = z.infer<typeof incidentResponse>;
 
-/** Modelo por defecto: familia Flash, por velocidad y costo (spec §6.1). */
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+/**
+ * Modelo por defecto: familia Flash, por velocidad y costo (spec §6.1).
+ *
+ * Google retira nombres de modelo con el tiempo —`gemini-2.5-flash` dejó de
+ * aceptar cuentas nuevas— así que esto es solo el punto de partida: `GEMINI_MODEL`
+ * en el `.env` lo cambia sin tocar código, que es exactamente para lo que está.
+ */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
