@@ -439,7 +439,9 @@ Además de los del spec §16, los que introduce el estado actual del repositorio
 | Los enumerados en español del prototipo se filtran al contrato | Resolver los desajustes de §1.4 **antes** de escribir el primer esquema Mongoose | F0 |
 | Las páginas mutan el array importado; el patrón se copia a la API | La capa de datos entra **antes** que el primer endpoint de tickets | F2 |
 | La semilla es muy pequeña y las gráficas quedan vacías | 80–120 tickets como entregable con DoD propio | F1 |
-| La demo depende de internet (Gemini y Google) | Modo sin IA probado + login por correo como respaldo | F5, F8 |
+| La demo depende de internet (Gemini y Google) | Modo sin IA probado + login por correo como respaldo | F5 ✓, F8 |
+| **El plan gratuito de Gemini permite 5 peticiones por minuto** | Medido con la clave real: escribir en el formulario de nuevo ticket puede agotarlo en segundos. La caché y el *debounce* lo contienen, y al agotarse la aplicación sigue funcionando sin IA. Para la defensa: no encadenar creaciones de ticket, o apagar `suggestArea` en Configuración | F5 ✓ |
+| Google retira nombres de modelo | `GEMINI_MODEL` se cambia en el `.env` sin tocar código; el 404 dice cuál usar | F5 ✓ |
 | Falla el equipo de la presentación | Ensayo completo en esa máquina con antelación | F8 |
 
 ---
