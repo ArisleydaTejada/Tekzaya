@@ -39,7 +39,7 @@ Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
 - **Tablero:** los 4 KPI, los filtros de alcance y período y la disponibilidad del equipo salen del mock. Migra en **F6**.
 - **Reportes:** solo la pestaña Plantillas tiene contenido, y con datos del mock; *Mis reportes* y *Nuevo* son estados vacíos. Migra en **F7**.
-- **Administración:** *Configuración* ya es real (F4); *Usuarios* y *Áreas y categorías* siguen leyendo del mock y les falta su CRUD (pendiente heredado de F2).
+- ~~**Administración**~~ — migrada por completo: Usuarios, Áreas y categorías y Configuración.
 - **La "IA" son palabras clave.** Hasta F5 no hay clasificación real: un ticket nuevo entra con prioridad *Media* y `ai.classificationStatus: "pending"`. El fantasma de autocompletado del redactor se retiró junto con el mock; vuelve en **F5** con Gemini detrás.
 
 > Mientras queden páginas con mock, `mock.ts` traduce los enumerados al contrato
@@ -47,9 +47,9 @@ Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 > traducción y desaparece con la última página migrada.
 
 **Ya no es simulado:** sesión y permisos (F2); tickets, conversación, SLA,
-adjuntos e historial (F3); y asignación, transferencias, fusión de duplicados,
-trabajos programados y configuración (F4). Las páginas de Tickets, Nuevo ticket
-y Detalle no importan nada de `mock.ts`.
+adjuntos e historial (F3); asignación, transferencias, fusión de duplicados,
+trabajos programados y administración completa (F4). Solo Tablero y Reportes
+siguen importando de `mock.ts`.
 
 ### 1.3 Lo que no existe en absoluto
 
@@ -61,7 +61,7 @@ Socket.IO, Gemini, CSAT, notificaciones en pantalla y E2E con Playwright.
 >
 > **Cerrado en F3:** endpoints de tickets, conversación y adjuntos, con 26 pruebas de integración (Supertest contra Mongo) y un servicio de MongoDB en CI.
 >
-> **Cerrado en F4:** transferencia, fusión y separación de duplicados, "Unirme", carga del área, tres trabajos programados con `node-cron` y la configuración editable. 117 pruebas en total.
+> **Cerrado en F4:** transferencia, fusión y separación de duplicados, "Unirme", carga del área, tres trabajos programados con `node-cron`, la administración completa (personas, áreas, categorías y configuración) y el circuito de invitaciones y restablecimiento de contraseña. 135 pruebas en total.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -222,7 +222,20 @@ Decisiones tomadas al ejecutarla:
 - **El estado del SLA se sigue calculando al leer** (F3). El trabajo programado no existe para pintar la lista, sino para **avisar** una sola vez al entrar en riesgo o vencer, y para dejar constancia histórica del incumplimiento (`responseBreached` / `resolutionBreached`), que los reportes de F7 no podrán recalcular después.
 - **Administración → Configuración pasa a ser real** (SLA por prioridad, jornada, festivos, días de cierre e interruptores de IA), porque es de donde los trabajos leen sus plazos. Cambiar una política **no** recalcula los tickets que ya existen: una edición no puede vencerlos de golpe.
 
-> **Pendiente heredado de F2:** las pestañas *Usuarios* y *Áreas y categorías* siguen leyendo de `mock.ts`. La trazabilidad (§4) asignaba los usuarios a F2, pero esa fase solo construyó la autenticación. Falta el CRUD de personas (invitar, editar, desactivar, enlace de restablecimiento) y el de áreas y categorías.
+**Hueco de F2 cerrado aquí.** La trazabilidad asignaba los usuarios a F2, pero esa fase solo construyó la autenticación: faltaba toda la administración. Se añadió en F4:
+
+- `GET/POST/PATCH /users` con invitación, edición y desactivación, y `POST /users/:id/access-link`.
+- `GET/POST/PATCH /admin/areas`, categorías y `PUT /admin/areas/:id/supervisors`.
+- `GET /auth/access`, `POST /auth/accept-invite` y `POST /auth/reset-password`, con las pantallas `/invitacion` y `/restablecer`.
+
+Decisiones de esa parte:
+
+- **El administrador nunca conoce la contraseña de nadie.** Invitar crea la cuenta *sin* contraseña; la elige la persona al abrir el enlace. De la base solo sale la **huella** del token (SHA-256), así que el texto del enlace existe una sola vez, en la pantalla desde la que se copia. Un volcado de la base no abre ninguna cuenta.
+- **Un enlace sirve una vez y caduca**: siete días la invitación, dos horas el restablecimiento. Un token inventado, caducado o de otro propósito responde siempre lo mismo, para que probar enlaces no revele qué cuentas existen.
+- **Nadie se borra, se desactiva** (spec §7.7). Al desactivar, la persona sale de sus tickets activos; los que se quedan sin ningún responsable vuelven a *Abierto* y su supervisor recibe el aviso.
+- **No se puede dejar el sistema sin administrador**: degradar o desactivar la última cuenta con ese rol responde 409, porque desde la propia aplicación no habría forma de recuperarlo.
+- **Las áreas y las categorías tampoco se borran.** Un área con tickets sin cerrar no se puede desactivar; una categoría desactivada desaparece del formulario de nuevo ticket pero sigue existiendo para los tickets antiguos y para los reportes.
+- **El rol se elige como un solo concepto** ("Supervisor de RRHH"), y la interfaz lo traduce a `role` + banderas. Pedirle al administrador que componga las banderas a mano es pedirle que se equivoque.
 
 ---
 
@@ -305,8 +318,8 @@ La pieza más grande y la que el spec ya señala como candidata a recorte (§16)
 | Exportación CSV | F6 (tickets/tablero) → F7 (reportes) |
 | Reportes personalizables, guardados, plantillas | F7 |
 | Exportación PDF | F7 |
-| Administración: SLA y configuración | F4 ✓ |
-| Administración: usuarios, áreas y categorías | **pendiente** (heredado de F2) |
+| Administración: usuarios, áreas, categorías, SLA | F4 ✓ |
+| Invitaciones y restablecimiento de contraseña | F4 ✓ (previsto en F2) |
 | Requisitos no funcionales §13 | F8 |
 | Fase 2 (activos) | Fuera de alcance — "Próximamente" en el menú |
 
@@ -374,6 +387,8 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 | Notas internas tras una fusión | Supertest: el solicitante heredado **no** las recibe | F4 ✓ |
 | Fusionar y deshacer conservando el historial | Supertest: vuelve al estado previo, el paso queda registrado | F4 ✓ |
 | Trabajos programados | Vitest sobre las funciones, con la hora inyectada | F4 ✓ |
+| Enlaces de invitación y restablecimiento | Supertest: un solo uso, caducidad y propósito cruzado | F4 ✓ |
+| Desactivar a alguien con tickets | Supertest: sale de sus tickets y los huérfanos vuelven a Abierto | F4 ✓ |
 | Tipo real de los adjuntos | Vitest + Supertest: un ejecutable renombrado a `.png` se rechaza | F3 ✓ |
 | Degradación sin IA | Suite con `GEMINI_API_KEY` vacía | F5 |
 | Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 |

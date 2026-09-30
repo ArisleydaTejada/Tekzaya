@@ -1,4 +1,13 @@
-import { PRIORITIES, PRIORITY_LABEL, type Settings } from "@tekzaya/shared";
+import {
+  PRIORITIES,
+  PRIORITY_LABEL,
+  roleLabelOf,
+  type AccessLink,
+  type AdminArea,
+  type AdminUser,
+  type Area,
+  type Settings,
+} from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -7,21 +16,34 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { CheckIcon, PlusIcon } from "../components/icons";
-import { getSettings, settingsKey, updateSettings } from "../api/tickets";
-import { AREAS, USERS } from "../data/mock";
+import {
+  addCategory,
+  adminKeys,
+  createAccessLink,
+  createArea,
+  inviteUser,
+  listAdminAreas,
+  listUsers,
+  setSupervisors as saveSupervisors,
+  updateArea,
+  updateCategory,
+  updateUser,
+} from "../api/admin";
+import {
+  areaKeys,
+  getSettings,
+  listAreaMembers,
+  listAreas,
+  settingsKey,
+  updateSettings,
+} from "../api/tickets";
+import { formatDateTime, formatWhen } from "../lib/format";
 
 const TABS = [
   { id: "usuarios", label: "Usuarios" },
   { id: "areas", label: "Áreas y categorías" },
   { id: "configuracion", label: "Configuración" },
 ];
-
-const ROLE_LABEL: Record<string, string> = {
-  employee: "Empleado",
-  area_supervisor: "Supervisor de área",
-  hr_supervisor: "Supervisor de RRHH",
-  admin: "Administrador",
-};
 
 export default function AdministracionPage() {
   const { tab = "usuarios" } = useParams();
@@ -52,13 +74,117 @@ export default function AdministracionPage() {
   );
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  active: "Activo",
+  invited: "Invitado",
+  disabled: "Desactivado",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  active: "text-green",
+  invited: "text-amber",
+  disabled: "text-[var(--content-ink-dim)]",
+};
+
+/** El enlace existe una sola vez: si se cierra sin copiarlo, hay que generar otro. */
+function AccessLinkBox({ link, onDone }: { link: AccessLink; onDone: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-accent/40 bg-accent/10 p-3">
+      <p className="mb-2 text-xs font-medium text-[var(--content-ink)]">
+        Copia este enlace y compártelo. No se envía correo y no se puede volver a consultar.
+      </p>
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={link.url}
+          onFocus={(event) => event.target.select()}
+          className="min-w-0 flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-1.5 font-display text-[11px] text-[var(--content-ink)]"
+        />
+        <button
+          onClick={() => {
+            void navigator.clipboard.writeText(link.url).then(() => setCopied(true));
+          }}
+          className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+        >
+          {copied ? "Copiado" : "Copiar"}
+        </button>
+      </div>
+      <p className="mt-2 flex items-center justify-between text-[10px] text-[var(--content-ink-dim)]">
+        <span>Caduca el {formatDateTime(link.expiresAt)}</span>
+        <button onClick={onDone} className="underline hover:text-[var(--content-ink)]">
+          Ocultar
+        </button>
+      </p>
+    </div>
+  );
+}
+
 function UsuariosTab() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [revealedLink, setRevealedLink] = useState<string | null>(null);
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [link, setLink] = useState<{ userId: string; link: AccessLink } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const query = { q: search.trim(), status: statusFilter };
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: adminKeys.users(query),
+    queryFn: () => listUsers(query),
+    placeholderData: (previous) => previous,
+  });
+  const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+
+  const accessLinkMutation = useMutation({
+    mutationFn: createAccessLink,
+    onSuccess: (result, userId) => {
+      setError(null);
+      setLink({ userId, link: result });
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  const toggleStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "active" | "disabled" }) =>
+      updateUser(id, { status }),
+    onSuccess: async (result) => {
+      setError(null);
+      setNotice(
+        result.releasedTickets > 0
+          ? `Se liberaron ${result.releasedTickets} tickets; los que se quedaron sin responsable volvieron a Abierto.`
+          : null,
+      );
+      await refresh();
+    },
+    onError: (cause) => setError(cause.message),
+  });
 
   return (
     <div>
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por nombre o correo…"
+          className="min-w-[200px] flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        />
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filtrar por estado"
+          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+        >
+          <option value="">Todos los estados</option>
+          <option value="active">Activos</option>
+          <option value="invited">Invitados</option>
+          <option value="disabled">Desactivados</option>
+        </select>
         <button
           onClick={() => setInviteOpen(true)}
           className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim"
@@ -66,127 +192,716 @@ function UsuariosTab() {
           <PlusIcon className="h-3.5 w-3.5" /> Invitar
         </button>
       </div>
+
+      {error && (
+        <p role="alert" className="mb-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="mb-3 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-sm text-amber">
+          {notice}
+        </p>
+      )}
+
       <Plate className="overflow-x-auto">
-        <table className="w-full min-w-[820px] border-collapse text-sm">
+        <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
               <th className="px-3 py-2.5 font-medium">Nombre</th>
               <th className="px-3 py-2.5 font-medium">Área</th>
               <th className="px-3 py-2.5 font-medium">Rol</th>
-              <th className="px-3 py-2.5 font-medium">Supervisor</th>
-              <th className="px-3 py-2.5 font-medium">Acceso global</th>
+              <th className="px-3 py-2.5 font-medium">Abiertos</th>
               <th className="px-3 py-2.5 font-medium">Estado</th>
+              <th className="px-3 py-2.5 font-medium">Último acceso</th>
               <th className="px-3 py-2.5 font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {USERS.map((u) => (
-              <tr key={u.id} className="border-b border-[var(--content-border)] last:border-0">
+            {users.map((user) => (
+              <tr key={user.id} className="border-b border-[var(--content-border)] last:border-0 align-top">
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
-                    <Avatar name={u.name} initials={u.initials} size="sm" />
+                    <Avatar name={user.name} size="sm" />
                     <div>
-                      <p className="text-[var(--content-ink)]">{u.name}</p>
-                      <p className="text-xs text-[var(--content-ink-dim)]">{u.name.toLowerCase().replace(" ", ".")}@tekzaya.com</p>
+                      <p className="text-[var(--content-ink)]">{user.name}</p>
+                      <p className="text-xs text-[var(--content-ink-dim)]">{user.email}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">{AREAS.find((a) => a.id === u.areaId)?.name}</td>
-                <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">{ROLE_LABEL[u.role]}</td>
-                <td className="px-3 py-2.5">{u.role === "area_supervisor" ? <CheckIcon className="text-green" /> : "—"}</td>
-                <td className="px-3 py-2.5">{u.role === "admin" || u.role === "hr_supervisor" ? <CheckIcon className="text-green" /> : "—"}</td>
+                <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">{user.areaName}</td>
+                <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">{roleLabelOf(user)}</td>
+                <td className="px-3 py-2.5 tabular text-[var(--content-ink-dim)]">
+                  {user.openTickets}
+                </td>
                 <td className="px-3 py-2.5">
-                  <span className="rounded-full bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">Activo</span>
+                  <span className={`text-xs font-medium ${STATUS_TONE[user.status]}`}>
+                    {STATUS_LABEL[user.status]}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-xs text-[var(--content-ink-dim)]">
+                  {user.lastLoginAt ? formatWhen(user.lastLoginAt) : "Nunca"}
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <button className="text-accent hover:underline">Editar</button>
-                    <button className="text-[var(--content-ink-dim)] hover:underline">Desactivar</button>
-                    <button onClick={() => setRevealedLink(u.id)} className="text-[var(--content-ink-dim)] hover:underline">
-                      Restablecer contraseña
+                    <button onClick={() => setEditing(user)} className="text-accent hover:underline">
+                      Editar
                     </button>
+                    {user.status === "disabled" ? (
+                      <button
+                        onClick={() => toggleStatus.mutate({ id: user.id, status: "active" })}
+                        className="text-[var(--content-ink-dim)] hover:underline"
+                      >
+                        Reactivar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => toggleStatus.mutate({ id: user.id, status: "disabled" })}
+                        className="text-[var(--content-ink-dim)] hover:underline"
+                      >
+                        Desactivar
+                      </button>
+                    )}
+                    {user.status !== "disabled" && (
+                      <button
+                        onClick={() => accessLinkMutation.mutate(user.id)}
+                        className="text-[var(--content-ink-dim)] hover:underline"
+                      >
+                        {user.status === "invited" ? "Reenviar invitación" : "Restablecer contraseña"}
+                      </button>
+                    )}
                   </div>
-                  {revealedLink === u.id && (
-                    <p className="mt-1 truncate rounded bg-[var(--content-bg)] px-2 py-1 font-display text-[10px] tabular text-[var(--content-ink-dim)]">
-                      tekzaya.app/reset/{u.id}-8f2a1c
-                    </p>
+                  {link?.userId === user.id && (
+                    <div className="mt-2 max-w-md">
+                      <AccessLinkBox link={link.link} onDone={() => setLink(null)} />
+                    </div>
                   )}
                 </td>
               </tr>
             ))}
+            {!isLoading && users.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-10 text-center text-sm text-[var(--content-ink-dim)]">
+                  Nadie coincide con la búsqueda.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </Plate>
 
-      <Modal
+      <InviteModal
         open={inviteOpen}
+        areas={areas}
         onClose={() => setInviteOpen(false)}
-        title="Invitar usuario"
-        footer={
-          <>
-            <button onClick={() => setInviteOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]">
-              Cancelar
-            </button>
-            <button onClick={() => setInviteOpen(false)} className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white">
-              Generar enlace de invitación
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <Field label="Nombre completo" placeholder="Ej. Rosa Delgado" />
-          <Field label="Correo" placeholder="rosa.delgado@empresa.com" type="email" />
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Área</label>
-            <select className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]">
-              {AREAS.map((a) => (
-                <option key={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Rol</label>
-            <select className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]">
-              <option>Empleado</option>
-              <option>Supervisor de área</option>
-              <option>Supervisor de RRHH</option>
-              <option>Administrador</option>
-            </select>
-          </div>
+        onInvited={async (result) => {
+          setLink({ userId: result.user.id, link: result.link });
+          await refresh();
+        }}
+      />
+
+      {editing && (
+        <EditUserModal
+          user={editing}
+          areas={areas}
+          onClose={() => setEditing(null)}
+          onSaved={refresh}
+        />
+      )}
+    </div>
+  );
+}
+
+function InviteModal({
+  open,
+  areas,
+  onClose,
+  onInvited,
+}: {
+  open: boolean;
+  areas: Area[];
+  onClose: () => void;
+  onInvited: (result: { user: AdminUser; link: AccessLink }) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [role, setRole] = useState<"employee" | "admin">("employee");
+  const [isAreaSupervisor, setIsAreaSupervisor] = useState(false);
+  const [hasGlobalReadAccess, setHasGlobalReadAccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const invite = useMutation({
+    mutationFn: () =>
+      inviteUser({ name, email, areaId, role, isAreaSupervisor, hasGlobalReadAccess }),
+    onSuccess: async (result) => {
+      await onInvited(result);
+      setName("");
+      setEmail("");
+      setAreaId("");
+      onClose();
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Invitar a alguien"
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => invite.mutate()}
+            disabled={name.length < 2 || !email.includes("@") || !areaId || invite.isPending}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Generar enlace de invitación
+          </button>
+        </>
+      }
+    >
+      {error && <p className="mb-2 text-sm text-red">{error}</p>}
+      <div className="space-y-3">
+        <Field
+          label="Nombre completo"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Ej. Rosa Delgado"
+        />
+        <Field
+          label="Correo"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="rosa.delgado@empresa.com"
+        />
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+            Área
+          </label>
+          <select
+            value={areaId}
+            onChange={(event) => setAreaId(event.target.value)}
+            className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+          >
+            <option value="">Selecciona un área</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.name}
+              </option>
+            ))}
+          </select>
         </div>
-      </Modal>
+        <RolePicker
+          role={role}
+          isAreaSupervisor={isAreaSupervisor}
+          hasGlobalReadAccess={hasGlobalReadAccess}
+          onChange={(next) => {
+            setRole(next.role);
+            setIsAreaSupervisor(next.isAreaSupervisor);
+            setHasGlobalReadAccess(next.hasGlobalReadAccess);
+          }}
+        />
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          La persona elige su contraseña al abrir el enlace. Tú nunca la conoces.
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
+function EditUserModal({
+  user,
+  areas,
+  onClose,
+  onSaved,
+}: {
+  user: AdminUser;
+  areas: Area[];
+  onClose: () => void;
+  onSaved: () => Promise<unknown>;
+}) {
+  const [name, setName] = useState(user.name);
+  const [areaId, setAreaId] = useState(user.areaId);
+  const [role, setRole] = useState(user.role);
+  const [isAreaSupervisor, setIsAreaSupervisor] = useState(user.isAreaSupervisor);
+  const [hasGlobalReadAccess, setHasGlobalReadAccess] = useState(user.hasGlobalReadAccess);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateUser(user.id, { name, areaId, role, isAreaSupervisor, hasGlobalReadAccess }),
+    onSuccess: async () => {
+      await onSaved();
+      onClose();
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Editar a ${user.name}`}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => save.mutate()}
+            disabled={save.isPending}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Guardar
+          </button>
+        </>
+      }
+    >
+      {error && <p className="mb-2 text-sm text-red">{error}</p>}
+      <div className="space-y-3">
+        <Field label="Nombre" value={name} onChange={(event) => setName(event.target.value)} />
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+            Área
+          </label>
+          <select
+            value={areaId}
+            onChange={(event) => setAreaId(event.target.value)}
+            className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+          >
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.name}
+              </option>
+            ))}
+          </select>
+          {areaId !== user.areaId && (
+            <p className="mt-1.5 text-xs text-amber">
+              Al cambiar de área dejará de supervisar la anterior.
+            </p>
+          )}
+        </div>
+        <RolePicker
+          role={role}
+          isAreaSupervisor={isAreaSupervisor}
+          hasGlobalReadAccess={hasGlobalReadAccess}
+          onChange={(next) => {
+            setRole(next.role);
+            setIsAreaSupervisor(next.isAreaSupervisor);
+            setHasGlobalReadAccess(next.hasGlobalReadAccess);
+          }}
+        />
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          {user.openTickets > 0
+            ? `Tiene ${user.openTickets} tickets abiertos.`
+            : "No tiene tickets abiertos."}
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * El rol efectivo es rol base + banderas (spec §4.2). Se presenta como una sola
+ * lista porque "supervisor de RRHH" no es un rol aparte, es un empleado con
+ * lectura global, y pedirle al administrador que lo componga a mano es pedirle
+ * que se equivoque.
+ */
+function RolePicker({
+  role,
+  isAreaSupervisor,
+  hasGlobalReadAccess,
+  onChange,
+}: {
+  role: "employee" | "admin";
+  isAreaSupervisor: boolean;
+  hasGlobalReadAccess: boolean;
+  onChange: (next: {
+    role: "employee" | "admin";
+    isAreaSupervisor: boolean;
+    hasGlobalReadAccess: boolean;
+  }) => void;
+}) {
+  const current =
+    role === "admin"
+      ? "admin"
+      : hasGlobalReadAccess
+        ? "hr"
+        : isAreaSupervisor
+          ? "supervisor"
+          : "employee";
+
+  const options = {
+    employee: { role: "employee" as const, isAreaSupervisor: false, hasGlobalReadAccess: false },
+    supervisor: { role: "employee" as const, isAreaSupervisor: true, hasGlobalReadAccess: false },
+    hr: { role: "employee" as const, isAreaSupervisor: true, hasGlobalReadAccess: true },
+    admin: { role: "admin" as const, isAreaSupervisor: false, hasGlobalReadAccess: false },
+  };
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Rol</label>
+      <select
+        value={current}
+        onChange={(event) => onChange(options[event.target.value as keyof typeof options])}
+        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+      >
+        <option value="employee">Empleado</option>
+        <option value="supervisor">Supervisor de área</option>
+        <option value="hr">Supervisor de RRHH (lectura global)</option>
+        <option value="admin">Administrador</option>
+      </select>
     </div>
   );
 }
 
 function AreasTab() {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<AdminArea | null>(null);
+
+  const { data: areas = [], isLoading } = useQuery({
+    queryKey: adminKeys.areas,
+    queryFn: listAdminAreas,
+  });
+
+  const apply = (items: AdminArea[]) => {
+    setError(null);
+    queryClient.setQueryData(adminKeys.areas, items);
+    void queryClient.invalidateQueries({ queryKey: areaKeys.all });
+  };
+  const fail = (cause: Error) => setError(cause.message);
+
+  const toggleArea = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      updateArea(id, { isActive }),
+    onSuccess: apply,
+    onError: fail,
+  });
+
+  const addCategoryMutation = useMutation({
+    mutationFn: ({ areaId, name }: { areaId: string; name: string }) =>
+      addCategory(areaId, { name }),
+    onSuccess: apply,
+    onError: fail,
+  });
+
+  const toggleCategory = useMutation({
+    mutationFn: ({
+      areaId,
+      categoryId,
+      isActive,
+    }: {
+      areaId: string;
+      categoryId: string;
+      isActive: boolean;
+    }) => updateCategory(areaId, categoryId, { isActive }),
+    onSuccess: apply,
+    onError: fail,
+  });
+
+  if (isLoading) {
+    return (
+      <Plate className="flex items-center justify-center py-16">
+        <span
+          className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--content-border)] border-t-accent"
+          aria-label="Cargando áreas"
+        />
+      </Plate>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {AREAS.map((a) => {
-        const supervisors = USERS.filter((u) => u.areaId === a.id && (u.role === "area_supervisor" || u.role === "admin"));
-        return (
-          <Plate key={a.id} className="p-4">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ background: a.color }} />
-              <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">{a.name}</h3>
+    <div>
+      <div className="mb-3 flex justify-end">
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim"
+        >
+          <PlusIcon className="h-3.5 w-3.5" /> Nueva área
+        </button>
+      </div>
+
+      {error && (
+        <p role="alert" className="mb-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
+          {error}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {areas.map((area) => (
+          <Plate key={area.id} className={`p-4 ${area.isActive ? "" : "opacity-60"}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: area.color }}
+                  aria-hidden="true"
+                />
+                <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+                  {area.name}
+                </h3>
+                {!area.isActive && (
+                  <span className="rounded-full bg-[var(--content-bg)] px-2 py-0.5 text-[10px] text-[var(--content-ink-dim)]">
+                    Desactivada
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-2 text-xs">
+                <button onClick={() => setEditing(area)} className="text-accent hover:underline">
+                  Editar
+                </button>
+                <button
+                  onClick={() => toggleArea.mutate({ id: area.id, isActive: !area.isActive })}
+                  className="text-[var(--content-ink-dim)] hover:underline"
+                >
+                  {area.isActive ? "Desactivar" : "Activar"}
+                </button>
+              </div>
             </div>
-            <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
-              Supervisores: {supervisors.map((s) => s.name).join(", ") || "sin asignar"}
+
+            {area.description && (
+              <p className="mt-1 text-xs text-[var(--content-ink-dim)]">{area.description}</p>
+            )}
+
+            <p className="mt-2 text-xs text-[var(--content-ink-dim)]">
+              Supervisores:{" "}
+              {area.supervisors.length
+                ? area.supervisors.map((person) => person.name).join(", ")
+                : "sin asignar"}
             </p>
+            <p className="text-xs text-[var(--content-ink-dim)]">
+              {area.memberCount} personas · {area.activeTickets} tickets sin cerrar
+            </p>
+
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {a.categories.map((c) => (
-                <span key={c} className="rounded-full border border-[var(--content-border)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">
-                  {c}
-                </span>
+              {area.categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() =>
+                    toggleCategory.mutate({
+                      areaId: area.id,
+                      categoryId: category.id,
+                      isActive: !category.isActive,
+                    })
+                  }
+                  title={
+                    category.isActive
+                      ? "Desactivar: deja de ofrecerse en tickets nuevos"
+                      : "Volver a activar"
+                  }
+                  className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                    category.isActive
+                      ? "border-[var(--content-border)] text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                      : "border-dashed border-[var(--content-border)] text-[var(--content-ink-dim)]/50 line-through"
+                  }`}
+                >
+                  {category.name}
+                </button>
               ))}
-              <button className="flex items-center gap-1 rounded-full border border-dashed border-[var(--content-border)] px-2 py-0.5 text-xs text-accent">
-                <PlusIcon className="h-3 w-3" /> Categoría
-              </button>
+              <NewCategoryButton
+                onCreate={(name) => addCategoryMutation.mutate({ areaId: area.id, name })}
+              />
             </div>
           </Plate>
-        );
-      })}
+        ))}
+      </div>
+
+      {creating && (
+        <AreaModal onClose={() => setCreating(false)} onSaved={apply} onError={fail} />
+      )}
+      {editing && (
+        <AreaModal
+          area={editing}
+          onClose={() => setEditing(null)}
+          onSaved={apply}
+          onError={fail}
+        />
+      )}
     </div>
+  );
+}
+
+function NewCategoryButton({ onCreate }: { onCreate: (name: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1 rounded-full border border-dashed border-[var(--content-border)] px-2 py-0.5 text-xs text-accent"
+      >
+        <PlusIcon className="h-3 w-3" /> Categoría
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (name.trim().length >= 2) onCreate(name.trim());
+        setName("");
+        setOpen(false);
+      }}
+      className="flex gap-1"
+    >
+      <input
+        autoFocus
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        onBlur={() => !name && setOpen(false)}
+        placeholder="Nombre"
+        aria-label="Nombre de la categoría"
+        className="w-28 rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
+      />
+      <button type="submit" className="text-xs font-medium text-accent">
+        Añadir
+      </button>
+    </form>
+  );
+}
+
+function AreaModal({
+  area,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  area?: AdminArea;
+  onClose: () => void;
+  onSaved: (items: AdminArea[]) => void;
+  onError: (cause: Error) => void;
+}) {
+  const [name, setName] = useState(area?.name ?? "");
+  const [description, setDescription] = useState(area?.description ?? "");
+  const [color, setColor] = useState(area?.color ?? "#7c8cae");
+  const [supervisors, setSupervisors] = useState<string[]>(
+    area?.supervisors.map((person) => person.id) ?? [],
+  );
+
+  const { data: members = [] } = useQuery({
+    queryKey: areaKeys.members(area?.id ?? ""),
+    queryFn: () => listAreaMembers(area!.id),
+    enabled: Boolean(area),
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const items = area
+        ? await updateArea(area.id, { name, description, color })
+        : await createArea({ name, description, color, categories: [] });
+      // Los supervisores se guardan aparte porque tocan la tabla de personas.
+      return area ? await saveSupervisors(area.id, { userIds: supervisors }) : items;
+    },
+    onSuccess: (items) => {
+      onSaved(items);
+      onClose();
+    },
+    onError: (cause) => onError(cause as Error),
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={area ? `Editar ${area.name}` : "Nueva área"}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => save.mutate()}
+            disabled={name.trim().length < 2 || save.isPending}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Guardar
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field label="Nombre" value={name} onChange={(event) => setName(event.target.value)} />
+        <Field
+          label="Descripción"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Para qué sirve el área"
+        />
+        <div>
+          <label
+            htmlFor="color"
+            className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]"
+          >
+            Color de la etiqueta
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="color"
+              type="color"
+              value={color}
+              onChange={(event) => setColor(event.target.value)}
+              className="h-9 w-12 cursor-pointer rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)]"
+            />
+            <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+              {color}
+            </span>
+          </div>
+        </div>
+
+        {area && (
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+              Supervisores del área
+            </label>
+            {members.length === 0 ? (
+              <p className="text-xs text-[var(--content-ink-dim)]">
+                El área todavía no tiene personas activas.
+              </p>
+            ) : (
+              <ul className="max-h-48 space-y-1 overflow-y-auto">
+                {members.map((member) => (
+                  <li key={member.id}>
+                    <label className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]">
+                      <input
+                        type="checkbox"
+                        checked={supervisors.includes(member.id)}
+                        onChange={(event) =>
+                          setSupervisors((current) =>
+                            event.target.checked
+                              ? [...current, member.id]
+                              : current.filter((id) => id !== member.id),
+                          )
+                        }
+                        className="h-4 w-4 accent-accent"
+                      />
+                      {member.name}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 

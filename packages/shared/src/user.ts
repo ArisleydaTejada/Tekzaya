@@ -61,3 +61,68 @@ export const inviteUserInput = z.object({
   hasGlobalReadAccess: z.boolean().default(false),
 });
 export type InviteUserInput = z.infer<typeof inviteUserInput>;
+
+// ── Administración de personas (spec §7.7) ────────────────────
+
+/** Fila de la tabla de Usuarios: lo que el administrador necesita ver de un vistazo. */
+export const adminUser = user.extend({
+  areaName: z.string(),
+  /** Falso mientras la invitación siga sin aceptarse: aún no eligió contraseña. */
+  hasPassword: z.boolean(),
+  /** Tickets activos que tiene asignados; avisa antes de desactivar a alguien. */
+  openTickets: z.number().int().min(0),
+});
+export type AdminUser = z.infer<typeof adminUser>;
+
+export const updateUserInput = z.object({
+  name: z.string().min(2).max(80).optional(),
+  areaId: objectId.optional(),
+  role: role.optional(),
+  isAreaSupervisor: z.boolean().optional(),
+  hasGlobalReadAccess: z.boolean().optional(),
+  /** Nadie se borra: se desactiva, para no perder el historial (spec §7.7). */
+  status: z.enum(["active", "disabled"]).optional(),
+});
+export type UpdateUserInput = z.infer<typeof updateUserInput>;
+
+/**
+ * En la Fase 1 no se envía correo: el administrador copia el enlace y lo comparte
+ * por su cuenta. El servidor solo guarda su huella, así que este texto es la
+ * única copia que existe y no se puede volver a consultar.
+ */
+export const accessLink = z.object({
+  url: z.string(),
+  expiresAt: isoDateTime,
+});
+export type AccessLink = z.infer<typeof accessLink>;
+
+/** Mínimo razonable sin caer en reglas que empujan a apuntar la contraseña. */
+export const newPassword = z
+  .string()
+  .min(10, "Al menos 10 caracteres")
+  .max(128)
+  .refine((value) => /[a-zA-Z]/.test(value) && /[0-9]/.test(value), {
+    message: "Combina letras y números",
+  });
+
+export const acceptInviteInput = z.object({
+  token: z.string().min(20),
+  name: z.string().min(2).max(80).optional(),
+  password: newPassword,
+});
+export type AcceptInviteInput = z.infer<typeof acceptInviteInput>;
+
+export const resetPasswordInput = z.object({
+  token: z.string().min(20),
+  password: newPassword,
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordInput>;
+
+/** Lo que la pantalla de invitación muestra antes de pedir la contraseña. */
+export const invitePreview = z.object({
+  name: z.string(),
+  email: z.email(),
+  areaName: z.string(),
+  purpose: z.enum(["invite", "reset"]),
+});
+export type InvitePreview = z.infer<typeof invitePreview>;

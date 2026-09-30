@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./components/shell/AppShell";
+import AccessLinkPage from "./pages/AccessLinkPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import TicketsPage from "./pages/TicketsPage";
@@ -26,6 +27,9 @@ export default function App() {
           <AuthProvider>
             <Routes>
               <Route path="/" element={<LoginPage />} />
+              {/* Enlaces que reparte el administrador; se abren sin sesión. */}
+              <Route path="/invitacion" element={<AccessLinkPage purpose="invite" />} />
+              <Route path="/restablecer" element={<AccessLinkPage purpose="reset" />} />
               <Route element={<RequireAuth />}>
                 <Route element={<AppShell />}>
                   <Route path="/tablero" element={<DashboardPage />} />

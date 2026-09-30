@@ -33,10 +33,21 @@ const userSchema = new Schema(
     lastLoginAt: { type: Date },
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date },
+
+    // Enlaces de invitación y de restablecimiento. Se guarda solo la huella: el
+    // texto del enlace existe una vez, en la pantalla del administrador. Quien
+    // lea la base no puede entrar con la cuenta de nadie (spec §10.4).
+    accessTokenHash: { type: String, select: false },
+    accessTokenPurpose: { type: String, enum: ["invite", "reset"] },
+    accessTokenExpiresAt: { type: Date },
+
+    disabledAt: { type: Date },
+    disabledById: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
 );
 
 userSchema.index({ areaId: 1, status: 1 });
+userSchema.index({ accessTokenHash: 1 }, { sparse: true });
 
 export const User = model("User", userSchema, "users");

@@ -62,3 +62,36 @@ export type AreaWorkloadMember = z.infer<typeof areaWorkloadMember>;
 
 /** Un ticket urgente pesa lo que cuatro bajos: la carga no se mide contando filas. */
 export const WORKLOAD_WEIGHTS = { urgent: 4, high: 3, medium: 2, low: 1 } as const;
+
+// ── Administración de áreas (spec §7.7) ───────────────────────
+
+/** El área con lo que el administrador necesita para decidir: quién la supervisa y qué carga tiene. */
+export const adminArea = area.extend({
+  supervisors: z.array(z.object({ id: objectId, name: z.string() })),
+  memberCount: z.number().int().min(0),
+  activeTickets: z.number().int().min(0),
+});
+export type AdminArea = z.infer<typeof adminArea>;
+
+export const updateAreaInput = z.object({
+  name: z.string().min(2).max(60).optional(),
+  description: z.string().max(280).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/i, "Usa un color en formato #rrggbb")
+    .optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateAreaInput = z.infer<typeof updateAreaInput>;
+
+export const categoryInput = z.object({
+  name: z.string().trim().min(2, "Al menos 2 caracteres").max(60),
+  isActive: z.boolean().optional(),
+});
+export type CategoryInput = z.infer<typeof categoryInput>;
+
+/** Sustituye la lista completa de supervisores del área. */
+export const setSupervisorsInput = z.object({
+  userIds: z.array(objectId).max(10),
+});
+export type SetSupervisorsInput = z.infer<typeof setSupervisorsInput>;
