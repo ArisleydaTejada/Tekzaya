@@ -21,6 +21,7 @@ import {
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ticketsCsvUrl } from "../api/stats";
 import { listTickets, ticketKeys, updateTicket } from "../api/tickets";
 import { AvatarStack } from "../components/Avatar";
 import { AreaTag, PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
@@ -119,41 +120,6 @@ export default function TicketsPage() {
   const total = data?.total ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / (query.limit ?? PAGE_SIZE)));
 
-  function exportCsv() {
-    const header = [
-      "Número",
-      "Título",
-      "Área",
-      "Categoría",
-      "Prioridad",
-      "Estado",
-      "Solicitante",
-      "Creado",
-    ];
-    const rows = items.map((ticket) => [
-      formatTicketNumber(ticket.number),
-      ticket.title,
-      ticket.area.name,
-      ticket.categoryName ?? "",
-      PRIORITY_LABEL[ticket.priority],
-      TICKET_STATUS_LABEL[ticket.status],
-      ticket.requester.name,
-      ticket.createdAt,
-    ]);
-    // El BOM inicial evita que Excel destroce los acentos.
-    const csv =
-      "﻿" +
-      [header, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-        .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "tickets.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   async function moveTo(ticket: TicketListItem, status: TicketStatus, note?: string) {
     setMoveError(null);
     try {
@@ -170,13 +136,20 @@ export default function TicketsPage() {
       <PageHeader
         title="Tickets"
         actions={
-          <button
-            onClick={exportCsv}
-            disabled={items.length === 0}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
+          /*
+           * El CSV lo arma el servidor con los filtros actuales, no el navegador:
+           * aquí solo está la página que se está viendo, y el archivo tiene que
+           * traer todo lo que coincide. Es también lo que garantiza que la
+           * exportación nunca lleve notas internas (spec §7.2.4).
+           */
+          <a
+            href={ticketsCsvUrl(query)}
+            className={`flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] ${
+              total === 0 ? "pointer-events-none opacity-50" : ""
+            }`}
           >
             <DownloadIcon className="h-3.5 w-3.5" /> Exportar CSV
-          </button>
+          </a>
         }
       />
 

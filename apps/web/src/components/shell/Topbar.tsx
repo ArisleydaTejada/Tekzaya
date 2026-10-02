@@ -5,14 +5,9 @@ import { useState } from "react";
 import { updateMyAvailability } from "../../api/auth";
 import { ME_QUERY_KEY, useAuth } from "../../auth/AuthContext";
 import { Avatar } from "../Avatar";
-import { BellIcon, ChevronDownIcon, MoonIcon, SunIcon } from "../icons";
+import { ChevronDownIcon, MoonIcon, SunIcon } from "../icons";
+import { NotificationBell } from "./NotificationBell";
 import { useTheme } from "../../theme/ThemeContext";
-
-const NOTIFICATIONS = [
-  { id: "n1", text: "Te asignaron TK-000480 · Laptop no enciende", when: "hace 12 min", tone: "red" as const },
-  { id: "n2", text: "Posible incidente: 3 tickets sobre el wifi en Ventas", when: "hace 20 min", tone: "amber" as const },
-  { id: "n3", text: "TK-000452 sigue en riesgo de vencer el SLA", when: "hace 1 h", tone: "amber" as const },
-];
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -20,7 +15,6 @@ interface TopbarProps {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   const { theme, toggle } = useTheme();
-  const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { me, logout } = useAuth();
   const queryClient = useQueryClient();
@@ -57,44 +51,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           {theme === "light" ? <MoonIcon /> : <SunIcon />}
         </button>
 
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setNotifOpen((v) => !v)}
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--content-ink-dim)] hover:bg-[var(--content-surface)]"
-            aria-label="Notificaciones"
-          >
-            <BellIcon />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red" aria-hidden="true" />
-          </button>
-          <AnimatePresence>
-            {notifOpen && (
-              <>
-                <button className="fixed inset-0 z-40 cursor-default" onClick={() => setNotifOpen(false)} aria-label="Cerrar notificaciones" />
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-2 shadow-[var(--content-shadow)]"
-                >
-                  <p className="px-2 py-1.5 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--content-ink-dim)]">
-                    Notificaciones
-                  </p>
-                  {NOTIFICATIONS.map((n) => (
-                    <div key={n.id} className="flex items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-[var(--content-bg)]">
-                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${n.tone === "red" ? "bg-red" : "bg-amber"}`} />
-                      <div>
-                        <p className="text-[var(--content-ink)]">{n.text}</p>
-                        <p className="text-xs text-[var(--content-ink-dim)]">{n.when}</p>
-                      </div>
-                    </div>
-                  ))}
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
+        <NotificationBell />
 
         <div className="relative">
           <button

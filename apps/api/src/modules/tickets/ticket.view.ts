@@ -1,4 +1,5 @@
 import {
+  canAnswerCsat,
   canCancel,
   canChangeCategory,
   canChangePriority,
@@ -184,6 +185,9 @@ export function toListItem(ticket: LeanTicket, h: Hydration, actor?: Actor): Tic
     resolutionState: states.resolution,
     responseDueAt: (ticket["sla"].responseDueAt as Date).toISOString(),
     resolutionDueAt: (ticket["sla"].resolutionDueAt as Date).toISOString(),
+    ...(ticket["sla"].firstResponseAt
+      ? { firstResponseAt: (ticket["sla"].firstResponseAt as Date).toISOString() }
+      : {}),
     attachmentsCount: (ticket["attachmentsCount"] as number | undefined) ?? 0,
     ...(incidentLabelFor(ticket, actor) ? { incidentLabel: incidentLabelFor(ticket, actor)! } : {}),
     createdAt: (ticket["createdAt"] as Date).toISOString(),
@@ -209,6 +213,9 @@ function permissionsOf(actor: Actor, ticket: LeanTicket): TicketDetail["permissi
     merge: canMerge(actor, ref, ref) && !FINAL.includes(ref.status),
     unmerge: canUnmerge(actor, ref),
     requestJoin: canRequestJoin(actor, ref),
+    // Una sola respuesta por ticket: con la encuesta ya contestada, el banner no
+    // vuelve a ofrecerse aunque el ticket siga resuelto (spec §7.6).
+    answerCsat: canAnswerCsat(actor, ref) && !ticket["csat"]?.rating,
   };
 }
 

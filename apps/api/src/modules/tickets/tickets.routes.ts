@@ -1,5 +1,6 @@
 import {
   ACTIVE_TICKET_STATUSES,
+  canAnswerCsat,
   canChangeCategory,
   canChangePriority,
   canCreateOnBehalfOf,
@@ -10,6 +11,7 @@ import {
   canWriteInternalNote,
   computeTicketSla,
   createMessageInput,
+  csatInput,
   createTicketInput,
   FINAL_TICKET_STATUSES,
   isOwnTicket,
@@ -20,6 +22,7 @@ import {
   type Actor,
   type CreateMessageInput,
   type CreateTicketInput,
+  type CsatInput,
   type SetAssigneesInput,
   type SystemEvent,
   type TicketListQuery,
@@ -47,6 +50,15 @@ import {
   type LeanTicket,
   type TicketDoc,
 } from "./ticket.access";
+import { csvFile, sendCsv, ticketsToCsv } from "./ticket.csv";
+import {
+  broadcastMessage,
+  broadcastTicket,
+  notifyAssigned,
+  notifyPublicReply,
+  notifyStatusChange,
+  notifyTicketCreated,
+} from "./ticket.notify";
 import {
   applyStatusChange,
   assertTransition,
@@ -112,6 +124,26 @@ router.get("/tickets", validateQuery(ticketListQuery), async (_req, res) => {
     limit: query.limit,
   });
 });
+
+/**
+ * CSV de lo que la persona está viendo: mismos filtros, mismo alcance, mismo
+ * orden. Se declara **antes** de `/tickets/:id` porque si no, Express leería
+ * "export" como un identificador de ticket.
+ */
+router.get("/tickets/export", validateQuery(ticketListQuery), async (_req, res) => {
+  const actor = res.locals.actor;
+  const query = res.locals.query as TicketListQuery;
+
+  const tickets = (await Ticket.find(listFilter(actor, query))
+    .sort(query.sort === "recent" ? { createdAt: -1 } : { createdAt: 1 })
+    .limit(EXPORT_LIMIT)
+    .lean()) as LeanTicket[];
+
+  sendCsv(res, "tekzaya-tickets", csvFile(await ticketsToCsv(tickets)));
+});
+
+/** Techo de filas por descarga; por encima de esto la herramienta es Reportes. */
+const EXPORT_LIMIT = 5000;
 
 // ── Creación ──────────────────────────────────────────────────
 
@@ -194,6 +226,9 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
     createdAt,
     updatedAt: createdAt,
   });
+
+  await notifyTicketCreated(ticket as TicketDoc, actor);
+  broadcastTicket(ticket as TicketDoc);
 
   // La IA clasifica en segundo plano: quien crea el ticket ya tiene su número
   // y su plazo, y no espera a Gemini para nada (spec §6.3).
@@ -316,6 +351,11 @@ router.patch("/tickets/:id", validateBody(updateTicketInput), async (req, res) =
   await ticket.save();
   for (const event of events) await recordSystemEvent(idOf(ticket), event, at);
 
+  if (input.status && input.status !== (before["status"] as TicketStatus)) {
+    await notifyStatusChange(ticket, input.status, actor);
+  }
+  broadcastTicket(ticket);
+
   res.json(await detailOf(plainOf(ticket), actor));
 });
 
@@ -367,6 +407,9 @@ async function saveAssignees(
     },
     at,
   );
+
+  await notifyAssigned(ticket, previous, next, actor);
+  broadcastTicket(ticket);
 }
 
 router.put("/tickets/:id/assignees", validateBody(setAssigneesInput), async (req, res) => {
@@ -520,12 +563,69 @@ router.post("/tickets/:id/messages", validateBody(createMessageInput), async (re
   ticket.set("lastActivityAt", at);
   await ticket.save();
 
+  // Una nota interna no genera aviso para nadie de fuera y su evento de socket no
+  // entra en la sala del ticket, donde está el solicitante (spec §10.4).
+  if (input.type === "public") await notifyPublicReply(ticket, actor, fromRequester);
+  broadcastMessage(ticket, messageId, input.type, at, actor.id);
+  broadcastTicket(ticket);
+
   const hydration = await hydrate([plainOf(ticket)]);
   const created = (await Message.findById(messageId).lean()) as LeanTicket;
   await hydrateAuthors([created], hydration);
   const [view] = await toMessageViews([created], hydration);
 
   res.status(201).json(view);
+});
+
+// ── Encuesta de satisfacción (spec §7.6) ──────────────────────
+
+/**
+ * La contesta quien pidió el ticket, una sola vez, y solo mientras está *Resuelto*:
+ * al cerrarse la nota queda fija. Que el solicitante sea además del área que lo
+ * atendió no le da una segunda papeleta, y nadie puntúa en nombre de otro.
+ */
+router.post("/tickets/:id/csat", validateBody(csatInput), async (req, res) => {
+  const actor = res.locals.actor;
+  const input = req.body as CsatInput;
+  const ticket = await loadVisibleTicket(routeParam(req.params["id"]), actor);
+  const ref = refOf(plainOf(ticket));
+
+  if (!canAnswerCsat(actor, ref)) {
+    throw new AppError(
+      403,
+      "forbidden",
+      ref.status === "resolved"
+        ? "Solo quien pidió el ticket califica la atención"
+        : "La encuesta se responde mientras el ticket está resuelto",
+    );
+  }
+  if (ticket.get("csat")?.rating) {
+    throw new AppError(409, "already_answered", "Ya calificaste este ticket");
+  }
+
+  const at = new Date();
+  ticket.set("csat", {
+    rating: input.rating,
+    ...(input.comment ? { comment: input.comment } : {}),
+    answeredAt: at,
+  });
+  ticket.set("lastActivityAt", at);
+  await ticket.save();
+
+  // Queda en el hilo: el área ve la calificación donde ve todo lo demás, sin tener
+  // que ir a un reporte para saber si el solicitante quedó conforme.
+  await recordSystemEvent(
+    idOf(ticket),
+    {
+      kind: "csat_answered",
+      to: `${input.rating}/5`,
+      ...(input.comment ? { reason: input.comment } : {}),
+    },
+    at,
+  );
+  broadcastTicket(ticket);
+
+  res.json(await detailOf(plainOf(ticket), actor));
 });
 
 export default router;

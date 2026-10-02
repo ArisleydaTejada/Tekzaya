@@ -40,6 +40,8 @@ import {
   updateTicket,
   uploadAttachment,
 } from "../api/tickets";
+import { answerCsat } from "../api/stats";
+import { useWatchTicket } from "../realtime/RealtimeContext";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { AreaTag, PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
 import {
@@ -88,6 +90,10 @@ export default function TicketDetailPage() {
     queryFn: () => listMessages(ticket!.id),
     enabled: Boolean(ticket?.id),
   });
+
+  // Mientras el detalle está abierto, el socket entra en la sala del ticket: una
+  // respuesta del otro lado aparece sin que nadie recargue (spec §12).
+  useWatchTicket(ticket?.id);
 
   const [preferredTab, setComposerTab] = useState<"public" | "internal">("public");
   // Quien no puede escribir notas internas se queda en «Pública», sin necesidad
@@ -383,6 +389,8 @@ export default function TicketDetailPage() {
               onReopen={() => patch.mutate({ status: "reopened" })}
             />
           )}
+
+          {ticket.permissions.answerCsat && <CsatPanel ticket={ticket} onAnswered={refresh} />}
 
           {canWrite && (
             <div className="mt-4 border-t border-[var(--content-border)] pt-4">
@@ -826,6 +834,8 @@ function describeEvent(event: MessageView["systemEvent"]): string {
       return `Fusión deshecha: ${event.to}`;
     case "join_requested":
       return `${event.to} pidió unirse${event.reason ? ` · ${event.reason}` : ""}`;
+    case "csat_answered":
+      return `El solicitante calificó la atención con ${event.to}${event.reason ? ` · "${event.reason}"` : ""}`;
     default:
       return "Actualización";
   }
@@ -869,6 +879,77 @@ function ResolvedPanel({
           No, sigue el problema
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Encuesta de satisfacción (spec §7.6). Aparece al solicitante cuando el ticket pasa
+ * a *Resuelto* y desaparece en cuanto responde o el ticket se cierra: el servidor
+ * manda `answerCsat` ya resuelto, así que esta pantalla no decide cuándo mostrarla.
+ */
+function CsatPanel({ ticket, onAnswered }: { ticket: TicketDetail; onAnswered: () => Promise<void> }) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const send = useMutation({
+    mutationFn: () =>
+      answerCsat(ticket.id, {
+        rating,
+        ...(comment.trim() ? { comment: comment.trim() } : {}),
+      }),
+    onSuccess: onAnswered,
+    onError: (cause) => setError(cause.message),
+  });
+
+  const shown = hover || rating;
+
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-4">
+      <p className="text-sm font-medium text-[var(--content-ink)]">
+        ¿Cómo calificarías la atención recibida?
+      </p>
+      <div className="mt-2 flex items-center gap-1" onMouseLeave={() => setHover(0)}>
+        {[1, 2, 3, 4, 5].map((value) => (
+          <button
+            key={value}
+            type="button"
+            onMouseEnter={() => setHover(value)}
+            onFocus={() => setHover(value)}
+            onClick={() => setRating(value)}
+            aria-label={`${value} de 5`}
+            aria-pressed={rating === value}
+            className={`rounded p-0.5 transition-colors ${
+              value <= shown ? "text-amber" : "text-[var(--content-ink-dim)]"
+            }`}
+          >
+            <StarIcon className="h-5 w-5" />
+          </button>
+        ))}
+        {rating > 0 && (
+          <span className="ml-2 font-display text-xs tabular text-[var(--content-ink-dim)]">
+            {rating}/5
+          </span>
+        )}
+      </div>
+      <textarea
+        value={comment}
+        onChange={(event) => setComment(event.target.value)}
+        rows={2}
+        maxLength={1000}
+        placeholder="¿Algo que quieras añadir? (opcional)"
+        className="mt-3 w-full resize-none rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] placeholder:text-[var(--content-ink-dim)]"
+      />
+      {error && <p className="mt-2 text-xs text-red">{error}</p>}
+      <button
+        onClick={() => send.mutate()}
+        disabled={rating === 0 || send.isPending}
+        className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50"
+      >
+        {send.isPending ? "Enviando…" : "Enviar calificación"}
+      </button>
     </div>
   );
 }

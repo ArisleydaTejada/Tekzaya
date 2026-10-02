@@ -209,6 +209,18 @@ export async function mergeTickets(
       ticketId: idOf(principal),
     });
   }
+
+  // Los responsables del principal también se enteran: a su ticket le acaban de
+  // llegar más personas afectadas y eso cambia su urgencia (spec §8).
+  await notify(
+    (principal.get("assigneeIds") as unknown[]).map(String).filter((id) => id !== actor.id),
+    {
+      type: "ticket_merged",
+      title: "Se fusionaron duplicados en tu ticket",
+      body: `${duplicates.length} ticket(s) se unieron a TK-${String(principal.get("number")).padStart(6, "0")}.`,
+      ticketId: idOf(principal),
+    },
+  );
 }
 
 /**
@@ -295,4 +307,21 @@ export async function unmergeTicket(
     { kind: "unmerged", to: `separado de TK-${String(principal.get("number")).padStart(6, "0")}` },
     at,
   );
+
+  // Su solicitante tiene que saber que su ticket volvió a vivir por su cuenta, y
+  // los responsables de ambos, que hay otra conversación que atender (spec §8).
+  const audience = [
+    String(duplicate.get("requesterId")),
+    String(duplicate.get("createdById")),
+    ...(duplicate.get("assigneeIds") as unknown[]).map(String),
+    ...(principal.get("assigneeIds") as unknown[]).map(String),
+  ].filter((id) => id !== actor.id);
+
+  await notify(audience, {
+    type: "ticket_unmerged",
+    title: `${number} se separó y vuelve a atenderse aparte`,
+    body: duplicate.get("title"),
+    ticketId: idOf(duplicate),
+    ticketNumber: duplicate.get("number"),
+  });
 }

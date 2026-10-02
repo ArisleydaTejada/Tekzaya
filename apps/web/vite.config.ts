@@ -13,6 +13,13 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      // El socket necesita `ws: true`: sin él el proxy reenvía el sondeo HTTP pero
+      // no deja pasar la actualización a websocket, y la conexión se queda colgada.
+      '/socket.io': {
+        target: 'http://localhost:4000',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 })

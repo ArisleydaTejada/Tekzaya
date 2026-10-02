@@ -10,7 +10,9 @@ import {
   UsersIcon,
   WrenchIcon,
 } from "../icons";
-import { TICKETS, isActive } from "../../data/mock";
+import { ACTIVE_TICKET_STATUSES } from "@tekzaya/shared";
+import { useQuery } from "@tanstack/react-query";
+import { listTickets, ticketKeys } from "../../api/tickets";
 import { useAuth } from "../../auth/AuthContext";
 
 const NAV_ITEMS = [
@@ -37,20 +39,40 @@ function Logo({ collapsed }: { collapsed: boolean }) {
   );
 }
 
+/**
+ * Tickets asignados a esta persona que siguen sin resolver. Es la misma consulta
+ * del listado pidiendo una sola fila: de la respuesta solo interesa el total.
+ */
+function useMyOpenCount(): number {
+  const query = {
+    scope: "assigned" as const,
+    status: [...ACTIVE_TICKET_STATUSES],
+    limit: 1,
+  };
+  const { data } = useQuery({
+    queryKey: [...ticketKeys.list(query), "count"],
+    queryFn: () => listTickets(query),
+    staleTime: 30_000,
+  });
+  return data?.total ?? 0;
+}
+
 function NavItem({
   to,
   label,
   icon: Icon,
   badge,
+  count,
   collapsed,
 }: {
   to: string;
   label: string;
   icon: typeof GaugeNavIcon;
   badge?: boolean;
+  count?: number;
   collapsed: boolean;
 }) {
-  const activeCount = TICKETS.filter(isActive).length;
+  const activeCount = count ?? 0;
   return (
     <NavLink
       to={to}
@@ -93,6 +115,7 @@ interface SidebarContentProps {
 export function SidebarContent({ collapsed }: SidebarContentProps) {
   const { me, logout } = useAuth();
   const isAdmin = me?.role === "admin";
+  const myOpenCount = useMyOpenCount();
   const navigate = useNavigate();
 
   return (
@@ -141,7 +164,7 @@ export function SidebarContent({ collapsed }: SidebarContentProps) {
           </p>
         )}
         {NAV_ITEMS.map((item) => (
-          <NavItem key={item.to} {...item} collapsed={collapsed} />
+          <NavItem key={item.to} {...item} count={myOpenCount} collapsed={collapsed} />
         ))}
 
         <div

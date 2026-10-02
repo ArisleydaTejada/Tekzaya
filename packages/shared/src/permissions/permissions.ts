@@ -162,6 +162,15 @@ export function canRequestJoin(actor: Actor, ticket: TicketRef): boolean {
   return isAreaMember(actor, ticket.areaId) || isAdmin(actor);
 }
 
+/**
+ * La encuesta la responde **quien pidió el ticket**, nunca quien lo atendió, y solo
+ * mientras está *Resuelto*: al cerrarse queda fija y una sola respuesta por ticket
+ * (spec §7.6). El administrador tampoco puntúa en nombre de nadie.
+ */
+export function canAnswerCsat(actor: Actor, ticket: TicketRef): boolean {
+  return isOwnTicket(actor, ticket) && ticket.status === "resolved";
+}
+
 // ── Personas ──────────────────────────────────────────────────
 
 /** Crear en nombre de un compañero: mismo área, salvo el admin (spec §10.4). */

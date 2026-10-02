@@ -134,6 +134,14 @@ export async function seedTicket(options: {
   priority?: Priority;
   title?: string;
   createdAt?: Date;
+  categoryId?: Types.ObjectId;
+  /** Métricas ya consumadas: lo que las agregaciones de F6 necesitan medir. */
+  firstResponseAt?: Date;
+  firstResponderId?: Types.ObjectId;
+  resolvedAt?: Date;
+  resolvedByIds?: Types.ObjectId[];
+  resolutionBreached?: boolean;
+  csat?: { rating: number; comment?: string; answeredAt: Date };
 }) {
   const priority = options.priority ?? "medium";
   const createdAt = options.createdAt ?? new Date();
@@ -155,6 +163,7 @@ export async function seedTicket(options: {
     requesterId: options.requesterId,
     createdById: options.createdById ?? options.requesterId,
     areaId: options.areaId,
+    ...(options.categoryId ? { categoryId: options.categoryId } : {}),
     assigneeIds: options.assigneeIds ?? [],
     status: options.status ?? "open",
     priority,
@@ -165,7 +174,15 @@ export async function seedTicket(options: {
       resolutionDueAt: targets.resolution.dueAt,
       resolutionRiskAt: targets.resolution.riskAt,
       pausedMs: 0,
+      ...(options.firstResponseAt ? { firstResponseAt: options.firstResponseAt } : {}),
+      ...(options.firstResponderId ? { firstResponderId: options.firstResponderId } : {}),
+      ...(options.resolvedAt ? { resolvedAt: options.resolvedAt } : {}),
+      ...(options.resolvedByIds ? { resolvedByIds: options.resolvedByIds } : {}),
+      ...(options.resolutionBreached !== undefined
+        ? { resolutionBreached: options.resolutionBreached }
+        : {}),
     },
+    ...(options.csat ? { csat: options.csat } : {}),
     attachmentsCount: 0,
     lastActivityAt: createdAt,
     statusHistory: [{ status: "open", at: createdAt, byId: options.requesterId }],

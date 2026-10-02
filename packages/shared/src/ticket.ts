@@ -130,6 +130,8 @@ export const ticketPermissions = z.object({
   merge: z.boolean(),
   unmerge: z.boolean(),
   requestJoin: z.boolean(),
+  /** La encuesta se abre al resolver y se cierra al cerrar el ticket (spec §7.6). */
+  answerCsat: z.boolean(),
 });
 export type TicketPermissions = z.infer<typeof ticketPermissions>;
 
@@ -148,6 +150,8 @@ export const ticketListItem = z.object({
   resolutionState: slaState,
   responseDueAt: isoDateTime,
   resolutionDueAt: isoDateTime,
+  /** Cuándo contestó el área; el panel "Mis solicitudes" distingue con esto (spec §7.2.1). */
+  firstResponseAt: isoDateTime.optional(),
   attachmentsCount: z.number().int().min(0),
   /**
    * Etiqueta del incidente al que pertenece, si lo hay. Solo viaja hacia quien
@@ -272,3 +276,11 @@ export const duplicateCandidate = z.object({
   sameIncident: z.boolean(),
 });
 export type DuplicateCandidate = z.infer<typeof duplicateCandidate>;
+
+// ── Encuesta de satisfacción (spec §7.6) ──────────────────────
+
+export const csatInput = z.object({
+  rating: z.number().int().min(1, "Elige de 1 a 5 estrellas").max(5),
+  comment: z.string().trim().max(1000).optional(),
+});
+export type CsatInput = z.infer<typeof csatInput>;

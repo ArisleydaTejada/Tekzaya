@@ -1,17 +1,39 @@
+import type { NotificationType, NotificationView } from "@tekzaya/shared";
 import type { Types } from "mongoose";
 import { Notification } from "../../models/support.models";
+import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
+import { emitNotification } from "../../realtime/realtime";
 
 /**
- * Las notificaciones se guardan desde F4 aunque la bandeja y el tiempo real
- * lleguen en F6: un aviso que no se escribió cuando ocurrió el hecho ya no se
- * puede recuperar después.
+ * Las notificaciones se guardan desde F4 y desde F6 se emiten también por el
+ * socket. El orden importa: primero la base, luego el socket. Si se emitiera
+ * antes, una persona con la aplicación abierta vería un aviso que, tras un fallo
+ * de escritura, no estaría en su bandeja al recargar.
  */
 export interface NotificationInput {
-  type: string;
+  type: NotificationType;
   title: string;
   body?: string;
   ticketId?: Types.ObjectId;
+  /** Número del ticket, si quien avisa ya lo tiene a mano; si no, se consulta. */
+  ticketNumber?: number;
+}
+
+function viewOf(
+  doc: { _id: unknown; createdAt?: Date },
+  input: NotificationInput,
+  ticketNumber: number | undefined,
+): NotificationView {
+  return {
+    id: String(doc._id),
+    type: input.type,
+    title: input.title,
+    ...(input.body ? { body: input.body } : {}),
+    ...(input.ticketId ? { ticketId: String(input.ticketId) } : {}),
+    ...(ticketNumber ? { ticketNumber } : {}),
+    createdAt: (doc.createdAt ?? new Date()).toISOString(),
+  };
 }
 
 export async function notify(
@@ -21,7 +43,7 @@ export async function notify(
   const unique = [...new Set(userIds.map(String))];
   if (!unique.length) return;
 
-  await Notification.insertMany(
+  const created = await Notification.insertMany(
     unique.map((userId) => ({
       userId,
       type: input.type,
@@ -30,6 +52,16 @@ export async function notify(
       ...(input.ticketId ? { ticketId: input.ticketId } : {}),
     })),
   );
+
+  let ticketNumber = input.ticketNumber;
+  if (ticketNumber === undefined && input.ticketId) {
+    const ticket = await Ticket.findById(input.ticketId).select("number").lean();
+    ticketNumber = ticket?.number;
+  }
+
+  for (const doc of created) {
+    emitNotification(String(doc.userId), viewOf(doc, input, ticketNumber));
+  }
 }
 
 /** Quién vigila un área: sus supervisores. Sin ellos, el administrador. */
@@ -61,4 +93,16 @@ export async function availableAmong(userIds: readonly string[]): Promise<string
     .select("_id")
     .lean();
   return available.map((user) => String(user._id));
+}
+
+/** Miembros activos del área, sin contar a quien provoca el aviso. */
+export async function areaMembersExcept(
+  areaId: string | Types.ObjectId,
+  excludeIds: readonly string[],
+): Promise<string[]> {
+  const members = await User.find({ areaId: String(areaId), status: "active" })
+    .select("_id")
+    .lean();
+  const excluded = new Set(excludeIds.map(String));
+  return members.map((user) => String(user._id)).filter((id) => !excluded.has(id));
 }

@@ -22,6 +22,7 @@ export const systemEvent = z.object({
     "unmerged",
     "reopened",
     "join_requested",
+    "csat_answered",
   ]),
   from: z.string().optional(),
   to: z.string().optional(),

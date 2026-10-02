@@ -12,7 +12,9 @@ import attachmentsRoutes from "./modules/attachments/attachments.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import healthRoutes from "./modules/health/health.routes";
 import meRoutes from "./modules/me/me.routes";
+import notificationsRoutes from "./modules/notifications/notifications.routes";
 import settingsRoutes from "./modules/settings/settings.routes";
+import statsRoutes from "./modules/stats/stats.routes";
 import ticketActionsRoutes from "./modules/tickets/ticketActions.routes";
 import ticketsRoutes from "./modules/tickets/tickets.routes";
 
@@ -33,6 +35,8 @@ export function createApp() {
   app.use("/api/v1", requireAuth, areasRoutes);
   app.use("/api/v1", requireAuth, ticketsRoutes);
   app.use("/api/v1", requireAuth, ticketActionsRoutes);
+  app.use("/api/v1", requireAuth, statsRoutes);
+  app.use("/api/v1", requireAuth, notificationsRoutes);
   app.use("/api/v1", requireAuth, settingsRoutes);
   app.use("/api/v1", requireAuth, adminUsersRoutes);
   app.use("/api/v1", requireAuth, adminAreasRoutes);

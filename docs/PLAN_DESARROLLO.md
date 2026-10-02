@@ -37,7 +37,7 @@ Dependencias de la especificación **ya instaladas**: `recharts`, `@dnd-kit/core
 
 Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
-- **Tablero:** los 4 KPI, los filtros de alcance y período y la disponibilidad del equipo salen del mock. Migra en **F6**.
+- ~~**Tablero**~~ — migrado por completo: los 4 KPI, el alcance, el período, la disponibilidad del equipo y la franja de incidente.
 - **Reportes:** solo la pestaña Plantillas tiene contenido, y con datos del mock; *Mis reportes* y *Nuevo* son estados vacíos. Migra en **F7**.
 - ~~**Administración**~~ — migrada por completo: Usuarios, Áreas y categorías y Configuración.
 - **Sin `GEMINI_API_KEY`, no hay IA** — y es un modo de funcionamiento previsto, no una carencia: el ticket entra con prioridad *Media* y queda `pending`, listo por si algún día se pone la clave.
@@ -48,12 +48,13 @@ Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
 **Ya no es simulado:** sesión y permisos (F2); tickets, conversación, SLA,
 adjuntos e historial (F3); asignación, transferencias, fusión de duplicados,
-trabajos programados y administración completa (F4); y las cinco funciones de
-IA (F5). Solo Tablero y Reportes siguen importando de `mock.ts`.
+trabajos programados y administración completa (F4); las cinco funciones de
+IA (F5); y tablero, notificaciones, tiempo real, CSAT y exportación CSV (F6).
+**Solo Reportes sigue importando de `mock.ts`.**
 
 ### 1.3 Lo que no existe en absoluto
 
-Socket.IO, CSAT, notificaciones en pantalla y E2E con Playwright.
+E2E con Playwright.
 
 > **Cerrado en F0 y F1:** monorepo con workspaces, `packages/shared` (contrato Zod + motor de SLA con 21 pruebas), `apps/api` (Express 5, modelos Mongoose con índices, semilla de 101 tickets), MongoDB Community, CI y `.env.example`.
 >
@@ -64,6 +65,8 @@ Socket.IO, CSAT, notificaciones en pantalla y E2E con Playwright.
 > **Cerrado en F5:** `AIService` tras una interfaz propia, las cinco funciones de IA, la cola de clasificación con reintentos y el modo sin clave probado. 178 pruebas en total.
 >
 > **Cerrado en F4:** transferencia, fusión y separación de duplicados, "Unirme", carga del área, tres trabajos programados con `node-cron`, la administración completa (personas, áreas, categorías y configuración) y el circuito de invitaciones y restablecimiento de contraseña. 135 pruebas en total.
+>
+> **Cerrado en F6:** Socket.IO con las tres salas, la tabla de avisos del §8 completa, la bandeja de notificaciones, los cinco endpoints de `/stats`, el tablero de los cuatro roles con datos reales, la encuesta CSAT y la exportación CSV desde el servidor. 198 pruebas en total.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -268,7 +271,7 @@ Decisiones tomadas al ejecutarla:
 
 ---
 
-### F6 · Tiempo real, tableros, notificaciones, CSAT y CSV — *2 semanas*
+### F6 · Tiempo real, tableros, notificaciones, CSAT y CSV — *hecha*
 
 `GET /stats/overview`, `/stats/timeseries`, `/by-person`, `/by-category`, `/stats/export?format=csv`, `GET|PATCH /notifications`, `POST /tickets/:id/csat`, `GET /tickets/export`.
 
@@ -276,7 +279,59 @@ Decisiones tomadas al ejecutarla:
 - Tableros de los 4 roles alimentados por agregaciones reales.
 - Encuesta CSAT al resolver.
 
-**DoD:** con dos navegadores abiertos, un cambio en uno aparece en el otro en menos de 1 s; los KPI del tablero cuadran con una consulta manual a la base.
+**DoD:** con dos pestañas abiertas, un cambio en una aparece en la otra en menos
+de 1 s — **verificado en el navegador**: crear un ticket en una subió el tablero de
+la otra de 20 a 21 pendientes (y de 8 a 9 sin asignar) sin recargar, y responder la
+encuesta puso el CSAT medio en la tarjeta de la otra pestaña. Los KPI **cuadran con
+una consulta manual a la base**: 20 pendientes, 8 sin asignar y 1 resuelto en la
+semana, iguales a los `countDocuments` escritos aparte.
+
+Decisiones tomadas al ejecutarla:
+
+- **Por el socket no viaja contenido, solo el hecho de que algo cambió.** Cada evento
+  lleva identificadores; la pantalla vuelve a pedir los datos por la API, que es la
+  que filtra por permisos. Una sala mal calculada no puede enseñar lo que la API no
+  daría. La única excepción son las notificaciones, que van a la sala privada de una
+  persona y llegan completas para que la campana reaccione sin otro viaje.
+- **Una nota interna no se anuncia en la sala del ticket**, porque ahí está el
+  solicitante: su evento va solo a la sala del área. Saber que existe una nota ya es
+  más de lo que debe ver, aunque no lleve el texto.
+- **Entrar en la sala de un ticket se comprueba contra el motor de permisos**, no
+  basta con pedir su identificador. Y la sesión del socket es la misma cookie
+  `httpOnly` del navegador: no hay un segundo mecanismo de autenticación que
+  mantener ni un token que el JavaScript de la página pudiera leer.
+- **Nadie recibe el aviso de su propia acción.** Un aviso de lo que uno acaba de
+  pulsar entrena a ignorar la campana, que es la forma de perder los que importan.
+- **Los períodos se cortan por calendario de la empresa, no por ventana móvil.**
+  "Mes" es el mes en curso, no los últimos treinta días: es como se lee una KPI de
+  tablero y es lo único que cuadra con una consulta a mano, que es el DoD.
+- **El selector de alcance se arma con `maxReportScope`**, no con una lista fija. Un
+  empleado no ve el botón "Todas las áreas" porque pulsarlo solo le daría un 403; el
+  servidor recalcula el alcance en cada consulta y descarta lo que venga en el payload.
+- **Las horas laborales se calculan en Node, no en la agregación.** El motor de F1
+  necesita jornada, festivos y zona horaria, que Mongo no tiene; la consulta trae
+  tres fechas por ticket y el cálculo se hace arriba. Se mide sobre los tickets
+  **respondidos** en el período, no sobre los resueltos: un ticket puede responderse
+  en enero y resolverse en marzo.
+- **Los duplicados fusionados quedan fuera de toda métrica** (spec §9): el principal
+  ya cuenta el problema una vez, y contar el duplicado inflaría volumen, tiempos y
+  cumplimiento a la vez.
+- **El CSV lo genera el servidor, siempre.** El botón de la lista de tickets lo
+  armaba el navegador con la página que tenía a la vista; ahora es un enlace a
+  `/tickets/export`, que aplica los mismos filtros y el mismo alcance, trae todas las
+  filas y **nunca** incluye el contenido de las notas internas. El PDF sigue siendo
+  del navegador, que es donde está el diseño.
+- **La franja de incidente es de quien atiende, no de quien reporta.** Se mostraba en
+  la vista personal hasta que se vio en el navegador: decir "tu problema es uno de
+  tres" al solicitante contradice la decisión de F5 de ocultarle `incidentLabel`.
+  Ahora solo aparece en el alcance de área o global, con prueba que lo fija.
+- **La encuesta se abre al resolver y se cierra al cerrar.** El servidor manda
+  `permissions.answerCsat` ya resuelto, así que la pantalla no decide cuándo
+  mostrarla; una segunda respuesta recibe 409 y la calificación queda en la
+  conversación como mensaje de sistema, donde el área ve todo lo demás.
+- **Las menciones `@` de la tabla del §8 quedan fuera**, y no por olvido: el redactor
+  no tiene selector de menciones, así que no hay nada que notificar. Entran con esa
+  función, no antes.
 
 ---
 
@@ -325,10 +380,10 @@ La pieza más grande y la que el spec ya señala como candidata a recorte (§16)
 | Fusión de duplicados y deshacer | F4 ✓ |
 | Kanban persistente | F3 ✓ |
 | IA: sugerir área, clasificar, resumir, autocompletar, incidentes | F5 ✓ |
-| Notificaciones en tiempo real | F6 |
-| Tableros por rol (4 KPI, sin gráficas) | F6 |
-| CSAT | F6 |
-| Exportación CSV | F6 (tickets/tablero) → F7 (reportes) |
+| Notificaciones en tiempo real | F6 ✓ |
+| Tableros por rol (4 KPI, sin gráficas) | F6 ✓ |
+| CSAT | F6 ✓ |
+| Exportación CSV | F6 ✓ (tickets/tablero) → F7 (reportes) |
 | Reportes personalizables, guardados, plantillas | F7 |
 | Exportación PDF | F7 |
 | Administración: usuarios, áreas, categorías, SLA | F4 ✓ |
@@ -364,7 +419,7 @@ Suma de fases: **~16,5 semanas** a un frente; **~12 semanas** con backend y fron
 | 5–7 | F3 — *hecha* |
 | 7–9 | F4 — *hecha* |
 | 9–10 | F5 — *hecha* |
-| 10–11 | F6 |
+| 10–11 | F6 — *hecha* |
 | 11–12 | F7 (escalones 1–4) |
 | 12 | F8 |
 
@@ -406,6 +461,11 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 | Degradación sin IA | Suite con proveedor desactivado + comprobación en el navegador | F5 ✓ |
 | Inyección de instrucciones | Vitest: el texto llega delimitado y la salida se valida contra el esquema | F5 ✓ |
 | La IA no pisa decisiones humanas | Vitest: la prioridad fijada por el supervisor sobrevive a la clasificación | F5 ✓ |
+| Alcance de estadísticas | Supertest: `areaId`/`userId` manipulado → 403, por rol | F6 ✓ |
+| Destinatarios de cada aviso del §8 | Supertest: quién lo recibe y, sobre todo, quién no | F6 ✓ |
+| Una nota interna no genera aviso ni sale en el CSV | Supertest sobre la bandeja y sobre la exportación | F6 ✓ |
+| KPI del tablero | Supertest contra `countDocuments` escritos aparte | F6 ✓ |
+| Encuesta CSAT | Supertest: solo el solicitante, solo resuelto, una sola vez | F6 ✓ |
 | Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 |
 | Recorridos de la defensa | Playwright E2E | F8 |
 | Rendimiento con 10.000 tickets | Script de carga + medición contra §13 | F8 |

@@ -1,10 +1,12 @@
-import { canSetAvailabilityOf, updateAvailabilityInput } from "@tekzaya/shared";
+import { ACTIVE_TICKET_STATUSES, canSetAvailabilityOf, updateAvailabilityInput } from "@tekzaya/shared";
 import { Router } from "express";
 import { AppError } from "../../middleware/errors";
 import { validateBody } from "../../middleware/validate";
+import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { AvailabilityLog } from "../../models/support.models";
 import { buildMeResponse } from "../auth/auth.service";
+import { notify, supervisorsOf } from "../notifications/notifications.service";
 
 const router = Router();
 
@@ -44,6 +46,25 @@ async function applyAvailability(
     from: new Date(),
     changedById,
   });
+
+  // Marcarse ausente con tickets encima es un hueco que alguien tiene que cubrir, y
+  // el supervisor no puede enterarse por casualidad (spec §8, última fila).
+  if (body.state === "away") {
+    const open = await Ticket.countDocuments({
+      assigneeIds: targetId,
+      status: { $in: [...ACTIVE_TICKET_STATUSES] },
+    });
+    if (open > 0) {
+      const supervisors = (await supervisorsOf(String(user.get("areaId")))).filter(
+        (id) => id !== targetId && id !== changedById,
+      );
+      await notify(supervisors, {
+        type: "assignee_away",
+        title: `${user.get("name")} se marcó como ausente`,
+        body: `Tiene ${open} ticket(s) sin resolver asignados.`,
+      });
+    }
+  }
 }
 
 router.patch("/me/availability", validateBody(updateAvailabilityInput), async (req, res) => {
