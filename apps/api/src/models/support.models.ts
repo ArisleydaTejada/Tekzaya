@@ -75,6 +75,7 @@ const settingsSchema = new Schema(
       type: Schema.Types.Mixed,
       default: () => DEFAULT_SETTINGS.incidentDetection,
     },
+    reportLimits: { type: Schema.Types.Mixed, default: () => DEFAULT_SETTINGS.reportLimits },
   },
   { timestamps: true, _id: false },
 );

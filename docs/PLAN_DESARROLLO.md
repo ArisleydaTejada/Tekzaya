@@ -38,19 +38,20 @@ Dependencias de la especificación **ya instaladas**: `recharts`, `@dnd-kit/core
 Esto es deuda, no producto. Lo que queda vive en `apps/web/src/data/mock.ts`:
 
 - ~~**Tablero**~~ — migrado por completo: los 4 KPI, el alcance, el período, la disponibilidad del equipo y la franja de incidente.
-- **Reportes:** solo la pestaña Plantillas tiene contenido, y con datos del mock; *Mis reportes* y *Nuevo* son estados vacíos. Migra en **F7**.
+- ~~**Reportes**~~ — migrada por completo: plantillas, constructor de gráficas, reportes guardados y lista de tickets del período.
 - ~~**Administración**~~ — migrada por completo: Usuarios, Áreas y categorías y Configuración.
 - **Sin `GEMINI_API_KEY`, no hay IA** — y es un modo de funcionamiento previsto, no una carencia: el ticket entra con prioridad *Media* y queda `pending`, listo por si algún día se pone la clave.
 
-> Mientras queden páginas con mock, `mock.ts` traduce los enumerados al contrato
-> (`CONTRACT_PRIORITY`, `CONTRACT_STATUS`, `CONTRACT_SLA`). Es el único punto de
-> traducción y desaparece con la última página migrada.
+> `mock.ts` y `types.ts` **ya no existen**: desaparecieron con la última página
+> migrada (Reportes, F7), tal como estaba previsto. No queda ningún punto de
+> traducción entre los enumerados del prototipo y el contrato.
 
 **Ya no es simulado:** sesión y permisos (F2); tickets, conversación, SLA,
 adjuntos e historial (F3); asignación, transferencias, fusión de duplicados,
 trabajos programados y administración completa (F4); las cinco funciones de
-IA (F5); y tablero, notificaciones, tiempo real, CSAT y exportación CSV (F6).
-**Solo Reportes sigue importando de `mock.ts`.**
+IA (F5); tablero, notificaciones, tiempo real, CSAT y exportación CSV (F6); y
+reportes personalizables con su lista de tickets y sus exportaciones (F7).
+**Ninguna pantalla importa datos simulados.**
 
 ### 1.3 Lo que no existe en absoluto
 
@@ -67,6 +68,8 @@ E2E con Playwright.
 > **Cerrado en F4:** transferencia, fusión y separación de duplicados, "Unirme", carga del área, tres trabajos programados con `node-cron`, la administración completa (personas, áreas, categorías y configuración) y el circuito de invitaciones y restablecimiento de contraseña. 135 pruebas en total.
 >
 > **Cerrado en F6:** Socket.IO con las tres salas, la tabla de avisos del §8 completa, la bandeja de notificaciones, los cinco endpoints de `/stats`, el tablero de los cuatro roles con datos reales, la encuesta CSAT y la exportación CSV desde el servidor. 198 pruebas en total.
+>
+> **Cerrado en F7:** el catálogo de 35 medidas y 13 dimensiones, el constructor con sus doce tipos de gráfica, trece plantillas repartidas por rol, los reportes guardados, la lista de tickets del período con filtros avanzados y columnas, y las exportaciones CSV, PDF y PNG. 248 pruebas en total.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -335,18 +338,37 @@ Decisiones tomadas al ejecutarla:
 
 ---
 
-### F7 · Reportes personalizables — *2,5 semanas*
+### F7 · Reportes personalizables — *hecha*
 
-La pieza más grande y la que el spec ya señala como candidata a recorte (§16). Se construye en este orden, y cada escalón es entregable por sí solo:
+La pieza más grande y la que el spec ya señala como candidata a recorte (§16). Se construyó en este orden, y cada escalón es entregable por sí solo:
 
-1. `GET /reports/catalog` filtrado por rol + **plantillas** (lo que hoy ya se ve en la interfaz, pero con datos reales).
+1. `GET /reports/catalog` filtrado por rol + **plantillas** con datos reales.
 2. `POST /reports/query` con **revalidación de alcance en el servidor** y gráficas de barras, línea, dona y tabla.
-3. `GET /reports/tickets`: lista con filtros avanzados, columnas configurables y `?format=csv`.
-4. `GET|POST|PUT|DELETE /reports`: reportes guardados (pestañas *Mis reportes* y *Nuevo*, hoy vacías).
-5. Exportación: CSV en el servidor, PDF y PNG en el navegador (`html2canvas` + `jsPDF`).
-6. Solo si sobra tiempo: radar, mapa de calor, barra segmentada y comparaciones.
+3. `GET /reports/tickets` y `/reports/tickets/export`: lista con filtros avanzados, columnas configurables y CSV.
+4. `GET|POST|PUT|DELETE /reports` y `POST /reports/:id/duplicate`: reportes guardados (pestañas *Mis reportes* y *Nuevo*, antes vacías).
+5. Exportación: CSV en el servidor, PDF y PNG en el navegador.
+6. **No sobró tiempo, entró igual:** radar, mapa de calor, barra segmentada, semidona y comparación con el período anterior.
 
-**DoD:** un empleado que manipule el `userId` o el `areaId` del payload recibe **403**, con prueba automatizada que lo demuestra para los 4 roles.
+**DoD:** un empleado que manipule el `userId` o el `areaId` del payload recibe **403**, con prueba automatizada que lo demuestra **para los 4 roles** (`reports.test.ts`, bloque *alcance revalidado en el servidor*): se prueban los cuatro alcances pedidos a mano en el payload, el `areaId` de un filtro de gráfica, el término de comparación, la lista de tickets y el CSV. **Verificado también en el navegador**: el empleado no ve siquiera el selector de alcance (solo tiene "Yo"), sus plantillas son las tres personales y sus KPI miden solo lo suyo; el supervisor recibe `Mi área | Una persona de mi área | Yo`, y el administrador, las cuatro opciones y la comparativa entre áreas. Además se barrieron **las 35 medidas contra las 13 dimensiones** sobre los datos semilla (455 combinaciones, más las segmentadas y las comparadas): dos reventaban y están corregidas y cubiertas con prueba —agrupar por tiempo una medida anclada en el historial, y preguntar por los responsables de un ticket ya partido por responsable—. 250 pruebas en total.
+
+Decisiones tomadas al ejecutarla:
+
+- **Cada medida se mide sobre su propia ventana.** "Resueltos este mes" son los que se resolvieron dentro de la ventana, no los que se crearon en ella; el mismo ticket puede contar en enero para una medida y en marzo para otra (spec §9). Cada medida declara su *ancla* y la gráfica junta después las filas por la clave del grupo: eso es lo que permite dibujar "recibidos frente a resueltos" en la misma gráfica sin que ninguna de las dos series mienta.
+- **El catálogo de lo posible vive en `packages/shared`.** El panel deshabilita las opciones incompatibles con la misma función (`validateWidget`) con la que el servidor responde 422. Si la regla viviera dos veces, la interfaz ofrecería combinaciones que la API rechaza, que es exactamente lo que el spec §7.8.3 pide evitar.
+- **El radar solo admite porcentajes y el CSAT.** Normalizar un recuento a "0–100 donde más lejos es mejor" exigiría inventarse un techo; con porcentajes la normalización es exacta y la gráfica no miente sobre una escala que no existe.
+- **Los totales no se suman de las filas.** Una media de medias no es la media y un porcentaje por persona no se promedia: el total se vuelve a medir sin dimensión. Por lo mismo, **«Otros» solo suma recuentos** y se queda sin valor cuando la medida es un porcentaje o un tiempo.
+- **El alcance de la lista no es el de las gráficas.** Un empleado ve **todos los tickets de su área** —puede leer esas conversaciones por la regla del §7.5— aunque sus gráficas sigan siendo solo suyas (spec §7.8.9). Es la única excepción, y solo para quien no tiene elección: si un supervisor elige "Yo", su lista también se acota.
+- **RRHH ve la ficha de todas las áreas, no su conversación.** Cada fila viaja con un `readable` resuelto por el motor de permisos; el número solo es un enlace cuando se puede abrir, y el endpoint de detalle vuelve a comprobarlo.
+- **Los filtros de tiempo se miden en horas laborales**, que Mongo no sabe calcular. Cuando hay uno activo, la consulta trae hasta el techo de 10 000 filas del §7.8.9, calcula con el motor de F1 y pagina arriba. Es más caro y es lo correcto: un "más de 8 horas" medido con reloj de pared contaría las noches.
+- **El alcance guardado se revalida al abrir, no al guardar** (spec §7.8.1). Un reporte que guardó un supervisor y abre alguien que dejó de serlo no falla: se abre recortado a lo que su rol permite hoy (`effectiveScope`, `scopeNarrowed`) y la pantalla lo avisa. Se guarda lo que se **pidió**, para que recuperar el rol devuelva el reporte completo sin rehacerlo.
+- **El atraso se reconstruye con fechas, no con el estado de hoy**: creado antes del corte y sin resolución, cierre, cancelación ni fusión anteriores a él. Así "pendientes en marzo" sigue siendo cierto consultado en junio.
+- **El PNG sale del SVG de la gráfica y el PDF, de la impresión del navegador**, en vez de `html2canvas` + `jsPDF` como preveía el plan. Recharts ya dibuja en vectores: rasterizar el DOM daría una copia peor de algo que no hace falta copiar, y por el camino añadiría dos dependencias pesadas. En el PDF, además, el texto sigue siendo texto.
+- **El CSV de las gráficas va en un archivo con un bloque por gráfica**, no en un `.zip` con un archivo cada una: el `.zip` obligaría a añadir una dependencia de compresión para que Excel enseñe exactamente lo mismo.
+- **Los duplicados fusionados quedan fuera de las métricas pero sí salen en la lista.** Son histórico, y la lista del §7.8.9 incluye todos los estados. Por eso la tabla puede mostrar más tickets que la KPI "creados": la diferencia son justo los fusionados.
+- **Los límites los fija el administrador** (`settings.reportLimits`: reportes guardados por persona y gráficas por reporte, spec §7.7), y se aplican en el servidor al guardar, no en la pantalla.
+- **Pulsar una barra o una porción filtra la lista** (spec §7.8.2). Las dimensiones sin filtro equivalente —el tiempo, el resultado de la IA— no hacen nada en vez de llevar a una lista que no corresponde con lo que se pulsó.
+
+Quedó fuera, y se dice para no buscarlo después: **arrastrar y redimensionar** las tarjetas en modo edición (el tamaño se elige en el panel: un tercio, media o ancho completo) y las **vistas de filtros con nombre** independientes del reporte (los filtros se guardan con el reporte, que es lo que el §7.8.9 pide primero).
 
 ---
 
@@ -383,9 +405,9 @@ La pieza más grande y la que el spec ya señala como candidata a recorte (§16)
 | Notificaciones en tiempo real | F6 ✓ |
 | Tableros por rol (4 KPI, sin gráficas) | F6 ✓ |
 | CSAT | F6 ✓ |
-| Exportación CSV | F6 ✓ (tickets/tablero) → F7 (reportes) |
-| Reportes personalizables, guardados, plantillas | F7 |
-| Exportación PDF | F7 |
+| Exportación CSV | F6 ✓ (tickets/tablero) → F7 ✓ (reportes) |
+| Reportes personalizables, guardados, plantillas | F7 ✓ |
+| Exportación PDF | F7 ✓ |
 | Administración: usuarios, áreas, categorías, SLA | F4 ✓ |
 | Invitaciones y restablecimiento de contraseña | F4 ✓ (previsto en F2) |
 | Requisitos no funcionales §13 | F8 |
@@ -420,7 +442,7 @@ Suma de fases: **~16,5 semanas** a un frente; **~12 semanas** con backend y fron
 | 7–9 | F4 — *hecha* |
 | 9–10 | F5 — *hecha* |
 | 10–11 | F6 — *hecha* |
-| 11–12 | F7 (escalones 1–4) |
+| 11–12 | F7 — *hecha* (los seis escalones) |
 | 12 | F8 |
 
 > **Hito de seguridad:** al terminar F6 (semana ~11) ya existe un producto defendible completo sin Reportes avanzados. Todo lo posterior es mejora, no supervivencia.
@@ -466,7 +488,11 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 | Una nota interna no genera aviso ni sale en el CSV | Supertest sobre la bandeja y sobre la exportación | F6 ✓ |
 | KPI del tablero | Supertest contra `countDocuments` escritos aparte | F6 ✓ |
 | Encuesta CSAT | Supertest: solo el solicitante, solo resuelto, una sola vez | F6 ✓ |
-| Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 |
+| Alcance de reportes | Supertest: payload manipulado → 403, por rol | F7 ✓ |
+| Combinaciones de gráfica imposibles | Vitest sobre `validateWidget`, la misma función que usa el panel | F7 ✓ |
+| Medidas contra una cuenta escrita aparte | Supertest: creados, resueltos, fusionados fuera, porcentaje sin denominador | F7 ✓ |
+| Filtros y columnas de la lista del período | Supertest: número, estado, texto, horas laborales y CSV sin conversación | F7 ✓ |
+| Reporte guardado que pierde alcance | Supertest: se abre recortado, no falla | F7 ✓ |
 | Recorridos de la defensa | Playwright E2E | F8 |
 | Rendimiento con 10.000 tickets | Script de carga + medición contra §13 | F8 |
 
@@ -503,6 +529,7 @@ Además de los del spec §16, los que introduce el estado actual del repositorio
 | La demo depende de internet (Gemini y Google) | Modo sin IA probado + login por correo como respaldo | F5 ✓, F8 |
 | **El plan gratuito de Gemini permite 5 peticiones por minuto** | Medido con la clave real: escribir en el formulario de nuevo ticket puede agotarlo en segundos. La caché y el *debounce* lo contienen, y al agotarse la aplicación sigue funcionando sin IA. Para la defensa: no encadenar creaciones de ticket, o apagar `suggestArea` en Configuración | F5 ✓ |
 | Google retira nombres de modelo | `GEMINI_MODEL` se cambia en el `.env` sin tocar código; el 404 dice cuál usar | F5 ✓ |
+| Reportes lentos con muchos tickets (spec §16) | Una consulta por gráfica, con su propio esqueleto de carga; techo de grupos por gráfica y de 10 000 filas por lista; los filtros que exigen horas laborales avisan de ese techo | F7 ✓, F8 (medición con 10.000 tickets) |
 | Falla el equipo de la presentación | Ensayo completo en esa máquina con antelación | F8 |
 
 ---
@@ -512,8 +539,8 @@ Además de los del spec §16, los que introduce el estado actual del repositorio
 Heredadas de `PRODUCT.md`:
 
 - **Logo definitivo** (hoy hay un logotipo tipográfico provisional).
-- **Promedio anónimo del área** en los reportes de empleados: ¿se muestra?
-- **Compartir reportes guardados** entre usuarios: ¿entra en Fase 1?
+- **Promedio anónimo del área** en los reportes de empleados: ¿se muestra? *(Sigue abierta: hoy un empleado solo ve sus propios números.)*
+- ~~**Compartir reportes guardados** entre usuarios~~ — **cerrada en F7: no.** Los reportes son personales (spec §7.8.1). Compartirlos abriría una vía para que alguien viera, a través del reporte de otro, datos fuera de su alcance; y mientras no se compartan, filtrar por dueño basta para que eso no pueda ocurrir.
 
 Nuevas, que este plan necesita cerrar en F0:
 

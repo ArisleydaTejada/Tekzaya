@@ -26,24 +26,40 @@ export const STATS_PERIOD_LABEL: Record<StatsPeriod, string> = {
  * alcance desde la sesión y responde 403 si el payload pide más de lo permitido
  * (spec §10.4). El mismo esquema sirve para las KPI, las gráficas y el CSV.
  */
-export const statsQuery = z
-  .object({
-    scope: statsScope.default("area"),
-    areaId: objectId.optional(),
-    userId: objectId.optional(),
-    period: statsPeriod.default("week"),
-    /** Solo con `period=range`; fechas en la zona de la empresa. */
-    from: z.iso.date().optional(),
-    to: z.iso.date().optional(),
-  })
-  .refine((value) => value.period !== "range" || (value.from !== undefined && value.to !== undefined), {
-    message: "Un rango personalizado necesita fecha de inicio y de fin",
-    path: ["from"],
-  })
-  .refine((value) => value.scope !== "user" || value.userId !== undefined, {
-    message: "Indica de quién son las estadísticas",
-    path: ["userId"],
-  });
+export const statsQueryFields = z.object({
+  scope: statsScope.default("area"),
+  areaId: objectId.optional(),
+  userId: objectId.optional(),
+  period: statsPeriod.default("week"),
+  /** Solo con `period=range`; fechas en la zona de la empresa. */
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+export type StatsQueryFields = z.infer<typeof statsQueryFields>;
+
+/**
+ * Las dos reglas que acompañan a ese par de campos. Van aparte para que los
+ * esquemas de Reportes (§7.8), que añaden gráficas, filtros y columnas sobre el
+ * mismo alcance y período, no tengan que repetirlas ni puedan olvidarlas.
+ */
+export function scopeRangeRules(value: StatsQueryFields, ctx: z.RefinementCtx): void {
+  if (value.period === "range" && (value.from === undefined || value.to === undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Un rango personalizado necesita fecha de inicio y de fin",
+      path: ["from"],
+    });
+  }
+  if (value.scope === "user" && value.userId === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Indica de quién son las estadísticas",
+      path: ["userId"],
+    });
+  }
+}
+
+export const statsQuery = statsQueryFields.superRefine(scopeRangeRules);
 export type StatsQuery = z.infer<typeof statsQuery>;
 
 /** Ventana que el servidor resolvió a partir del período; la interfaz la muestra tal cual. */

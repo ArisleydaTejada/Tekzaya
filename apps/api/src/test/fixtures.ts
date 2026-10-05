@@ -25,7 +25,7 @@ export interface Fixture {
   areas: { it: Types.ObjectId; ventas: Types.ObjectId };
   categories: { redes: Types.ObjectId };
   users: Record<
-    "admin" | "supIt" | "agentIt" | "employeeIt" | "employeeVentas" | "supVentas",
+    "admin" | "supIt" | "agentIt" | "employeeIt" | "employeeVentas" | "supVentas" | "supRrhh",
     { id: Types.ObjectId; email: string }
   >;
 }
@@ -86,6 +86,16 @@ export async function resetDatabase(): Promise<Fixture> {
     { key: "employeeIt", name: "Elsa Empleada", areaId: areas.it },
     { key: "employeeVentas", name: "Vito Ventas", areaId: areas.ventas },
     { key: "supVentas", name: "Vera Supervisora", areaId: areas.ventas, isAreaSupervisor: true },
+    // Supervisor de RRHH: lectura global sin permisos de gestión (spec §4.2). Es el
+    // rol que separa "ver los números de todas las áreas" de "abrir sus
+    // conversaciones". Aquí no supervisa su área, para que añadirlo no cambie quién
+    // recibe los avisos de Ventas en las pruebas de F4.
+    {
+      key: "supRrhh",
+      name: "Rita Recursos",
+      areaId: areas.ventas,
+      hasGlobalReadAccess: true,
+    },
   ];
 
   const users = {} as Fixture["users"];
@@ -102,7 +112,7 @@ export async function resetDatabase(): Promise<Fixture> {
         areaId: person.areaId,
         role: person.role ?? "employee",
         isAreaSupervisor: person.isAreaSupervisor ?? false,
-        hasGlobalReadAccess: false,
+        hasGlobalReadAccess: person.hasGlobalReadAccess ?? false,
         status: "active",
         availability: { state: "available" },
       };

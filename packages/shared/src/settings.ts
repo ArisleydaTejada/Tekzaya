@@ -53,6 +53,11 @@ export const settings = z.object({
     minConfidence: z.number().min(0).max(1),
     minTickets: z.number().int().min(2),
   }),
+  /** Límites de la sección Reportes (spec §7.7, §7.8.8). */
+  reportLimits: z.object({
+    maxSavedReports: z.number().int().min(1).max(200),
+    maxWidgetsPerReport: z.number().int().min(1).max(24),
+  }),
 });
 export type Settings = z.infer<typeof settings>;
 
@@ -91,6 +96,7 @@ export const DEFAULT_SETTINGS: Settings = {
     detectIncidents: true,
   },
   incidentDetection: { windowHours: 48, minConfidence: 0.6, minTickets: 3 },
+  reportLimits: { maxSavedReports: 20, maxWidgetsPerReport: 12 },
 };
 
 /**
@@ -111,6 +117,12 @@ export const updateSettingsInput = z.object({
       summary: z.boolean(),
       autocomplete: z.boolean(),
       detectIncidents: z.boolean(),
+    })
+    .optional(),
+  reportLimits: z
+    .object({
+      maxSavedReports: z.number().int().min(1).max(200),
+      maxWidgetsPerReport: z.number().int().min(1).max(24),
     })
     .optional(),
 });

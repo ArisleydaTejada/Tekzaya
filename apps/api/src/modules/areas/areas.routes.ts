@@ -54,7 +54,10 @@ router.get("/areas/:id/members", async (req, res) => {
   const areaId = routeParam(req.params["id"]);
   if (!Types.ObjectId.isValid(areaId)) throw new AppError(404, "not_found", "Esa área no existe");
 
-  if (!isAdmin(actor) && actor.areaId !== areaId) {
+  // `hasGlobalReadAccess` entra aquí porque RRHH necesita elegir "una persona" en
+  // Reportes (spec §7.8.1) y ya ve la disponibilidad de todas las áreas en el tablero.
+  // Sigue siendo lectura: no le da ningún permiso de gestión sobre esas personas.
+  if (!isAdmin(actor) && !actor.hasGlobalReadAccess && actor.areaId !== areaId) {
     throw new AppError(403, "forbidden", "Solo puedes consultar los miembros de tu área");
   }
 

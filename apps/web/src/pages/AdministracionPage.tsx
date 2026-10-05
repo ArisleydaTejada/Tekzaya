@@ -1173,6 +1173,44 @@ function ConfiguracionTab() {
         />
       </Plate>
 
+      <Plate className="space-y-3 p-4">
+        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+          Límites de Reportes
+        </h3>
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          Cada persona guarda sus propios reportes; el límite evita que una biblioteca
+          personal se vuelva ingobernable (spec §7.8.8).
+        </p>
+        <Field
+          label="Reportes guardados por persona"
+          type="number"
+          min="1"
+          value={String(draft.reportLimits.maxSavedReports)}
+          onChange={(event) =>
+            patch({
+              reportLimits: {
+                ...draft.reportLimits,
+                maxSavedReports: Number(event.target.value),
+              },
+            })
+          }
+        />
+        <Field
+          label="Gráficas por reporte"
+          type="number"
+          min="1"
+          value={String(draft.reportLimits.maxWidgetsPerReport)}
+          onChange={(event) =>
+            patch({
+              reportLimits: {
+                ...draft.reportLimits,
+                maxWidgetsPerReport: Number(event.target.value),
+              },
+            })
+          }
+        />
+      </Plate>
+
       <Plate className="space-y-2 p-4 lg:col-span-2">
         <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Funciones de inteligencia artificial

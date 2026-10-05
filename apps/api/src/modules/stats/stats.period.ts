@@ -105,3 +105,49 @@ export const PERIOD_FILE_LABEL: Record<StatsPeriod, string> = {
   year: "ano",
   range: "rango",
 };
+
+/**
+ * El mismo período, una vuelta atrás, para la comparación del paso 8 del
+ * constructor de reportes (spec §7.8.3). Se corta por calendario igual que el
+ * período en curso —"el mes pasado" empieza el día 1— pero se queda con la **misma
+ * duración transcurrida**: comparar quince días de marzo contra los treinta y uno
+ * de febrero diría que todo ha bajado a la mitad.
+ */
+export function previousRange(range: StatsRange, hours: BusinessHours): StatsRange {
+  const zone = hours.timezone;
+  const from = new Date(range.from);
+  const span = new Date(range.to).getTime() - from.getTime();
+
+  if (range.period === "range") {
+    return {
+      period: "range",
+      from: new Date(from.getTime() - span).toISOString(),
+      to: range.from,
+    };
+  }
+
+  const clock = wallClockIn(from, zone);
+  const start = ((): Date => {
+    switch (range.period) {
+      case "day":
+        return startOfDay(new Date(from.getTime() - 86_400_000), zone);
+      case "week":
+        // Se vuelve a truncar a medianoche: restar siete días en bruto cae una hora
+        // antes o después si en medio hubo cambio de horario de verano.
+        return startOfDay(new Date(from.getTime() - 7 * 86_400_000), zone);
+      case "month": {
+        const month = clock.month === 1 ? 12 : clock.month - 1;
+        const year = clock.month === 1 ? clock.year - 1 : clock.year;
+        return zonedTimeToUtc({ year, month, day: 1 }, 0, 0, zone);
+      }
+      default:
+        return zonedTimeToUtc({ year: clock.year - 1, month: 1, day: 1 }, 0, 0, zone);
+    }
+  })();
+
+  return {
+    period: range.period,
+    from: start.toISOString(),
+    to: new Date(start.getTime() + span).toISOString(),
+  };
+}

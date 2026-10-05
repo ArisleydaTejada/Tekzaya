@@ -55,6 +55,20 @@
   --chart-baja: #1f9a63;
   --chart-grid: var(--color-placard-border);
   --chart-axis: var(--color-placard-ink-dim);
+
+  /* Categorical ramp for the report builder: a chart's series are an identity, not a
+     reading, so this run deliberately avoids the reserved red/amber/green trio
+     (DESIGN.md, "The Semantic Three Rule"). Ordered by adjacency so the first two
+     series of any chart are the furthest apart. The gray is reserved for the
+     comparison term (previous period), which must never read as a series of its own. */
+  --chart-cat-1: #6c5ce7;
+  --chart-cat-2: #1f9a63;
+  --chart-cat-3: #2f6fcb;
+  --chart-cat-4: #d6449c;
+  --chart-cat-5: #0e9c8e;
+  --chart-cat-6: #c67f1e;
+  --chart-cat-7: #7c8cae;
+  --chart-compare: #9aa3b2;
 }
 
 [data-theme="dark"] {
@@ -75,6 +89,15 @@
   --chart-baja: #2fa374;
   --chart-grid: var(--color-panel-bezel);
   --chart-axis: var(--color-panel-ink-dim);
+
+  --chart-cat-1: #8b7cf6;
+  --chart-cat-2: #2fa374;
+  --chart-cat-3: #5b8fe0;
+  --chart-cat-4: #c24e8e;
+  --chart-cat-5: #1d9a78;
+  --chart-cat-6: #e0a24a;
+  --chart-cat-7: #9aa8c4;
+  --chart-compare: #6b7384;
 }
 
 @layer base {
@@ -129,5 +152,36 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* El PDF de un reporte se imprime desde el navegador, que es donde está el diseño
+   (spec §7.2.4 y §7.8.8): se quita el cromo de la aplicación, se fuerza el papel
+   blanco y se evita que una gráfica se parta entre dos hojas. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  [data-theme="dark"] {
+    background: #ffffff !important;
+    --content-bg: #ffffff;
+    --content-surface: #ffffff;
+    --content-border: #d6d9e0;
+    --content-ink: #12141a;
+    --content-ink-dim: #5b6472;
+    --content-shadow: none;
+  }
+
+  .print-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-full {
+    display: block !important;
+    overflow: visible !important;
+    max-height: none !important;
   }
 }

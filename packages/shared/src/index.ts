@@ -12,4 +12,5 @@ export * from "./permissions";
 export * from "./ai";
 export * from "./notification";
 export * from "./stats";
+export * from "./report";
 export * from "./realtime";

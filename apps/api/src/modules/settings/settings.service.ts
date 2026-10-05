@@ -34,6 +34,8 @@ export async function getSettings(): Promise<SettingsShape> {
         incidentDetection:
           (doc.incidentDetection as SettingsShape["incidentDetection"]) ??
           DEFAULT_SETTINGS.incidentDetection,
+        reportLimits:
+          (doc.reportLimits as SettingsShape["reportLimits"]) ?? DEFAULT_SETTINGS.reportLimits,
       }
     : // Sin semilla todavía: la API arranca igual con los valores del spec §5.3.
       {

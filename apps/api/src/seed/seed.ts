@@ -195,8 +195,8 @@ async function main(): Promise<void> {
     membersByArea.set(key, [...(membersByArea.get(key) ?? []), user]);
   }
 
-  await AvailabilityLog.insertMany(
-    users
+  await AvailabilityLog.insertMany([
+    ...users
       .filter((user) => user.availability.state === "away")
       .map((user) => ({
         userId: user._id,
@@ -205,7 +205,25 @@ async function main(): Promise<void> {
         from: new Date(now.getTime() - 2 * 86_400_000),
         changedById: user._id,
       })),
-  );
+    // Ausencias ya terminadas, repartidas en los últimos dos meses: sin ellas, la
+    // medida "Días de ausencia" y la plantilla "Ausencias frente a carga de trabajo"
+    // (F7) salen en blanco, y el tramo abierto de arriba solo cubre a quien está fuera
+    // hoy. La semilla es material de defensa, no relleno.
+    ...users.slice(0, 5).flatMap((user, index) => {
+      const startedDaysAgo = 12 + index * 9;
+      const length = 2 + (index % 3);
+      return [
+        {
+          userId: user._id,
+          state: "away" as const,
+          reason: index % 2 === 0 ? ("vacation" as const) : ("leave" as const),
+          from: new Date(now.getTime() - startedDaysAgo * 86_400_000),
+          to: new Date(now.getTime() - (startedDaysAgo - length) * 86_400_000),
+          changedById: user._id,
+        },
+      ];
+    }),
+  ]);
 
   // ── Tickets ────────────────────────────────────────────────
   const built: BuiltTicket[] = [];
