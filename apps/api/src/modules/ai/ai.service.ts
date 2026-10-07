@@ -36,48 +36,76 @@ async function usable(feature: keyof AiStatus["enabled"]): Promise<boolean> {
   return settings.aiEnabled[feature];
 }
 
-// ── IA-1 · Sugerencia de área ─────────────────────────────────
+// ── IA-1 · Sugerencia de área y categoría ──────────────────────
 
+/**
+ * La pide el botón «Clasificar con IA» del formulario de alta, nunca el teclado:
+ * ninguna función de IA se dispara sola, para que la cuota se gaste cuando
+ * alguien decide gastarla y no cada vez que se escribe una frase.
+ *
+ * Devuelve área **y** categoría en una sola llamada: son dos desplegables
+ * contiguos del mismo formulario, y preguntarlos por separado costaría el doble.
+ */
 export async function suggestArea(input: SuggestAreaInput): Promise<AreaSuggestion | null> {
   const text = `${input.title}\n${input.description}`.trim();
   if (text.length < MIN_TEXT_LENGTH) return null;
   if (!(await usable("suggestArea"))) return null;
 
   const areas = await Area.find({ isActive: { $ne: false } })
-    .select("name description")
+    .select("name description categories")
     .lean();
   if (areas.length === 0) return null;
 
   return remember(cacheKey("suggest-area", text), SUGGESTION_TTL_MS, async () => {
+    // Cada área se numera, y sus categorías activas se numeran dentro de ella: el
+    // modelo responde con dos números y no puede inventarse un identificador.
+    const categoriesByArea = areas.map((area) =>
+      (area.categories ?? []).filter((category) => category.isActive !== false),
+    );
     const catalog = areas
-      .map((area, index) => `${index + 1}. ${area.name}: ${area.description ?? "sin descripción"}`)
+      .map((area, index) => {
+        const list = categoriesByArea[index]!;
+        const names = list.length
+          ? list.map((category, position) => `${position + 1}) ${category.name}`).join(", ")
+          : "sin categorías";
+        return `${index + 1}. ${area.name}: ${area.description ?? "sin descripción"} — categorías: ${names}`;
+      })
       .join("\n");
 
-    // El modelo elige por número de la lista, no por identificador: no hay forma
-    // de que devuelva un id que no exista, y si inventa un número, el esquema lo
-    // rechaza y la respuesta se queda en `null`.
     const result = await aiProvider().json({
       instruction:
         "Eres el clasificador de un sistema de tickets de soporte interno. " +
-        `Estas son las áreas disponibles:\n${catalog}\n\n` +
-        "Devuelve JSON con {areaNumber, confidence, rationale}: el número del área " +
-        "que debe atender el ticket, tu confianza de 0 a 1, y una frase breve en " +
-        "español explicando por qué. Si el texto no permite decidir, usa confidence baja.",
+        `Estas son las áreas disponibles y sus categorías:\n${catalog}\n\n` +
+        "Devuelve JSON con {areaNumber, categoryNumber, confidence, rationale}: el " +
+        "número del área que debe atender el ticket, el número de la categoría " +
+        "dentro de esa área (o null si ninguna encaja), tu confianza de 0 a 1, y una " +
+        "frase breve en español explicando por qué. Si el texto no permite decidir, " +
+        "usa confidence baja.",
       data: text,
       schema: z.object({
         areaNumber: z.number().int().min(1).max(areas.length),
+        categoryNumber: z.number().int().min(1).nullable().optional(),
         confidence: z.number().min(0).max(1),
         rationale: z.string().max(280).optional(),
       }),
-      timeoutMs: 4_000,
-      maxOutputTokens: 200,
+      // Ahora la espera la provoca un botón, y quien lo pulsa prefiere esperar un
+      // segundo más a quedarse sin sugerencia por un corte demasiado corto.
+      timeoutMs: 8_000,
+      maxOutputTokens: 250,
     });
 
     if (!result) return null;
     const area = areas[result.areaNumber - 1]!;
+    // Un número de categoría fuera de rango se descarta en silencio: el área ya
+    // vale por sí sola y el desplegable se queda como estaba.
+    const category = result.categoryNumber
+      ? categoriesByArea[result.areaNumber - 1]![result.categoryNumber - 1]
+      : undefined;
+
     return {
       areaId: String(area._id),
       areaName: area.name!,
+      ...(category ? { categoryId: String(category._id), categoryName: category.name! } : {}),
       confidence: result.confidence,
       ...(result.rationale ? { rationale: result.rationale } : {}),
     };
@@ -87,9 +115,10 @@ export async function suggestArea(input: SuggestAreaInput): Promise<AreaSuggesti
 // ── IA-2 · Clasificación ──────────────────────────────────────
 
 /**
- * Clasifica un ticket ya creado. Nunca se llama en el camino de creación: el
- * ticket ya existe y tiene su SLA corriendo, así que esto solo puede mejorarlo
- * o dejarlo como está (spec §6.3).
+ * Clasifica un ticket ya creado. Lo dispara el botón «Clasificar con IA» del
+ * detalle, nunca el alta: crear un ticket no gasta cuota, y para cuando esto
+ * corre el ticket ya tiene su número y su SLA, así que solo puede mejorarlo o
+ * dejarlo como está (spec §6.3).
  */
 export async function classifyTicket(ticketId: string): Promise<Classification | null> {
   if (!(await usable("classify"))) return null;
@@ -242,6 +271,9 @@ export async function autocomplete(
 // ── IA-5 · Detección de incidentes ────────────────────────────
 
 /**
+ * La pide el botón «Buscar incidente» del detalle; no se lanza sola al crear
+ * tickets.
+ *
  * Antes de gastar cuota se hace una preselección **sin IA**: si en la misma área
  * no hay al menos dos tickets recientes parecidos, no hay incidente posible y no
  * se llama a Gemini (spec §6.2).

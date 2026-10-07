@@ -1,4 +1,13 @@
-import { ACTIVE_TICKET_STATUSES, canSetAvailabilityOf, updateAvailabilityInput } from "@tekzaya/shared";
+import {
+  ACTIVE_TICKET_STATUSES,
+  canSetAvailabilityOf,
+  changePasswordInput,
+  updateAvailabilityInput,
+  updateProfileInput,
+  type ChangePasswordInput,
+  type UpdateProfileInput,
+} from "@tekzaya/shared";
+import bcrypt from "bcryptjs";
 import { Router } from "express";
 import { AppError } from "../../middleware/errors";
 import { validateBody } from "../../middleware/validate";
@@ -12,6 +21,52 @@ const router = Router();
 
 router.get("/me", async (_req, res) => {
   res.json(await buildMeResponse(res.locals.actor.id));
+});
+
+// ── Mi perfil (pantalla "Administrar perfil") ─────────────
+
+/**
+ * El nombre es lo único de la ficha que cada quien corrige por su cuenta: es
+ * cómo aparece firmando en cada ticket. El correo identifica la cuenta y el área
+ * y el rol los decide quien administra, así que no entran por aquí.
+ */
+router.patch("/me", validateBody(updateProfileInput), async (req, res) => {
+  const actor = res.locals.actor;
+  const input = req.body as UpdateProfileInput;
+
+  await User.updateOne({ _id: actor.id }, { $set: { name: input.name } });
+  res.json(await buildMeResponse(actor.id));
+});
+
+/**
+ * Cambiar la contraseña desde dentro. Se pide la actual aunque la sesión ya esté
+ * abierta: sin eso, cualquiera que encuentre un equipo sin bloquear se queda con
+ * la cuenta. Quien entró con Google y nunca puso contraseña no tiene ninguna que
+ * confirmar, así que se le manda al enlace de acceso.
+ */
+router.post("/me/password", validateBody(changePasswordInput), async (req, res) => {
+  const actor = res.locals.actor;
+  const input = req.body as ChangePasswordInput;
+
+  const user = await User.findById(actor.id).select("+passwordHash");
+  if (!user) throw new AppError(404, "not_found", "Esa cuenta no existe");
+
+  const hash = user.get("passwordHash") as string | undefined;
+  if (!hash) {
+    throw new AppError(
+      409,
+      "no_password",
+      "Tu cuenta entra con Google y no tiene contraseña; pídele al administrador un enlace para crear una",
+    );
+  }
+  if (!(await bcrypt.compare(input.currentPassword, hash))) {
+    throw new AppError(422, "invalid_credentials", "La contraseña actual no es correcta");
+  }
+
+  user.set("passwordHash", await bcrypt.hash(input.password, 10));
+  await user.save();
+
+  res.status(204).end();
 });
 
 type AvailabilityBody = {

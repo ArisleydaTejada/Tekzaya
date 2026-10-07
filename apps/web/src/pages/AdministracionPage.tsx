@@ -1,6 +1,7 @@
 import {
   PRIORITIES,
   PRIORITY_LABEL,
+  canGrantPrivileges,
   roleLabelOf,
   type AccessLink,
   type AdminArea,
@@ -9,8 +10,9 @@ import {
   type Settings,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
@@ -40,20 +42,30 @@ import {
 import { formatDateTime, formatWhen } from "../lib/format";
 
 const TABS = [
-  { id: "usuarios", label: "Usuarios" },
-  { id: "areas", label: "Áreas y categorías" },
-  { id: "configuracion", label: "Configuración" },
+  { id: "usuarios", label: "Usuarios", adminOnly: false },
+  { id: "areas", label: "Áreas y categorías", adminOnly: true },
+  { id: "configuracion", label: "Configuración", adminOnly: true },
 ];
 
 export default function AdministracionPage() {
   const { tab = "usuarios" } = useParams();
   const navigate = useNavigate();
+  const { me } = useAuth();
+
+  // RRHH entra solo a Usuarios, así que no ve pestañas que no puede abrir.
+  const isAdmin = me?.role === "admin";
+  const tabs = TABS.filter((item) => isAdmin || !item.adminOnly);
 
   return (
     <div>
-      <PageHeader title="Administración" subtitle="Usuarios, áreas y configuración del sistema." />
+      <PageHeader
+        title="Administración"
+        subtitle={
+          isAdmin ? "Usuarios, áreas y configuración del sistema." : "Altas, bajas y datos del personal."
+        }
+      />
       <div className="mb-5 flex gap-1 border-b border-[var(--content-border)]">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => navigate(`/administracion/${t.id}`)}
@@ -79,6 +91,70 @@ const STATUS_LABEL: Record<string, string> = {
   invited: "Invitado",
   disabled: "Desactivado",
 };
+
+// ── Orden de la tabla de personas ─────────────────────────────
+
+type UserColumn = "name" | "area" | "role" | "openTickets" | "status" | "lastLoginAt";
+
+/**
+ * El valor por el que se compara cada columna. El rol y el estado se ordenan por
+ * jerarquía y no por su texto: alfabéticamente, "Activo" iría antes que
+ * "Invitado" por casualidad, y "Administrador" antes que "Empleado" también.
+ */
+const USER_SORT_KEY: Record<UserColumn, (user: AdminUser) => string | number> = {
+  name: (user) => user.name.toLowerCase(),
+  area: (user) => user.areaName.toLowerCase(),
+  role: (user) => (user.role === "admin" ? 0 : user.hasGlobalReadAccess ? 1 : user.isAreaSupervisor ? 2 : 3),
+  openTickets: (user) => user.openTickets,
+  status: (user) => ["active", "invited", "disabled"].indexOf(user.status),
+  // Quien nunca entró va al final en ascendente, que es donde se le busca.
+  lastLoginAt: (user) => (user.lastLoginAt ? Date.parse(user.lastLoginAt) : Number.MAX_SAFE_INTEGER),
+};
+
+function sortUsers(users: AdminUser[], column: UserColumn, dir: "asc" | "desc"): AdminUser[] {
+  const key = USER_SORT_KEY[column];
+  const sign = dir === "asc" ? 1 : -1;
+  return [...users].sort((a, b) => {
+    const left = key(a);
+    const right = key(b);
+    if (left === right) return a.name.localeCompare(b.name);
+    return left < right ? -sign : sign;
+  });
+}
+
+function SortableTh({
+  label,
+  column,
+  sort,
+  dir,
+  onSort,
+}: {
+  label: string;
+  column: UserColumn;
+  sort: UserColumn;
+  dir: "asc" | "desc";
+  onSort: (column: UserColumn) => void;
+}) {
+  const active = sort === column;
+  return (
+    <th
+      className="px-3 py-2.5 font-medium"
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        onClick={() => onSort(column)}
+        className={`flex items-center gap-1 whitespace-nowrap hover:text-[var(--content-ink)] ${
+          active ? "text-[var(--content-ink)]" : ""
+        }`}
+      >
+        {label}
+        <span aria-hidden="true" className={active ? "" : "opacity-0"}>
+          {dir === "asc" ? "↑" : "↓"}
+        </span>
+      </button>
+    </th>
+  );
+}
 
 const STATUS_TONE: Record<string, string> = {
   active: "text-green",
@@ -132,11 +208,28 @@ function UsuariosTab() {
   const [error, setError] = useState<string | null>(null);
 
   const query = { q: search.trim(), status: statusFilter };
-  const { data: users = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading } = useQuery({
     queryKey: adminKeys.users(query),
     queryFn: () => listUsers(query),
     placeholderData: (previous) => previous,
   });
+
+  /*
+   * Aquí sí se ordena en el navegador, al revés que en la lista de tickets: esta
+   * consulta trae todas las personas de una vez, así que lo que hay en memoria
+   * es la tabla entera y no una página suelta.
+   */
+  const [sort, setSort] = useState<UserColumn>("name");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
+  const users = useMemo(() => sortUsers(rows, sort, dir), [rows, sort, dir]);
+
+  function sortBy(column: UserColumn) {
+    if (sort === column) setDir((current) => (current === "asc" ? "desc" : "asc"));
+    else {
+      setSort(column);
+      setDir("asc");
+    }
+  }
   const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -208,12 +301,18 @@ function UsuariosTab() {
         <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
-              <th className="px-3 py-2.5 font-medium">Nombre</th>
-              <th className="px-3 py-2.5 font-medium">Área</th>
-              <th className="px-3 py-2.5 font-medium">Rol</th>
-              <th className="px-3 py-2.5 font-medium">Abiertos</th>
-              <th className="px-3 py-2.5 font-medium">Estado</th>
-              <th className="px-3 py-2.5 font-medium">Último acceso</th>
+              <SortableTh label="Nombre" column="name" sort={sort} dir={dir} onSort={sortBy} />
+              <SortableTh label="Área" column="area" sort={sort} dir={dir} onSort={sortBy} />
+              <SortableTh label="Rol" column="role" sort={sort} dir={dir} onSort={sortBy} />
+              <SortableTh label="Abiertos" column="openTickets" sort={sort} dir={dir} onSort={sortBy} />
+              <SortableTh label="Estado" column="status" sort={sort} dir={dir} onSort={sortBy} />
+              <SortableTh
+                label="Último acceso"
+                column="lastLoginAt"
+                sort={sort}
+                dir={dir}
+                onSort={sortBy}
+              />
               <th className="px-3 py-2.5 font-medium">Acciones</th>
             </tr>
           </thead>
@@ -533,6 +632,11 @@ function RolePicker({
     hasGlobalReadAccess: boolean;
   }) => void;
 }) {
+  const { me } = useAuth();
+  // RRHH lleva las altas y bajas, pero no reparte privilegios: si pudiera dar el
+  // rol de administrador o la lectura global, podría nombrarse a sí misma y el
+  // límite dejaría de existir. El servidor rechaza el intento igualmente.
+  const mayGrant = Boolean(me && canGrantPrivileges(me));
   const current =
     role === "admin"
       ? "admin"
@@ -559,9 +663,18 @@ function RolePicker({
       >
         <option value="employee">Empleado</option>
         <option value="supervisor">Supervisor de área</option>
-        <option value="hr">Supervisor de RRHH (lectura global)</option>
-        <option value="admin">Administrador</option>
+        <option value="hr" disabled={!mayGrant && current !== "hr"}>
+          Supervisor de RRHH (lectura global)
+        </option>
+        <option value="admin" disabled={!mayGrant && current !== "admin"}>
+          Administrador
+        </option>
       </select>
+      {!mayGrant && (
+        <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
+          Nombrar administradores o conceder la lectura global es cosa del administrador.
+        </p>
+      )}
     </div>
   );
 }

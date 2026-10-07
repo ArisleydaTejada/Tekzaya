@@ -1,4 +1,6 @@
+import { formatTicketNumber } from "@tekzaya/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { Message } from "../../models/message.model";
 import { Notification } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 import {
@@ -266,6 +268,103 @@ describe("fusión de duplicados", () => {
     const titulos = response.body.items.map((item: { title: string }) => item.title);
     expect(titulos).toContain("No hay wifi en el segundo piso");
     expect(titulos).not.toContain("Se cayó el wifi en el segundo piso"); // él mismo
+  });
+
+  // ── Fusionar escribiendo el número ──────────────────────────
+
+  it("busca por número el ticket con el que fusionar", async () => {
+    const { principal, duplicado } = await escenario();
+
+    const supervisora = await loginAs(fixture.users.supIt.email);
+    const response = await supervisora
+      .get(`/api/v1/tickets/${String(principal._id)}/merge-lookup`)
+      .query({ number: formatTicketNumber(duplicado.get("number")) });
+
+    expect(response.status).toBe(200);
+    expect(response.body.candidate.id).toBe(String(duplicado._id));
+    expect(response.body.candidate.requesterName).toBe("Elsa Empleada");
+  });
+
+  it("acepta el número suelto, sin el prefijo", async () => {
+    const { principal, duplicado } = await escenario();
+
+    const supervisora = await loginAs(fixture.users.supIt.email);
+    const response = await supervisora
+      .get(`/api/v1/tickets/${String(principal._id)}/merge-lookup`)
+      .query({ number: String(duplicado.get("number")) });
+
+    expect(response.status).toBe(200);
+    expect(response.body.candidate.id).toBe(String(duplicado._id));
+  });
+
+  it("no deja fusionar un ticket consigo mismo ni con uno de otra área", async () => {
+    const { principal } = await escenario();
+    const ajeno = await seedTicket({
+      areaId: fixture.areas.ventas,
+      requesterId: fixture.users.employeeVentas.id,
+      title: "Falta una cotización",
+    });
+
+    const admin = await loginAs(fixture.users.admin.email);
+
+    const propio = await admin
+      .get(`/api/v1/tickets/${String(principal._id)}/merge-lookup`)
+      .query({ number: formatTicketNumber(principal.get("number")) });
+    expect(propio.status).toBe(422);
+
+    const otraArea = await admin
+      .get(`/api/v1/tickets/${String(principal._id)}/merge-lookup`)
+      .query({ number: formatTicketNumber(ajeno.get("number")) });
+    expect(otraArea.status).toBe(422);
+    expect(otraArea.body.error.code).toBe("different_area");
+  });
+
+  it("dice qué número no existe en vez de un 404 pelado", async () => {
+    const { principal } = await escenario();
+
+    const supervisora = await loginAs(fixture.users.supIt.email);
+    const response = await supervisora
+      .get(`/api/v1/tickets/${String(principal._id)}/merge-lookup`)
+      .query({ number: "TK-999999" });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.message).toContain("TK-999999");
+  });
+
+  /**
+   * Lo que pide el ajuste: el duplicado queda cerrado diciendo con cuál se
+   * fusionó, y el principal se queda con su ficha para poder leerla sin salir.
+   */
+  it("deja un mensaje en cada ticket y la ficha del duplicado en el principal", async () => {
+    const { principal, duplicado } = await escenario();
+
+    const supervisora = await loginAs(fixture.users.supIt.email);
+    const response = await supervisora
+      .post(`/api/v1/tickets/${String(principal._id)}/merge`)
+      .send({ duplicateIds: [String(duplicado._id)], reason: "Mismo fallo de wifi" });
+
+    // En el principal: la ficha del duplicado, no solo su número.
+    const [ficha] = response.body.mergedTickets;
+    expect(ficha.number).toBe(duplicado.get("number"));
+    expect(ficha.requesterName).toBe("Elsa Empleada");
+    expect(ficha.description).toBeTruthy();
+    expect(ficha.mergedAt).toBeTruthy();
+
+    const enPrincipal = await Message.findOne({
+      ticketId: principal._id,
+      "systemEvent.kind": "merged",
+    }).lean();
+    expect(enPrincipal!.systemEvent!.to).toBe(formatTicketNumber(duplicado.get("number")));
+
+    // En el duplicado: el mensaje contrario, y el ticket fuera de circulación.
+    const enDuplicado = await Message.findOne({
+      ticketId: duplicado._id,
+      "systemEvent.kind": "merged_into",
+    }).lean();
+    expect(enDuplicado!.systemEvent!.to).toBe(formatTicketNumber(principal.get("number")));
+
+    const absorbido = await Ticket.findById(duplicado._id).lean();
+    expect(absorbido!.status).toBe("merged");
   });
 });
 

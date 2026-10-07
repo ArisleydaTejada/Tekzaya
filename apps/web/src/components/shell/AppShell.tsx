@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import { ChevronDownIcon } from "../icons";
 import { SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -17,19 +16,12 @@ export function AppShell() {
           collapsed ? "w-[72px]" : "w-64"
         }`}
       >
+        {/* Abrir y cerrar la barra vive en su propia cabecera, no en un tirador
+            flotando sobre el contenido: el logo la abre y el icono del panel la
+            cierra, que es donde la mano ya está mirando. */}
         <div className="sticky top-0 h-dvh">
-          <SidebarContent collapsed={collapsed} />
+          <SidebarContent collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
         </div>
-
-        {/* Collapse handle — straddles the panel's edge so it stays put whether the rail is open or closed */}
-        <button
-          type="button"
-          onClick={() => setCollapsed((v) => !v)}
-          className="absolute -right-3 top-8 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-panel-bezel bg-panel-surface-2 text-panel-ink-dim shadow-[0_2px_6px_rgba(0,0,0,0.35)] transition-colors hover:text-panel-ink"
-          aria-label={collapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
-        >
-          <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${collapsed ? "-rotate-90" : "rotate-90"}`} />
-        </button>
       </aside>
 
       {/* Mobile drawer */}
@@ -51,7 +43,8 @@ export function AppShell() {
               transition={{ type: "spring", stiffness: 320, damping: 34 }}
               className="fixed inset-y-0 left-0 z-50 w-64 bg-panel lg:hidden"
             >
-              <SidebarContent collapsed={false} />
+              {/* En móvil no hay rail estrecho: el mismo icono cierra el cajón. */}
+              <SidebarContent collapsed={false} onToggle={() => setDrawerOpen(false)} />
             </motion.aside>
           </>
         )}

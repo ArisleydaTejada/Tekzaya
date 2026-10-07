@@ -1,12 +1,14 @@
 import {
   aiStatus,
   autocompleteResponse,
+  classifyResponse,
   incidentResponse,
   suggestAreaResponse,
   summaryResponse,
   type AiStatus,
   type AreaSuggestion,
   type AutocompleteInput,
+  type Classification,
   type IncidentGroup,
   type SuggestAreaInput,
   type SummaryResponse,
@@ -33,6 +35,13 @@ export async function suggestArea(input: SuggestAreaInput): Promise<AreaSuggesti
       body: JSON.stringify(input),
     })
   ).suggestion;
+}
+
+/** IA-2 a petición: clasifica un ticket que ya existe y devuelve lo que decidió. */
+export async function classifyTicket(ticketId: string): Promise<Classification | null> {
+  return (
+    await apiFetch(`/ai/tickets/${ticketId}/classify`, classifyResponse, { method: "POST" })
+  ).classification;
 }
 
 export function getSummary(ticketId: string): Promise<SummaryResponse> {

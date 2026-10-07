@@ -189,11 +189,13 @@ export async function mergeTickets(
     { kind: "merged", to: numbers.join(", "), reason: options.reason },
     at,
   );
+  // En el duplicado el mensaje es el contrario y se lee como lo que es: este
+  // ticket dejó de atenderse por su cuenta y su conversación sigue en el otro.
   for (const duplicate of duplicates) {
     await recordSystemEvent(
       idOf(duplicate),
       {
-        kind: "merged",
+        kind: "merged_into",
         to: `TK-${String(principal.get("number")).padStart(6, "0")}`,
         reason: options.reason,
       },

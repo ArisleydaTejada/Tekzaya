@@ -8,11 +8,15 @@ import { getSettings, invalidateSettingsCache } from "./settings.service";
 const router = Router();
 
 /**
- * Lectura abierta a cualquier sesión: la jornada laboral y los interruptores de
- * IA los necesita la interfaz para explicar plazos y ocultar funciones, y aquí no
- * hay nada secreto — las claves viven en el `.env`, nunca en la base.
+ * Solo el administrador, igual que la escritura: Configuración es una pantalla
+ * de administración entera, y de poco sirve esconder la opción en el menú si el
+ * endpoint sigue contando la política de SLA a cualquiera que lo pida a mano
+ * (spec §4.3, última fila de la matriz).
+ *
+ * Lo que la interfaz sí necesita para todos — qué funciones de IA hay — viaja
+ * por `GET /ai/status`, que no expone nada de la configuración.
  */
-router.get("/settings", async (_req, res) => {
+router.get("/settings", requireAdmin, async (_req, res) => {
   res.json(await getSettings());
 });
 

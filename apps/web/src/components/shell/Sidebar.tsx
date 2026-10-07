@@ -3,14 +3,16 @@ import {
   ChartIcon,
   GaugeNavIcon,
   LogOutIcon,
+  PanelIcon,
   PlusIcon,
   SearchIcon,
   SlidersIcon,
   TicketIcon,
+  UserIcon,
   UsersIcon,
   WrenchIcon,
 } from "../icons";
-import { ACTIVE_TICKET_STATUSES } from "@tekzaya/shared";
+import { ACTIVE_TICKET_STATUSES, canManageUsers } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { listTickets, ticketKeys } from "../../api/tickets";
 import { useAuth } from "../../auth/AuthContext";
@@ -21,20 +23,70 @@ const NAV_ITEMS = [
   { to: "/reportes", label: "Reportes", icon: ChartIcon },
 ];
 
+/**
+ * `adminOnly` separa lo que lleva RRHH de lo que es del administrador: RRHH se
+ * encarga de las altas y bajas de personal, pero el catálogo de áreas define
+ * cómo se enruta el trabajo y eso no es suyo (spec §4.3).
+ */
 const ADMIN_ITEMS = [
-  { to: "/administracion/usuarios", label: "Usuarios" },
-  { to: "/administracion/areas", label: "Áreas y categorías" },
+  { to: "/administracion/usuarios", label: "Usuarios", adminOnly: false },
+  { to: "/administracion/areas", label: "Áreas y categorías", adminOnly: true },
 ];
 
-function Logo({ collapsed }: { collapsed: boolean }) {
+function Mark() {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden="true">
+      <path d="M6 7h12M12 7v10" stroke="#f5f3f7" strokeWidth={2.4} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * La cabecera de la barra es también su interruptor.
+ *
+ * Plegada, el logo **es** el botón que la abre: al pasar por encima se convierte
+ * en el icono del panel, que es lo que va a pasar al pulsarlo, y no hace falta
+ * un tirador suelto en el borde para adivinarlo. Abierta, el logo vuelve a ser
+ * logo y el icono se va al otro extremo de la fila, donde cierra.
+ */
+function SidebarHeader({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () => void }) {
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={!onToggle}
+        title="Abrir barra lateral"
+        aria-label="Abrir barra lateral"
+        aria-expanded={false}
+        className="group flex h-8 w-8 items-center justify-center rounded-lg bg-panel-surface-2 text-panel-ink-dim ring-1 ring-inset ring-panel-bezel transition-colors hover:text-panel-ink"
+      >
+        <span className="group-hover:hidden group-focus-visible:hidden">
+          <Mark />
+        </span>
+        <PanelIcon className="hidden h-4 w-4 group-hover:block group-focus-visible:block" />
+      </button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2.5 px-1">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-panel-surface-2 ring-1 ring-inset ring-panel-bezel">
-        <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden="true">
-          <path d="M6 7h12M12 7v10" stroke="#f5f3f7" strokeWidth={2.4} strokeLinecap="round" />
-        </svg>
+        <Mark />
       </span>
-      {!collapsed && <span className="font-display text-lg font-semibold tracking-wide text-panel-ink">TEKZAYA</span>}
+      <span className="font-display text-lg font-semibold tracking-wide text-panel-ink">TEKZAYA</span>
+      {onToggle && (
+        <button
+          type="button"
+          onClick={onToggle}
+          title="Cerrar barra lateral"
+          aria-label="Cerrar barra lateral"
+          aria-expanded
+          className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-panel-ink-dim transition-colors hover:bg-panel-surface-2 hover:text-panel-ink"
+        >
+          <PanelIcon className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -110,18 +162,21 @@ function NavItem({
 
 interface SidebarContentProps {
   collapsed: boolean;
+  /** Sin él la cabecera es solo el logo: el cajón móvil no se pliega, se cierra. */
+  onToggle?: () => void;
 }
 
-export function SidebarContent({ collapsed }: SidebarContentProps) {
+export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
   const { me, logout } = useAuth();
   const isAdmin = me?.role === "admin";
+  const managesUsers = Boolean(me && canManageUsers(me));
   const myOpenCount = useMyOpenCount();
   const navigate = useNavigate();
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto px-3 py-5">
       <div className={collapsed ? "flex justify-center" : ""}>
-        <Logo collapsed={collapsed} />
+        <SidebarHeader collapsed={collapsed} {...(onToggle ? { onToggle } : {})} />
       </div>
 
       <Link
@@ -185,7 +240,7 @@ export function SidebarContent({ collapsed }: SidebarContentProps) {
         </div>
       </nav>
 
-      {isAdmin && (
+      {managesUsers && (
         <div className="flex flex-col gap-1">
           {!collapsed && (
             <div className="flex items-center gap-2 px-3 py-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-panel-ink-dim/70">
@@ -193,7 +248,7 @@ export function SidebarContent({ collapsed }: SidebarContentProps) {
               Administración
             </div>
           )}
-          {ADMIN_ITEMS.map((item) => (
+          {ADMIN_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -212,17 +267,33 @@ export function SidebarContent({ collapsed }: SidebarContentProps) {
 
       <div className="mt-auto flex flex-col gap-1 border-t border-panel-bezel pt-3">
         <NavLink
-          to="/administracion/configuracion"
-          title={collapsed ? "Configuración" : undefined}
+          to="/perfil"
+          title={collapsed ? "Administrar perfil" : undefined}
           className={({ isActive: active }) =>
             `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               collapsed ? "justify-center" : ""
             } ${active ? "bg-accent/15 text-panel-ink" : "text-panel-ink-dim hover:bg-panel-surface-2 hover:text-panel-ink"}`
           }
         >
-          <SlidersIcon />
-          {!collapsed && "Configuración"}
+          <UserIcon />
+          {!collapsed && "Administrar perfil"}
         </NavLink>
+        {/* Configuración es administración del sistema: quien no es administrador
+            ni siquiera ve la opción, porque pulsarla solo le daría un 403. */}
+        {isAdmin && (
+          <NavLink
+            to="/administracion/configuracion"
+            title={collapsed ? "Configuración" : undefined}
+            className={({ isActive: active }) =>
+              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                collapsed ? "justify-center" : ""
+              } ${active ? "bg-accent/15 text-panel-ink" : "text-panel-ink-dim hover:bg-panel-surface-2 hover:text-panel-ink"}`
+            }
+          >
+            <SlidersIcon />
+            {!collapsed && "Configuración"}
+          </NavLink>
+        )}
         <button
           onClick={() => {
             logout();

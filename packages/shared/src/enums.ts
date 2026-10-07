@@ -48,6 +48,18 @@ export function isActiveStatus(status: TicketStatus): boolean {
   return (ACTIVE_TICKET_STATUSES as readonly TicketStatus[]).includes(status);
 }
 
+/**
+ * Estados en los que el reloj del SLA ya paró. No es lo mismo que "final":
+ * *Resuelto* todavía admite reapertura, pero el plazo dejó de correr en cuanto el
+ * área entregó la solución, y seguir contando días contra un ticket entregado
+ * convierte cualquier cierre antiguo en un incumplimiento (spec §5.3).
+ */
+export const SETTLED_TICKET_STATUSES = ["resolved", "closed", "cancelled", "merged"] as const;
+
+export function isSettledStatus(status: TicketStatus): boolean {
+  return (SETTLED_TICKET_STATUSES as readonly TicketStatus[]).includes(status);
+}
+
 // ── Prioridad y SLA (spec §5.3) ───────────────────────────────
 export const PRIORITIES = ["urgent", "high", "medium", "low"] as const;
 export const priority = z.enum(PRIORITIES);

@@ -21,7 +21,7 @@ import {
   statsKeys,
   type StatsRequest,
 } from "../api/stats";
-import { listTickets, ticketKeys } from "../api/tickets";
+import { areaKeys, listAreas, listTickets, ticketKeys } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
 import { PriorityBadge, SlaTag } from "../components/badges";
@@ -62,12 +62,26 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<StatsPeriod>("week");
   const scopes = me ? scopesFor(me) : [];
   const [scope, setScope] = useState<StatsScope>("area");
+  // Área concreta que se está mirando; vacío significa "la mía".
+  const [areaId, setAreaId] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
 
   // El alcance guardado puede no estar permitido (un supervisor degradado a
   // empleado, por ejemplo); en ese caso se cae al primero disponible.
   const activeScope = scopes.some((item) => item.id === scope) ? scope : (scopes[0]?.id ?? "me");
-  const query: StatsRequest = { scope: activeScope, period };
+
+  // Elegir un área distinta de la propia es exactamente el alcance global: lo
+  // tienen el administrador y el supervisor de RRHH, los mismos que en Reportes
+  // (spec §7.2.3). Al resto el servidor les devolvería un 403.
+  const canPickArea = Boolean(me && maxReportScope(me).type === "global");
+  const pickedArea = canPickArea && activeScope === "area" ? areaId : "";
+  const query: StatsRequest = {
+    scope: activeScope,
+    period,
+    ...(pickedArea ? { areaId: pickedArea } : {}),
+  };
+
+  const areas = useQuery({ queryKey: areaKeys.all, queryFn: listAreas, enabled: canPickArea });
 
   const overview = useQuery({
     queryKey: statsKeys.overview(query),
@@ -102,6 +116,21 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
+            )}
+            {canPickArea && activeScope === "area" && (
+              <select
+                value={areaId}
+                onChange={(event) => setAreaId(event.target.value)}
+                aria-label="Área del tablero"
+                className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-xs text-[var(--content-ink)]"
+              >
+                <option value="">Mi área</option>
+                {(areas.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
             )}
             <div className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
               {PERIODS.map((item) => (
@@ -219,8 +248,11 @@ function subtitleOf(overview: StatsOverview | undefined): string {
   if (!overview) return "Cargando tus indicadores…";
   if (overview.kpis.kind === "area") {
     const { pending, unassigned } = overview.kpis;
-    if (pending === 0) return "El área no tiene tickets pendientes.";
-    return `El área tiene ${pending} ${pending === 1 ? "ticket" : "tickets"} sin resolver, ${unassigned} sin asignar.`;
+    // Con el selector de área, "el área" ya no es evidente: se nombra.
+    const subject =
+      overview.scope === "global" ? "Todas las áreas" : (overview.areaName ?? "El área");
+    if (pending === 0) return `${subject} no tiene tickets pendientes.`;
+    return `${subject} tiene ${pending} ${pending === 1 ? "ticket" : "tickets"} sin resolver, ${unassigned} sin asignar.`;
   }
   const pending = overview.kpis.pendingForMe;
   return pending > 0
@@ -413,7 +445,7 @@ function AssignedPanel() {
                 </div>
                 <div className="flex items-center gap-3">
                   <PriorityBadge priority={ticket.priority} />
-                  <SlaTag state={ticket.resolutionState} />
+                  <SlaTag state={ticket.resolutionState} status={ticket.status} />
                 </div>
               </Link>
             </li>

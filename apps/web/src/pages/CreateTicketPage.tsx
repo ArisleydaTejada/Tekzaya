@@ -11,7 +11,7 @@ import {
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { aiKeys, getAiStatus, suggestArea } from "../api/ai";
 import { ApiRequestError } from "../api/client";
@@ -38,10 +38,10 @@ export default function CreateTicketPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [areaId, setAreaId] = useState("");
-  const areaTouched = useRef(false);
   const [categoryId, setCategoryId] = useState("");
   const [suggestion, setSuggestion] = useState<AreaSuggestion | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [files, setFiles] = useState<Attachment[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -51,34 +51,40 @@ export default function CreateTicketPage() {
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
   const aiSuggests = Boolean(ai?.configured && ai.enabled.suggestArea);
 
-  // Con menos de 20 caracteres no hay sugerencia que mostrar. Se decide al
-  // pintar, no corrigiendo el estado después: así borrar el texto la esconde
+  // Con menos de 20 caracteres no hay nada que preguntar. Se decide al pintar,
+  // no corrigiendo el estado después: así borrar el texto esconde la sugerencia
   // en el mismo render, sin un parpadeo intermedio.
   const longEnough = `${title} ${description}`.trim().length >= 20;
   const visibleSuggestion = longEnough ? suggestion : null;
 
-  // IA-1: se pregunta tras 800 ms de pausa al escribir (spec §6.2). El efecto
-  // solo programa el temporizador; el estado lo toca la respuesta cuando llega.
-  useEffect(() => {
-    if (!aiSuggests || !longEnough) return;
+  /**
+   * IA-1, y solo cuando alguien lo pide. La cuota gratuita de Gemini se agota
+   * rápido si cada pausa al teclear cuesta una llamada, así que el modelo no
+   * opina hasta que se pulsa el botón (spec §6.3).
+   *
+   * Lo que devuelve se escribe en los dos desplegables: quien pulsó pidió
+   * exactamente eso, y cambiarlos después sigue siendo un clic.
+   */
+  function classifyWithAi() {
+    setAiError(null);
+    setAnalyzing(true);
+    void suggestArea({ title, description })
+      .then((result) => {
+        setSuggestion(result);
+        if (!result) {
+          setAiError("La IA no pudo decidir con este texto. Elige el área a mano.");
+          return;
+        }
+        setAreaId(result.areaId);
+        setCategoryId(result.categoryId ?? "");
+      })
+      .catch((cause: unknown) => {
+        setSuggestion(null);
+        setAiError(cause instanceof Error ? cause.message : "No se pudo consultar a la IA");
+      })
+      .finally(() => setAnalyzing(false));
+  }
 
-    const timer = window.setTimeout(() => {
-      setAnalyzing(true);
-      void suggestArea({ title, description })
-        .then((result) => {
-          setSuggestion(result);
-          // Solo rellena lo que nadie ha tocado: la última palabra es de quien
-          // reporta, no del modelo.
-          if (result && !areaTouched.current && result.confidence >= 0.6) {
-            setAreaId(result.areaId);
-          }
-        })
-        .catch(() => setSuggestion(null))
-        .finally(() => setAnalyzing(false));
-    }, 800);
-
-    return () => window.clearTimeout(timer);
-  }, [title, description, aiSuggests, longEnough]);
   const { data: colleagues = [] } = useQuery({
     queryKey: areaKeys.members(me?.areaId ?? ""),
     queryFn: () => listAreaMembers(me!.areaId),
@@ -197,7 +203,7 @@ export default function CreateTicketPage() {
               setCategoryId("");
               setOnBehalfOf("");
               setSuggestion(null);
-              areaTouched.current = false;
+              setAiError(null);
               setFiles([]);
             }}
             className="rounded-lg border border-[var(--content-border)] px-4 py-2 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-surface)]"
@@ -294,11 +300,6 @@ export default function CreateTicketPage() {
               >
                 Descripción
               </label>
-              {analyzing && (
-                <span className="flex items-center gap-1 text-xs text-accent">
-                  <SparkleIcon className="animate-pulse" /> IA analizando…
-                </span>
-              )}
             </div>
             <textarea
               id="descripcion"
@@ -311,6 +312,33 @@ export default function CreateTicketPage() {
             />
             <FieldError messages={fieldErrors["description"]} />
           </div>
+
+          {/* Un solo botón para los dos campos que siguen: es una clasificación,
+              no dos preguntas, y así cuesta una sola llamada al modelo. */}
+          {aiSuggests && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={classifyWithAi}
+                disabled={!longEnough || analyzing}
+                title={
+                  longEnough
+                    ? "La IA propone departamento y categoría a partir de lo que escribiste"
+                    : "Escribe primero el título y la descripción"
+                }
+                className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <SparkleIcon className={analyzing ? "animate-pulse" : ""} />
+                {analyzing ? "Clasificando…" : "Clasificar con IA"}
+              </button>
+              <span className="text-xs text-[var(--content-ink-dim)]">
+                {longEnough
+                  ? "Rellena departamento y categoría; puedes cambiarlos."
+                  : "Disponible con al menos 20 caracteres."}
+              </span>
+            </div>
+          )}
+          {aiError && <p className="-mt-2 text-xs text-amber">{aiError}</p>}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -325,7 +353,6 @@ export default function CreateTicketPage() {
                 value={areaId}
                 onChange={(event) => {
                   setAreaId(event.target.value);
-                  areaTouched.current = true;
                   setCategoryId("");
                 }}
                 className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
@@ -348,8 +375,11 @@ export default function CreateTicketPage() {
                     className="mt-2 overflow-hidden rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-[var(--content-ink)]"
                   >
                     <p className="flex items-center gap-1.5 font-medium text-accent">
-                      <SparkleIcon /> Sugerido por IA: {visibleSuggestion.areaName} ·{" "}
-                      {Math.round(visibleSuggestion.confidence * 100)}% de confianza
+                      <SparkleIcon /> Sugerido por IA: {visibleSuggestion.areaName}
+                      {visibleSuggestion.categoryName
+                        ? ` · ${visibleSuggestion.categoryName}`
+                        : ""}{" "}
+                      · {Math.round(visibleSuggestion.confidence * 100)}% de confianza
                     </p>
                     <p className="mt-0.5 text-[var(--content-ink-dim)]">
                       {visibleSuggestion.rationale ?? "Puedes cambiarlo si no es correcto."}

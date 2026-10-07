@@ -1,4 +1,4 @@
-import type { Actor } from "@tekzaya/shared";
+import { canManageUsers, type Actor } from "@tekzaya/shared";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { User } from "../models/user.model";
 import { ACCESS_COOKIE, verifyAccessToken } from "../modules/auth/tokens";
@@ -56,6 +56,19 @@ export const requireAuth: RequestHandler = (req: Request, res: Response, next: N
 export const requireAdmin: RequestHandler = (_req, res, next) => {
   if (res.locals.actor.role !== "admin") {
     next(new AppError(403, "forbidden", "Necesitas permisos de administrador"));
+    return;
+  }
+  next();
+};
+
+/**
+ * Administración de personas: el administrador y el supervisor de RRHH. Lo que
+ * cada uno puede hacer una vez dentro lo decide la ruta, porque RRHH lleva las
+ * altas y bajas pero no reparte privilegios.
+ */
+export const requireUserManager: RequestHandler = (_req, res, next) => {
+  if (!canManageUsers(res.locals.actor)) {
+    next(new AppError(403, "forbidden", "Necesitas permisos para administrar personas"));
     return;
   }
   next();

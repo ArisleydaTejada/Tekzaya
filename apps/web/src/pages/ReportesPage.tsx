@@ -12,7 +12,7 @@ import {
   type StatsScope,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createSavedReport,
   deleteSavedReport,
@@ -27,12 +27,10 @@ import { areaKeys, listAreaMembers, listAreas } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
-import { ChartIcon, ChevronDownIcon, DownloadIcon, PlusIcon } from "../components/icons";
+import { ChevronDownIcon, DownloadIcon, PanelIcon, PlusIcon, XIcon } from "../components/icons";
 import { TicketsOfPeriod } from "./reportes/TicketsOfPeriod";
 import { WidgetCard } from "./reportes/WidgetCard";
 import { WidgetEditor } from "./reportes/WidgetEditor";
-
-type TabId = "mis-reportes" | "plantillas" | "nuevo";
 
 /** Reporte que se está viendo: una plantilla abierta, uno guardado o un lienzo nuevo. */
 interface Draft extends ReportDefinition {
@@ -53,10 +51,33 @@ const EMPTY: Omit<Draft, "scope"> = {
   dirty: false,
 };
 
+/**
+ * Quien pliega el panel suele trabajar así siempre —pantallas estrechas, o
+ * reportes anchos—, y volver a plegarlo en cada visita es un peaje. Se recuerda
+ * en el navegador porque es una preferencia de quien mira, no del reporte: no
+ * tiene por qué viajar al servidor ni seguir a la cuenta de máquina en máquina.
+ */
+const RAIL_KEY = "tekzaya-reportes-rail";
+
+function readRailOpen(): boolean {
+  try {
+    return window.localStorage.getItem(RAIL_KEY) !== "0";
+  } catch {
+    /* modo privado o almacenamiento bloqueado: abierto, como siempre */
+    return true;
+  }
+}
+
 export default function ReportesPage() {
   const { me } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabId>("plantillas");
+  const [railOpen, setRailOpen] = useState(readRailOpen);
+  /**
+   * Pestaña del panel. `null` significa "la que toque": plantillas mientras no
+   * haya nada guardado, y los reportes propios en cuanto los hay. En cuanto
+   * alguien elige una, manda su elección.
+   */
+  const [railTab, setRailTab] = useState<RailTab | null>(null);
   const [edited, setEdited] = useState<Draft | null>(null);
   const [editing, setEditing] = useState<ReportWidget | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -65,6 +86,14 @@ export default function ReportesPage() {
 
   const catalog = useQuery({ queryKey: reportKeys.catalog(), queryFn: getReportCatalog });
   const saved = useQuery({ queryKey: reportKeys.saved(), queryFn: listSavedReports });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RAIL_KEY, railOpen ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [railOpen]);
 
   /**
    * Mientras nadie elige nada se muestra la primera plantilla del rol, derivada del
@@ -114,7 +143,6 @@ export default function ReportesPage() {
     onSuccess: (report) => {
       void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
       setDraft(fromSaved(report));
-      setTab("mis-reportes");
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -215,60 +243,19 @@ export default function ReportesPage() {
         }
       />
 
-      <nav className="no-print mb-5 flex gap-1 border-b border-[var(--content-border)]">
-        {(
-          [
-            { id: "mis-reportes", label: "Mis reportes" },
-            { id: "plantillas", label: "Plantillas" },
-            { id: "nuevo", label: "Nuevo reporte" },
-          ] as { id: TabId; label: string }[]
-        ).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setTab(item.id);
-              if (item.id === "nuevo") {
-                setDraft({ ...EMPTY, scope: catalog.data!.maxScope, dirty: false });
-              }
-            }}
-            className={`relative px-3 py-2.5 text-sm font-medium transition-colors ${
-              tab === item.id ? "text-accent" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-            }`}
-          >
-            {item.label}
-            {tab === item.id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent" />}
-          </button>
-        ))}
-      </nav>
+      {/*
+        Plantillas y reportes guardados viven en una columna a la derecha y no
+        sobre el lienzo: elegir uno nunca esconde el reporte abierto, así que
+        saltar de uno a otro es un clic y no hay que recordar de cuál se venía.
+        Dentro de la columna sí se separan en pestañas, porque las dos listas
+        crecen por su cuenta.
 
-      {tab === "mis-reportes" && (
-        <SavedList
-          reports={saved.data ?? []}
-          loading={saved.isPending}
-          onOpen={(report) => setDraft(fromSaved(report))}
-          onDuplicate={async (id) => {
-            await duplicateSavedReport(id);
-            void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
-          }}
-          onDelete={async (id) => {
-            await deleteSavedReport(id);
-            void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
-            if (draft?.id === id) setDraft(null);
-          }}
-          onStartFromTemplate={() => setTab("plantillas")}
-        />
-      )}
-
-      {tab === "plantillas" && (
-        <TemplateList
-          templates={catalog.data.templates}
-          active={draft?.id ? undefined : draft?.title}
-          onOpen={(template) => setDraft(fromTemplate(template))}
-        />
-      )}
-
-      {draft && (
-        <>
+        Se repliega para cuando el lienzo necesita todo el ancho, y no se imprime.
+      */}
+      <div className="flex flex-col items-start gap-5 xl:flex-row">
+        <div className="min-w-0 flex-1">
+          {draft && (
+            <>
           {/* ── Barra de acciones del reporte (spec §7.8.2) ── */}
           <div className="no-print mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
@@ -317,6 +304,16 @@ export default function ReportesPage() {
               >
                 {draft.id ? (draft.dirty ? "Guardar cambios" : "Guardado") : "Guardar reporte"}
               </button>
+              {/* El único interruptor del panel, y vive en el lienzo: plegado,
+                  dentro del panel no quedaría nada que pulsar para volver. */}
+              <button
+                onClick={() => setRailOpen((value) => !value)}
+                title={railOpen ? "Ocultar el panel de reportes" : "Mostrar el panel de reportes"}
+                aria-expanded={railOpen}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+              >
+                <PanelIcon className="h-3.5 w-3.5 -scale-x-100" /> Reportes
+              </button>
               {draft.id && (
                 <button
                   onClick={() => setDraft({ ...draft, id: undefined, title: `${draft.title} (copia)`, dirty: true })}
@@ -344,7 +341,10 @@ export default function ReportesPage() {
                   Añade la primera
                 </button>
                 <button
-                  onClick={() => setTab("plantillas")}
+                  onClick={() => {
+                    setRailOpen(true);
+                    setRailTab("templates");
+                  }}
                   className="rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-semibold text-[var(--content-ink)]"
                 >
                   Empieza desde una plantilla
@@ -381,8 +381,37 @@ export default function ReportesPage() {
             filters={ticketFilters}
             onFiltersChange={setTicketFilters}
           />
-        </>
-      )}
+            </>
+          )}
+        </div>
+
+        {/* El interruptor del panel vive en la barra del reporte, que sin
+            reporte abierto no se dibuja: ahí el panel se queda puesto, porque
+            si no la página no ofrecería nada que pulsar. */}
+        <ReportsRail
+          open={railOpen || !draft}
+          onToggle={() => setRailOpen((value) => !value)}
+          tab={railTab ?? ((saved.data?.length ?? 0) > 0 ? "saved" : "templates")}
+          onTabChange={setRailTab}
+          templates={catalog.data.templates}
+          reports={saved.data ?? []}
+          loadingReports={saved.isPending}
+          activeTemplate={draft?.id ? undefined : draft?.title}
+          activeReportId={draft?.id}
+          onNew={() => setDraft({ ...EMPTY, scope: catalog.data!.maxScope, dirty: false })}
+          onOpenTemplate={(template) => setDraft(fromTemplate(template))}
+          onOpenReport={(report) => setDraft(fromSaved(report))}
+          onDuplicate={async (id) => {
+            await duplicateSavedReport(id);
+            void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
+          }}
+          onDelete={async (id) => {
+            await deleteSavedReport(id);
+            void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
+            if (draft?.id === id) setDraft(null);
+          }}
+        />
+      </div>
 
       {editing && (
         <WidgetEditor
@@ -598,109 +627,231 @@ function ExportMenu({
 
 // ── Pestañas de reportes ──────────────────────────────────────
 
-function SavedList({
+type RailTab = "templates" | "saved";
+
+/**
+ * La columna de la derecha: todo lo que se puede abrir, sin tapar el lienzo.
+ *
+ * Plantillas y reportes propios son dos listas que crecen por su cuenta —doce
+ * plantillas y veinte reportes apilados obligaban a desplazarse para llegar a
+ * los segundos—, así que van en pestañas. La pestaña arranca en "Mis reportes"
+ * en cuanto hay alguno guardado, que es donde se vuelve cada día; quien todavía
+ * no tiene ninguno aterriza en las plantillas, que es su punto de partida.
+ *
+ * Lo que se está viendo queda marcado, para no perder el hilo al saltar.
+ */
+function ReportsRail({
+  open,
+  onToggle,
+  tab,
+  onTabChange,
+  templates,
   reports,
-  loading,
-  onOpen,
+  loadingReports,
+  activeTemplate,
+  activeReportId,
+  onNew,
+  onOpenTemplate,
+  onOpenReport,
   onDuplicate,
   onDelete,
-  onStartFromTemplate,
 }: {
+  open: boolean;
+  onToggle: () => void;
+  tab: RailTab;
+  onTabChange: (tab: RailTab) => void;
+  templates: ReportTemplate[];
   reports: SavedReport[];
-  loading: boolean;
-  onOpen: (report: SavedReport) => void;
+  loadingReports: boolean;
+  activeTemplate?: string;
+  activeReportId?: string;
+  onNew: () => void;
+  onOpenTemplate: (template: ReportTemplate) => void;
+  onOpenReport: (report: SavedReport) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
-  onStartFromTemplate: () => void;
 }) {
-  if (loading) return <Plate className="h-28 animate-pulse" />;
+  /*
+   * Plegado no deja nada detrás: ni un botón de vuelta, que ya está en la barra
+   * del reporte, ni la columna vacía que lo sostenía. Mientras devolvía algo, el
+   * lienzo seguía compartiendo la fila con él y se quedaba un hueco a la derecha
+   * justo donde se había pedido ancho.
+   */
+  if (!open) return null;
 
-  if (!reports.length) {
-    return (
-      <Plate className="flex flex-col items-center gap-3 py-14 text-center">
-        <p className="text-sm text-[var(--content-ink-dim)]">Aún no has guardado ningún reporte.</p>
-        <button
-          onClick={onStartFromTemplate}
-          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
-        >
-          Empezar desde una plantilla
-        </button>
-      </Plate>
-    );
-  }
-
+  /*
+   * En pantalla ancha el panel se queda quieto mientras el lienzo baja: un
+   * reporte de doce gráficas mide varias pantallas, y sin esto había que subir
+   * hasta arriba del todo cada vez que se quería abrir otro.
+   *
+   * Se ancla justo debajo de la barra superior (4rem) más el aire del contenido
+   * (1.5rem), y se limita a lo que queda de pantalla. Lo que desborda es la
+   * lista, no el panel entero: el título, "Nuevo reporte" y las pestañas no se
+   * van de la vista, que es justo lo que se usa para saltar de uno a otro.
+   *
+   * Debajo de `xl` el panel va apilado sobre el lienzo y no hay nada a lo que
+   * quedarse fijo, así que allí fluye como siempre.
+   */
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {reports.map((report) => (
-        <Plate key={report.id} className="flex flex-col gap-2 p-4">
-          <button onClick={() => onOpen(report)} className="text-left">
-            <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
-              {report.title}
-            </h3>
-            {report.description && (
-              <p className="mt-0.5 text-xs text-[var(--content-ink-dim)]">{report.description}</p>
-            )}
+    <aside className="no-print order-first w-full shrink-0 xl:sticky xl:top-22 xl:order-none xl:w-72">
+      <Plate className="flex flex-col p-3 xl:max-h-[calc(100dvh-7rem)]">
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+          <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+            Reportes
+          </h2>
+          <button
+            onClick={onToggle}
+            title="Ocultar el panel"
+            aria-label="Ocultar el panel de reportes"
+            className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+          >
+            <XIcon className="h-3.5 w-3.5" />
           </button>
-          <p className="text-xs text-[var(--content-ink-dim)]">
-            {report.widgets.length} gráfica{report.widgets.length === 1 ? "" : "s"} ·{" "}
-            {STATS_PERIOD_LABEL[report.period]}
-            {report.scopeNarrowed && " · alcance recortado"}
-          </p>
-          <div className="mt-auto flex gap-1.5 pt-1 text-xs">
-            <button onClick={() => onOpen(report)} className="font-medium text-accent hover:underline">
-              Abrir
-            </button>
-            <span className="text-[var(--content-ink-dim)]">·</span>
+        </div>
+
+        <button
+          onClick={onNew}
+          className="mb-4 flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim"
+        >
+          <PlusIcon className="h-3.5 w-3.5" /> Nuevo reporte
+        </button>
+
+        <div
+          role="tablist"
+          className="mb-3 flex shrink-0 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-0.5"
+        >
+          {(
+            [
+              { id: "templates", label: "Plantillas", count: templates.length },
+              { id: "saved", label: "Mis reportes", count: reports.length },
+            ] as const
+          ).map((item) => (
             <button
-              onClick={() => onDuplicate(report.id)}
-              className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+              key={item.id}
+              role="tab"
+              aria-selected={tab === item.id}
+              onClick={() => onTabChange(item.id)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                tab === item.id
+                  ? "bg-[var(--content-surface)] text-[var(--content-ink)] shadow-[var(--content-shadow)]"
+                  : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+              }`}
             >
-              Duplicar
+              {item.label}
+              <span className="tabular text-[10px] text-[var(--content-ink-dim)]">{item.count}</span>
             </button>
-            <span className="text-[var(--content-ink-dim)]">·</span>
-            <button onClick={() => onDelete(report.id)} className="text-red hover:underline">
-              Eliminar
-            </button>
-          </div>
-        </Plate>
-      ))}
-    </div>
+          ))}
+        </div>
+
+        {/* `min-h-0` es lo que deja encoger a este hijo del flex: sin él crece
+            con la lista y el recorte se lo come el panel, no el desbordamiento. */}
+        <ul role="tabpanel" className="flex min-h-0 flex-1 flex-col xl:overflow-y-auto">
+          {tab === "templates" &&
+            templates.map((template) => (
+              <RailRow
+                key={template.templateId}
+                active={activeTemplate === template.title}
+                title={template.title}
+                description={template.description}
+                meta={`${template.widgets.length} gráficas`}
+                onOpen={() => onOpenTemplate(template)}
+              />
+            ))}
+
+          {tab === "saved" && loadingReports && (
+            <li className="px-2 py-2 text-xs text-[var(--content-ink-dim)]">Cargando…</li>
+          )}
+          {tab === "saved" && !loadingReports && reports.length === 0 && (
+            <li className="px-2 py-2 text-xs leading-snug text-[var(--content-ink-dim)]">
+              Aún no has guardado ninguno.{" "}
+              <button onClick={() => onTabChange("templates")} className="text-accent hover:underline">
+                Abre una plantilla
+              </button>
+              , cámbiala a tu gusto y guárdala.
+            </li>
+          )}
+          {tab === "saved" &&
+            reports.map((report) => (
+              <RailRow
+                key={report.id}
+                active={activeReportId === report.id}
+                title={report.title}
+                {...(report.description ? { description: report.description } : {})}
+                meta={`${report.widgets.length} gráfica${report.widgets.length === 1 ? "" : "s"} · ${
+                  STATS_PERIOD_LABEL[report.period]
+                }${report.scopeNarrowed ? " · alcance recortado" : ""}`}
+                onOpen={() => onOpenReport(report)}
+                actions={
+                  <>
+                    <button
+                      onClick={() => onDuplicate(report.id)}
+                      className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                    >
+                      Duplicar
+                    </button>
+                    <button onClick={() => onDelete(report.id)} className="text-red hover:underline">
+                      Eliminar
+                    </button>
+                  </>
+                }
+              />
+            ))}
+        </ul>
+      </Plate>
+    </aside>
   );
 }
 
-function TemplateList({
-  templates,
+function RailRow({
+  title,
+  description,
+  meta,
   active,
   onOpen,
+  actions,
 }: {
-  templates: ReportTemplate[];
-  active?: string;
-  onOpen: (template: ReportTemplate) => void;
+  title: string;
+  /** Para qué sirve el reporte. Trece títulos solos no se distinguen entre sí. */
+  description?: string;
+  meta: string;
+  active: boolean;
+  onOpen: () => void;
+  actions?: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {templates.map((template) => (
-        <button
-          key={template.templateId}
-          onClick={() => onOpen(template)}
-          className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 text-left transition-colors ${
-            active === template.title
-              ? "border-accent bg-accent/5"
-              : "border-[var(--content-border)] bg-[var(--content-surface)] hover:bg-[var(--content-bg)]"
+    <li
+      className={`group rounded-lg px-2 py-1.5 ${
+        active ? "bg-accent/10" : "hover:bg-[var(--content-bg)]"
+      }`}
+    >
+      <button onClick={onOpen} className="block w-full text-left">
+        <span
+          className={`block truncate text-sm ${
+            active ? "font-medium text-accent" : "text-[var(--content-ink)]"
           }`}
         >
-          <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-[var(--content-ink)]">
-            <ChartIcon className="h-3.5 w-3.5 text-accent" /> {template.title}
+          {title}
+        </span>
+        {/* Dos líneas y corta: en una columna de 288 px la frase entera empuja
+            el resto de la lista fuera de la vista, y para elegir basta el
+            principio. El título ya va truncado por el mismo motivo. */}
+        {description && (
+          <span className="mt-0.5 block line-clamp-2 text-[11px] leading-snug text-[var(--content-ink-dim)]">
+            {description}
           </span>
-          <span className="text-xs leading-snug text-[var(--content-ink-dim)]">
-            {template.description}
-          </span>
-          <span className="mt-auto pt-1 text-[11px] text-[var(--content-ink-dim)]">
-            {template.widgets.length} gráficas
-          </span>
-        </button>
-      ))}
-    </div>
+        )}
+        <span className="mt-0.5 block truncate text-[10px] text-[var(--content-ink-dim)]">
+          {meta}
+        </span>
+      </button>
+      {/* Duplicar y eliminar solo asoman al pasar por encima: son acciones de
+          mantenimiento, y en una lista de doce estorban todo el rato. */}
+      {actions && (
+        <div className="mt-0.5 hidden gap-2 text-[11px] group-focus-within:flex group-hover:flex">
+          {actions}
+        </div>
+      )}
+    </li>
   );
 }
 

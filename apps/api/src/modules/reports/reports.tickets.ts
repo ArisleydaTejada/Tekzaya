@@ -2,7 +2,9 @@ import {
   businessMinutesBetween,
   canViewTicket,
   isAdmin,
+  PRIORITIES,
   REPORT_ROW_CAP,
+  TICKET_STATUSES,
   type Actor,
   type BusinessCalendar,
   type Perspective,
@@ -186,15 +188,39 @@ function refine(query: ReportTicketsQuery, actor: Actor, now: Date): Filter {
   return parts.length ? { $and: parts } : {};
 }
 
+/**
+ * La prioridad y el estado se ordenan por su posición en el ciclo de vida y no
+ * por su texto: alfabéticamente, "high" iría antes que "urgent" y "closed" antes
+ * que "open", que no es lo que nadie espera al pulsar la cabecera. Los dos
+ * rangos se calculan en la consulta, igual que en la lista de trabajo.
+ */
 const SORT_FIELD: Record<ReportTicketsQuery["sort"], string> = {
   createdAt: "createdAt",
   number: "number",
   title: "title",
-  priority: "priority",
-  status: "status",
+  priority: "priorityRank",
+  status: "statusRank",
+  firstResponse: "sla.firstResponseAt",
   resolvedAt: "sla.resolvedAt",
   resolutionTime: "sla.resolvedAt",
   csat: "csat.rating",
+  reopened: "stats.reopenCount",
+};
+
+/** Los rangos que `SORT_FIELD` necesita; cuestan nada y simplifican el $sort. */
+const RANK_FIELDS = {
+  priorityRank: { $indexOfArray: [[...PRIORITIES], "$priority"] },
+  statusRank: { $indexOfArray: [[...TICKET_STATUSES], "$status"] },
+};
+
+/**
+ * Orden en memoria para el camino exacto, que no pasa por el `$addFields` del
+ * agregado porque `find()` no sabe calcular campos.
+ */
+const ROW_SORT_KEY: Partial<Record<ReportTicketsQuery["sort"], (row: ReportTicketRow) => number>> = {
+  priority: (row) => PRIORITIES.indexOf(row.priority),
+  status: (row) => TICKET_STATUSES.indexOf(row.status),
+  resolutionTime: (row) => row.resolutionHours ?? -1,
 };
 
 /** ¿Hace falta calcular horas laborales antes de poder filtrar u ordenar? */
@@ -245,6 +271,7 @@ export async function listTicketsOfPeriod(
     const [page, byStatus] = await Promise.all([
       Ticket.aggregate<{ items: LeanTicket[]; total: { value: number }[] }>([
         { $match: filter },
+        { $addFields: RANK_FIELDS },
         { $sort: sort },
         {
           $facet: {
@@ -272,13 +299,17 @@ export async function listTicketsOfPeriod(
   // Mongo no puede calcularlas, así que se traen hasta el techo de filas del §7.8.9,
   // se calculan con el motor de F1 y se pagina arriba. Es más caro y es lo correcto:
   // un "más de 8 horas" medido con reloj de pared contaría las noches.
-  const found = (await Ticket.find(filter).sort(sort).limit(REPORT_ROW_CAP).lean()) as LeanTicket[];
+  // `find()` no calcula los rangos, así que para esas columnas se pide el orden
+  // natural y se reordena abajo sobre las filas ya construidas.
+  const mongoSort: Record<string, 1 | -1> = ROW_SORT_KEY[query.sort]
+    ? { createdAt: direction, _id: direction }
+    : sort;
+  const found = (await Ticket.find(filter).sort(mongoSort).limit(REPORT_ROW_CAP).lean()) as LeanTicket[];
   const rows = await toRows(found, actor, calendar, now);
 
   const filtered = rows.filter((row) => matchesHours(row, query));
-  if (query.sort === "resolutionTime") {
-    filtered.sort((a, b) => ((a.resolutionHours ?? -1) - (b.resolutionHours ?? -1)) * direction);
-  }
+  const key = ROW_SORT_KEY[query.sort];
+  if (key) filtered.sort((a, b) => (key(a) - key(b)) * direction);
 
   const byStatus: Record<string, number> = {};
   for (const row of filtered) byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
@@ -419,6 +450,8 @@ function toRow(
     ageHours: sla.resolvedAt ? null : workingHours(createdAt, now, paused, calendar),
     responseState: states.response,
     resolutionState: states.resolution,
+    responseDueAt: (sla.responseDueAt as Date).toISOString(),
+    resolutionDueAt: (sla.resolutionDueAt as Date).toISOString(),
     ...(ticket["csat"]?.rating ? { csat: ticket["csat"].rating as number } : {}),
     reopened: ((ticket["stats"]?.reopenCount as number | undefined) ?? 0) > 0,
     transferred: ((ticket["stats"]?.transferCount as number | undefined) ?? 0) > 0,

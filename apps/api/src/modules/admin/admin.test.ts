@@ -33,6 +33,94 @@ describe("acceso a la administración", () => {
     const admin = await loginAs(fixture.users.admin.email);
     expect((await admin.get("/api/v1/users")).status).toBe(200);
   });
+
+  /**
+   * RRHH lleva las altas y bajas del personal, pero no reparte privilegios: si
+   * pudiera, cualquier cuenta de RRHH podría nombrarse administradora.
+   */
+  describe("el supervisor de RRHH administra personas", () => {
+    it("lista, invita y desactiva como el administrador", async () => {
+      const rrhh = await loginAs(fixture.users.supRrhh.email);
+
+      expect((await rrhh.get("/api/v1/users")).status).toBe(200);
+
+      const invitada = await rrhh.post("/api/v1/users").send({
+        name: "Nora Nueva",
+        email: "nora.nueva@tekzaya.test",
+        areaId: String(fixture.areas.ventas),
+      });
+      expect(invitada.status).toBe(201);
+      expect(invitada.body.link.url).toContain("/invitacion");
+
+      const baja = await rrhh
+        .patch(`/api/v1/users/${invitada.body.user.id}`)
+        .send({ status: "disabled" });
+      expect(baja.status).toBe(200);
+      expect(baja.body.user.status).toBe("disabled");
+    });
+
+    it("no puede nombrar administradores ni conceder la lectura global", async () => {
+      const rrhh = await loginAs(fixture.users.supRrhh.email);
+
+      const invitaAdmin = await rrhh.post("/api/v1/users").send({
+        name: "Ada Atajo",
+        email: "ada.atajo@tekzaya.test",
+        areaId: String(fixture.areas.ventas),
+        role: "admin",
+      });
+      expect(invitaAdmin.status).toBe(403);
+
+      const asciende = await rrhh
+        .patch(`/api/v1/users/${String(fixture.users.agentIt.id)}`)
+        .send({ role: "admin" });
+      expect(asciende.status).toBe(403);
+
+      const lecturaGlobal = await rrhh
+        .patch(`/api/v1/users/${String(fixture.users.agentIt.id)}`)
+        .send({ hasGlobalReadAccess: true });
+      expect(lecturaGlobal.status).toBe(403);
+    });
+
+    it("no toca la cuenta del administrador", async () => {
+      const rrhh = await loginAs(fixture.users.supRrhh.email);
+
+      const edita = await rrhh
+        .patch(`/api/v1/users/${String(fixture.users.admin.id)}`)
+        .send({ name: "Otro nombre" });
+      expect(edita.status).toBe(403);
+
+      // Tampoco por la puerta de atrás de los enlaces de acceso.
+      const enlace = await rrhh.post(
+        `/api/v1/users/${String(fixture.users.admin.id)}/access-link`,
+      );
+      expect(enlace.status).toBe(403);
+    });
+
+    it("sigue sin entrar a áreas ni a configuración", async () => {
+      const rrhh = await loginAs(fixture.users.supRrhh.email);
+      expect((await rrhh.get("/api/v1/admin/areas")).status).toBe(403);
+      expect((await rrhh.get("/api/v1/settings")).status).toBe(403);
+    });
+  });
+
+  /**
+   * Configuración es administración del sistema, no un catálogo público: ni el
+   * supervisor de área ni el de RRHH la leen, por mucha lectura global que tenga
+   * sobre los números (spec §4.3).
+   */
+  it("la Configuración es solo del administrador, también para leerla", async () => {
+    const supervisora = await loginAs(fixture.users.supIt.email);
+    expect((await supervisora.get("/api/v1/settings")).status).toBe(403);
+    expect(
+      (await supervisora.patch("/api/v1/settings").send({ aiEnabled: { summary: false } })).status,
+    ).toBe(403);
+
+    const rrhh = await loginAs(fixture.users.supRrhh.email);
+    expect((await rrhh.get("/api/v1/settings")).status).toBe(403);
+
+    const admin = await loginAs(fixture.users.admin.email);
+    expect((await admin.get("/api/v1/settings")).status).toBe(200);
+  });
 });
 
 describe("invitar a alguien", () => {

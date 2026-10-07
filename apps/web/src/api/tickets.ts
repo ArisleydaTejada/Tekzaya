@@ -33,6 +33,7 @@ const areasResponse = z.object({ items: z.array(area) });
 const membersResponse = z.object({ items: z.array(areaMember) });
 const workloadResponse = z.object({ items: z.array(areaWorkloadMember) });
 const candidatesResponse = z.object({ items: z.array(duplicateCandidate) });
+const lookupResponse = z.object({ candidate: duplicateCandidate });
 
 /**
  * Claves de caché en un solo sitio: invalidar después de una mutación es acertar
@@ -98,6 +99,20 @@ export function transferTicket(id: string, input: TransferTicketInput): Promise<
 
 export async function listDuplicateCandidates(id: string) {
   return (await apiFetch(`/tickets/${id}/duplicate-candidates`, candidatesResponse)).items;
+}
+
+/**
+ * Busca por número el ticket con el que fusionar. El servidor comprueba que sea
+ * del mismo área, que siga abierto y que esta persona pueda fusionarlos, así que
+ * un error aquí ya trae el motivo escrito para enseñarlo tal cual.
+ */
+export async function lookupMergeCandidate(id: string, number: string) {
+  return (
+    await apiFetch(
+      `/tickets/${id}/merge-lookup?number=${encodeURIComponent(number)}`,
+      lookupResponse,
+    )
+  ).candidate;
 }
 
 export function mergeTickets(id: string, input: MergeTicketsInput): Promise<TicketDetail> {

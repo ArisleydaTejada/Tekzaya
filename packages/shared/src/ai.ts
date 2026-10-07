@@ -31,6 +31,13 @@ export type SuggestAreaInput = z.infer<typeof suggestAreaInput>;
 export const areaSuggestion = z.object({
   areaId: objectId,
   areaName: z.string(),
+  /**
+   * Categoría propuesta dentro de esa área. Viaja en la misma respuesta porque
+   * sale de la misma llamada: pedirla aparte costaría una segunda consulta a
+   * Gemini para rellenar dos desplegables que están uno al lado del otro.
+   */
+  categoryId: objectId.optional(),
+  categoryName: z.string().optional(),
   confidence: z.number().min(0).max(1),
   /** Una línea explicando por qué; la interfaz la muestra como ayuda, no como verdad. */
   rationale: z.string().max(280).optional(),
@@ -51,6 +58,10 @@ export const classification = z.object({
   rationale: z.string().max(280),
 });
 export type Classification = z.infer<typeof classification>;
+
+/** `null` cuando no hay IA configurada, está apagada o el modelo no contestó. */
+export const classifyResponse = z.object({ classification: classification.nullable() });
+export type ClassifyResponse = z.infer<typeof classifyResponse>;
 
 // ── IA-3 · Resumen ────────────────────────────────────────────
 

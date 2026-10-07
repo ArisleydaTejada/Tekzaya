@@ -17,6 +17,7 @@ import {
   isOwnTicket,
   PRIORITIES,
   setAssigneesInput,
+  TICKET_STATUSES,
   ticketListQuery,
   updateTicketInput,
   type Actor,
@@ -30,7 +31,7 @@ import {
   type UpdateTicketInput,
 } from "@tekzaya/shared";
 import { Router } from "express";
-import { Types } from "mongoose";
+import { Types, type PipelineStage } from "mongoose";
 import { AppError } from "../../middleware/errors";
 import { validateBody, validateQuery } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
@@ -38,7 +39,6 @@ import { nextTicketNumber } from "../../models/counter.model";
 import { Message } from "../../models/message.model";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
-import { enqueueClassification } from "../ai/classification.queue";
 import { bindAttachments } from "../attachments/attachments.service";
 import { getCalendar, slaPolicyFor } from "../settings/settings.service";
 import {
@@ -75,11 +75,73 @@ const router = Router();
  * antes. `activeRank` y `priorityRank` se calculan en la consulta en vez de
  * guardarse en el documento, para no tener que mantenerlos sincronizados.
  */
-const SORTS: Record<TicketListQuery["sort"], Record<string, 1 | -1>> = {
+const SHORTCUT_SORTS: Record<string, Record<string, 1 | -1>> = {
   sla: { activeRank: 1, "sla.resolutionDueAt": 1, priorityRank: 1, createdAt: 1, _id: 1 },
   recent: { createdAt: -1, _id: -1 },
   oldest: { createdAt: 1, _id: 1 },
 };
+
+/**
+ * Columnas de la tabla. `priority` y `status` se ordenan por su posicion en el
+ * ciclo de vida y no por su texto: alfabeticamente, "Alta" iria antes que
+ * "Urgente" y "Abierto" antes que "En progreso", que no es lo que nadie espera
+ * al pulsar la cabecera.
+ */
+const COLUMN_SORTS: Record<string, string> = {
+  number: "number",
+  title: "title",
+  requester: "requesterName",
+  area: "areaName",
+  priority: "priorityRank",
+  status: "statusRank",
+  created: "createdAt",
+};
+
+/** El nombre del solicitante y el del area viven en otras colecciones. */
+function joinsFor(sort: string): PipelineStage[] {
+  if (sort === "requester") {
+    return [
+      {
+        $lookup: {
+          from: "users",
+          localField: "requesterId",
+          foreignField: "_id",
+          as: "requesterDoc",
+          pipeline: [{ $project: { name: 1 } }],
+        },
+      },
+      { $addFields: { requesterName: { $first: "$requesterDoc.name" } } },
+      { $unset: "requesterDoc" },
+    ];
+  }
+  if (sort === "area") {
+    return [
+      {
+        $lookup: {
+          from: "areas",
+          localField: "areaId",
+          foreignField: "_id",
+          as: "areaDoc",
+          pipeline: [{ $project: { name: 1 } }],
+        },
+      },
+      { $addFields: { areaName: { $first: "$areaDoc.name" } } },
+      { $unset: "areaDoc" },
+    ];
+  }
+  return [];
+}
+
+function sortStage(query: TicketListQuery): Record<string, 1 | -1> {
+  const shortcut = SHORTCUT_SORTS[query.sort];
+  if (shortcut) return shortcut;
+
+  const field = COLUMN_SORTS[query.sort]!;
+  const direction: 1 | -1 = query.dir === "desc" ? -1 : 1;
+  // El `_id` al final hace el orden estable: sin el, dos filas empatadas pueden
+  // intercambiarse entre paginas y la misma fila sale dos veces.
+  return { [field]: direction, _id: direction };
+}
 
 const plainOf = (ticket: TicketDoc): LeanTicket => ticket.toObject() as LeanTicket;
 
@@ -103,9 +165,11 @@ router.get("/tickets", validateQuery(ticketListQuery), async (_req, res) => {
       $addFields: {
         activeRank: { $cond: [{ $in: ["$status", [...ACTIVE_TICKET_STATUSES]] }, 0, 1] },
         priorityRank: { $indexOfArray: [[...PRIORITIES], "$priority"] },
+        statusRank: { $indexOfArray: [[...TICKET_STATUSES], "$status"] },
       },
     },
-    { $sort: SORTS[query.sort] },
+    ...joinsFor(query.sort),
+    { $sort: sortStage(query) },
     {
       $facet: {
         items: [{ $skip: (query.page - 1) * query.limit }, { $limit: query.limit }],
@@ -176,8 +240,9 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
     requesterId = input.requesterId;
   }
 
-  // La prioridad la propone la IA en F5; hasta entonces entra como "media" y la
-  // ajusta el supervisor. El SLA se calcula igual: el ticket nace con plazo.
+  // Nace en "media" y la ajusta quien lo recibe. La IA puede proponer otra, pero
+  // solo cuando alguien pulsa "Clasificar con IA": crear un ticket no gasta cuota.
+  // El SLA se calcula igual, así que el ticket nace con plazo (spec §6.3).
   const priority = "medium" as const;
   const [policy, calendar] = await Promise.all([slaPolicyFor(priority), getCalendar()]);
   const createdAt = new Date();
@@ -229,10 +294,6 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
 
   await notifyTicketCreated(ticket as TicketDoc, actor);
   broadcastTicket(ticket as TicketDoc);
-
-  // La IA clasifica en segundo plano: quien crea el ticket ya tiene su número
-  // y su plazo, y no espera a Gemini para nada (spec §6.3).
-  enqueueClassification(String(ticketId));
 
   res.status(201).json(await detailOf(plainOf(ticket), actor));
 });

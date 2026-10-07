@@ -26,20 +26,31 @@ export function formatDateTime(iso: string): string {
   });
 }
 
-/** "en 3 h", "hace 2 d": lo que queda (o lo que se pasó) de un plazo de SLA. */
-export function formatDeadline(iso: string): string {
+/**
+ * El margen de un plazo del SLA en una sola ficha: "4d", "6h", "45m" mientras
+ * queda tiempo, y en negativo —"-4h"— cuando ya venció. Cabe junto al número del
+ * ticket, y el signo —no una frase— es lo que distingue ir sobrado de ir tarde.
+ */
+export function formatSlaDelta(iso: string): string {
   const diffMs = new Date(iso).getTime() - Date.now();
-  const overdue = diffMs < 0;
   const minutes = Math.round(Math.abs(diffMs) / 60_000);
 
   const amount =
     minutes < 60
-      ? `${minutes} min`
+      ? `${minutes}m`
       : minutes < 60 * 48
-        ? `${Math.round(minutes / 60)} h`
-        : `${Math.round(minutes / 1440)} d`;
+        ? `${Math.round(minutes / 60)}h`
+        : `${Math.round(minutes / 1440)}d`;
 
-  return overdue ? `hace ${amount}` : `en ${amount}`;
+  return diffMs < 0 ? `-${amount}` : amount;
+}
+
+/** Lo que lleva acumulado una pausa del SLA, en la misma escala corta. */
+export function formatSlaDuration(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60 * 48) return `${Math.round(minutes / 60)}h`;
+  return `${Math.round(minutes / 1440)}d`;
 }
 
 export function formatBytes(bytes: number): string {

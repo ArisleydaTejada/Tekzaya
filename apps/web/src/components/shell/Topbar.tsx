@@ -5,7 +5,8 @@ import { useState } from "react";
 import { updateMyAvailability } from "../../api/auth";
 import { ME_QUERY_KEY, useAuth } from "../../auth/AuthContext";
 import { Avatar } from "../Avatar";
-import { ChevronDownIcon, MoonIcon, SunIcon } from "../icons";
+import { Link } from "react-router-dom";
+import { ChevronDownIcon, MoonIcon, SunIcon, UserIcon } from "../icons";
 import { NotificationBell } from "./NotificationBell";
 import { useTheme } from "../../theme/ThemeContext";
 
@@ -42,15 +43,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </button>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
-        <button
-          type="button"
-          onClick={toggle}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--content-ink-dim)] hover:bg-[var(--content-surface)]"
-          aria-label={theme === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
-        >
-          {theme === "light" ? <MoonIcon /> : <SunIcon />}
-        </button>
-
         <NotificationBell />
 
         <div className="relative">
@@ -80,6 +72,28 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                   className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-1.5 shadow-[var(--content-shadow)]"
                 >
                   <p className="px-3 py-1.5 text-xs text-[var(--content-ink-dim)]">{me.email}</p>
+                  <Link
+                    to="/perfil"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                  >
+                    <UserIcon className="h-4 w-4 shrink-0 text-[var(--content-ink-dim)]" />
+                    Administrar perfil
+                  </Link>
+                  {/* El tema es una preferencia de quien mira, no una herramienta de
+                      la barra: vive con el resto de sus ajustes personales. */}
+                  <button
+                    onClick={toggle}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                  >
+                    {theme === "light" ? (
+                      <MoonIcon className="h-4 w-4 shrink-0 text-[var(--content-ink-dim)]" />
+                    ) : (
+                      <SunIcon className="h-4 w-4 shrink-0 text-[var(--content-ink-dim)]" />
+                    )}
+                    {theme === "light" ? "Tema oscuro" : "Tema claro"}
+                  </button>
+                  <div className="my-1 border-t border-[var(--content-border)]" />
                   <button
                     onClick={() => {
                       availabilityMutation.mutate({ state: isAvailable ? "away" : "available" });

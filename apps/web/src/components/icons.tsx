@@ -99,6 +99,16 @@ export function ChartIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Una sola persona: el perfil de quien está usando la aplicación. */
+export function UserIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...props}>
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M5 20c0-3.4 3.1-5.6 7-5.6s7 2.2 7 5.6" />
+    </svg>
+  );
+}
+
 export function UsersIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...props}>
@@ -194,6 +204,16 @@ export function ListIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Líneas de texto que se acortan, con una chispa: el resumen del ticket. */
+export function SummaryIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...props}>
+      <path d="M4 6h16M4 11h12M4 16h8" />
+      <path d="M18.5 14v5M16 16.5h5" />
+    </svg>
+  );
+}
+
 export function GroupIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...props}>
@@ -254,6 +274,26 @@ export function MergeIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M11 14v6" />
       <circle cx="7" cy="4" r="1.4" fill="currentColor" stroke="none" />
       <circle cx="17" cy="4" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Panel lateral: el rectángulo de la pantalla con la columna de la barra marcada. */
+export function PanelIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...props}>
+      <rect x="3" y="4.5" width="18" height="15" rx="3" />
+      <path d="M9.5 4.5v15" />
+    </svg>
+  );
+}
+
+export function UserPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...props}>
+      <circle cx="9.5" cy="8" r="3.5" />
+      <path d="M3 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5" />
+      <path d="M18.5 8.5v5M16 11h5" />
     </svg>
   );
 }

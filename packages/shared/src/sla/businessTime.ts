@@ -224,3 +224,32 @@ export function businessDaysPassed(
   if (perDay <= 0) return false;
   return businessMinutesBetween(from, now, calendar) >= days * perDay;
 }
+
+/**
+ * El instante en que se cumplen `days` días hábiles desde `from`: el mismo
+ * umbral que mira `businessDaysPassed`, pero como fecha en vez de como sí/no.
+ *
+ * Lo necesita la interfaz, que no puede enseñar una cuenta atrás contra una
+ * pregunta booleana. Se deriva de los mismos minutos por jornada para que las
+ * dos respuestas no puedan separarse: cuando esta fecha llega, aquella pasa a
+ * ser cierta.
+ *
+ * `undefined` cuando el plazo no puede llegar nunca: sin horas de jornada, o sin
+ * ningún día laborable. `addBusinessMinutes` avisa de lo segundo lanzando —no
+ * tiene otra forma de decirlo—, y aquí se traduce a "no hay fecha", que es lo
+ * mismo que responde `businessDaysPassed` en ese caso: nunca. Dejarlo escapar
+ * tiraría el listado entero de tickets por una jornada mal configurada.
+ */
+export function businessDaysAfter(
+  from: Date,
+  days: number,
+  calendar: BusinessCalendar,
+): Date | undefined {
+  const perDay = businessMinutesPerDay(calendar.hours);
+  if (perDay <= 0 || days <= 0) return undefined;
+  try {
+    return addBusinessMinutes(from, days * perDay, calendar);
+  } catch {
+    return undefined;
+  }
+}

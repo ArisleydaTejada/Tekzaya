@@ -810,15 +810,24 @@ export const DEFAULT_REPORT_COLUMNS: ReportColumn[] = [
   "createdAt",
 ];
 
+/**
+ * Columnas por las que la lista del período sabe ordenar. Faltan a propósito las
+ * que no son un campo del ticket — solicitante, área, categoría, encargados —:
+ * son nombres que viven en otras colecciones, y ordenarlos obligaría a cruzar
+ * tablas sobre el histórico entero, que es justo lo que esta pantalla no puede
+ * permitirse. Para esas, el camino es filtrar por ellas.
+ */
 export const REPORT_TICKET_SORTS = [
   "createdAt",
   "number",
   "title",
   "priority",
   "status",
+  "firstResponse",
   "resolvedAt",
   "resolutionTime",
   "csat",
+  "reopened",
 ] as const;
 export const reportTicketSort = z.enum(REPORT_TICKET_SORTS);
 export type ReportTicketSort = z.infer<typeof reportTicketSort>;
@@ -932,6 +941,10 @@ export const reportTicketRow = z.object({
   ageHours: z.number().nullable(),
   responseState: slaState,
   resolutionState: slaState,
+  /** Los vencimientos, para que la columna de SLA muestre el margen y su línea
+      de tiempo igual que en el listado de tickets. */
+  responseDueAt: isoDateTime,
+  resolutionDueAt: isoDateTime,
   csat: z.number().int().min(1).max(5).optional(),
   reopened: z.boolean(),
   transferred: z.boolean(),

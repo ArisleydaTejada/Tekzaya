@@ -125,9 +125,9 @@ export async function resetDatabase(): Promise<Fixture> {
 }
 
 /** Sesión iniciada lista para encadenar peticiones; las cookies viajan solas. */
-export async function loginAs(email: string) {
+export async function loginAs(email: string, password: string = PASSWORD) {
   const agent = request.agent(app);
-  const response = await agent.post("/api/v1/auth/login").send({ email, password: PASSWORD });
+  const response = await agent.post("/api/v1/auth/login").send({ email, password });
   if (response.status !== 200) {
     throw new Error(`No se pudo iniciar sesión como ${email}: ${response.status}`);
   }

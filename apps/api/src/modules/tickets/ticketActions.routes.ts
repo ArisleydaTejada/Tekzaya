@@ -1,4 +1,6 @@
 import {
+  ACTIVE_TICKET_STATUSES,
+  canMerge,
   canRequestJoin,
   canTransfer,
   FINAL_TICKET_STATUSES,
@@ -7,6 +9,7 @@ import {
   mergeTicketsInput,
   transferTicketInput,
   unmergeTicketInput,
+  type DuplicateCandidate,
   type JoinRequestInput,
   type MergeTicketsInput,
   type TransferTicketInput,
@@ -16,6 +19,7 @@ import { Router } from "express";
 import { AppError } from "../../middleware/errors";
 import { validateBody } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
+import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { notify, supervisorsOf } from "../notifications/notifications.service";
 import {
@@ -112,6 +116,73 @@ router.get("/tickets/:id/duplicate-candidates", async (req, res) => {
   }
 
   res.json({ items: await findDuplicateCandidates(ticket) });
+});
+
+/**
+ * Busca por número el ticket con el que se quiere fusionar. Existe aparte de la
+ * lista de candidatos porque la fusión no siempre nace de una sugerencia: a
+ * menudo quien atiende ya sabe cuál es el otro ticket y lo que quiere es
+ * escribir su número (spec §7.5.1).
+ *
+ * Devuelve el mismo `DuplicateCandidate` que la lista, para que la pantalla
+ * trate igual lo que escribió la persona y lo que propuso la búsqueda.
+ */
+router.get("/tickets/:id/merge-lookup", async (req, res) => {
+  const actor = res.locals.actor;
+  const principal = await loadVisibleTicket(routeParam(req.params["id"]), actor);
+  const principalRef = refOf(plainOf(principal));
+
+  const raw = String(req.query["number"] ?? "").trim();
+  const number = Number(raw.replace(/^tk-?/i, ""));
+  if (!Number.isInteger(number) || number <= 0) {
+    throw new AppError(422, "validation_error", "Escribe un número de ticket como TK-000076");
+  }
+
+  const found = await Ticket.findOne({ number }).select("_id").lean();
+  if (!found) throw new AppError(404, "not_found", `No existe el ticket ${formatTicketNumber(number)}`);
+
+  if (String(found._id) === String(idOf(principal))) {
+    throw new AppError(422, "validation_error", "Ese es el ticket que tienes abierto");
+  }
+
+  // Se carga con las mismas reglas de visibilidad que cualquier otro ticket: si
+  // la persona no podría abrirlo, tampoco puede fusionarlo a ciegas.
+  const duplicate = await loadVisibleTicket(String(found._id), actor);
+  const ref = refOf(plainOf(duplicate));
+
+  if (ref.areaId !== principalRef.areaId) {
+    throw new AppError(
+      422,
+      "different_area",
+      "Solo se fusionan tickets de la misma área; transfiere primero uno de los dos",
+    );
+  }
+  if (!ACTIVE_TICKET_STATUSES.includes(ref.status as never)) {
+    throw new AppError(422, "ticket_closed", "Ese ticket ya no está abierto");
+  }
+  if (duplicate.get("mergedIntoId")) {
+    throw new AppError(409, "already_merged", "Ese ticket ya está fusionado dentro de otro");
+  }
+  if (!canMerge(actor, principalRef, ref)) {
+    throw new AppError(403, "forbidden", "No puedes fusionar estos dos tickets");
+  }
+
+  const requester = await User.findById(duplicate.get("requesterId")).select("name").lean();
+  const incidentGroup = principal.get("ai")?.incident?.groupId;
+
+  const candidate: DuplicateCandidate = {
+    id: String(idOf(duplicate)),
+    number: duplicate.get("number"),
+    title: duplicate.get("title"),
+    status: ref.status,
+    requesterName: requester?.name ?? "Desconocido",
+    createdAt: (duplicate.get("createdAt") as Date).toISOString(),
+    sameIncident: Boolean(
+      incidentGroup && duplicate.get("ai")?.incident?.groupId === incidentGroup,
+    ),
+  };
+
+  res.json({ candidate });
 });
 
 router.post("/tickets/:id/merge", validateBody(mergeTicketsInput), async (req, res) => {

@@ -1,21 +1,25 @@
 import {
   ALLOWED_ATTACHMENT_MIME,
   formatTicketNumber,
+  isSettledStatus,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   TICKET_STATUS_LABEL,
   type Area,
   type Attachment,
+  type DuplicateCandidate,
   type MessageView,
   type TicketDetail,
   type TicketStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   aiKeys,
   autocomplete,
+  classifyTicket,
+  detectIncident,
   dismissIncident,
   getAiStatus,
   getSummary,
@@ -30,6 +34,7 @@ import {
   listAreas,
   listDuplicateCandidates,
   listMessages,
+  lookupMergeCandidate,
   mergeTickets,
   requestJoin,
   setAssignees,
@@ -41,9 +46,11 @@ import {
   uploadAttachment,
 } from "../api/tickets";
 import { answerCsat } from "../api/stats";
+import { useAuth } from "../auth/AuthContext";
 import { useWatchTicket } from "../realtime/RealtimeContext";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { AreaTag, PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
+import { SlaTimeline } from "../components/SlaTimeline";
 import {
   AlertIcon,
   ArrowRightIcon,
@@ -54,11 +61,12 @@ import {
   PaperclipIcon,
   SparkleIcon,
   StarIcon,
+  SummaryIcon,
   XIcon,
 } from "../components/icons";
 import { Modal } from "../components/Modal";
 import { Plate } from "../components/Plate";
-import { formatBytes, formatDateTime, formatDeadline, formatWhen } from "../lib/format";
+import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
 
 /** Estados a los que se puede saltar desde el desplegable; el servidor valida el resto. */
 const STATUS_OPTIONS: TicketStatus[] = [
@@ -75,6 +83,7 @@ const STATUS_OPTIONS: TicketStatus[] = [
 export default function TicketDetailPage() {
   const { number = "" } = useParams();
   const queryClient = useQueryClient();
+  const { me } = useAuth();
 
   // Nada en esta página decide permisos por su cuenta: `ticket.permissions` viene
   // resuelto por el servidor, que es quien vuelve a comprobarlos en cada llamada.
@@ -107,7 +116,6 @@ export default function TicketDetailPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [summaryOpen, setSummaryOpen] = useState(true);
   // La sugerencia se guarda junto al borrador para el que se pidió. Si la
   // persona sigue escribiendo, deja de coincidir y desaparece sola al pintar:
   // no hace falta un efecto que la limpie, ni puede quedarse una obsoleta.
@@ -176,6 +184,26 @@ export default function TicketDetailPage() {
     onError: (error) => setActionError(error.message),
   });
 
+  const classify = useMutation({
+    mutationFn: () => classifyTicket(ticket!.id),
+    onSuccess: async (result) => {
+      // Sin IA o sin respuesta del modelo no hay nada que refrescar, pero sí que
+      // decir: el botón no puede quedarse en silencio como si hubiera funcionado.
+      setActionError(result ? null : "La IA no devolvió una clasificación. Inténtalo de nuevo.");
+      await refresh();
+    },
+    onError: (error) => setActionError(error.message),
+  });
+
+  const findIncident = useMutation({
+    mutationFn: () => detectIncident(ticket!.id),
+    onSuccess: async (result) => {
+      setActionError(result ? null : "No se encontraron tickets del mismo incidente.");
+      await refresh();
+    },
+    onError: (error) => setActionError(error.message),
+  });
+
   const upload = useMutation({
     mutationFn: uploadAttachment,
     onSuccess: (attachment) => {
@@ -185,26 +213,29 @@ export default function TicketDetailPage() {
     onError: (error) => setFileError(error.message),
   });
 
-  // IA-4: tras 600 ms de pausa se pide una continuación. El servidor la descarta
-  // a los 1,5 s y limita a una petición cada 2 s por persona (spec §6.2).
+  /*
+   * IA-4, a petición. Antes se preguntaba sola tras 600 ms de pausa al teclear,
+   * que es una llamada por frase escrita y media cuota diaria en una tarde. Ahora
+   * la continuación la pide el botón «Sugerir» del redactor, o Ctrl+Espacio para
+   * quien no quiera soltar el teclado (spec §6.3).
+   */
   const aiCompletes = Boolean(ai?.configured && ai.enabled.autocomplete);
   const ticketId = ticket?.id;
   const canGhost = Boolean(ticket?.permissions.viewInternalNotes);
   const ghost = ghostFor?.draft === draft ? ghostFor.text : "";
+  const [ghosting, setGhosting] = useState(false);
 
-  useEffect(() => {
-    if (!aiCompletes || !canGhost || !ticketId || draft.trim().length < 6) return;
-
-    const timer = window.setTimeout(() => {
-      void autocomplete({ ticketId, draft, type: composerTab })
-        .then((completion) => {
-          if (completion) setGhostFor({ draft, text: completion });
-        })
-        .catch(() => undefined);
-    }, 600);
-
-    return () => window.clearTimeout(timer);
-  }, [draft, composerTab, aiCompletes, canGhost, ticketId]);
+  function askForCompletion() {
+    if (!ticketId) return;
+    setGhosting(true);
+    const asked = draft;
+    void autocomplete({ ticketId, draft: asked, type: composerTab })
+      .then((completion) => {
+        if (completion) setGhostFor({ draft: asked, text: completion });
+      })
+      .catch(() => undefined)
+      .finally(() => setGhosting(false));
+  }
 
   if (ticketQuery.isLoading) {
     return (
@@ -233,6 +264,8 @@ export default function TicketDetailPage() {
 
   const permissions = ticket.permissions;
   const isAgentView = permissions.viewInternalNotes;
+  // El reloj del SLA paró: ni cuenta atrás ni colores de alerta (spec §5.3).
+  const settled = isSettledStatus(ticket.status);
   const canWrite = permissions.replyPublicly || permissions.writeInternalNote;
   const messages = messagesQuery.data?.items ?? [];
 
@@ -271,17 +304,17 @@ export default function TicketDetailPage() {
                     plano, pero el equipo merece saber por qué falta la ficha. */}
                 {ticket.ai?.classificationStatus === "failed" && (
                   <span
-                    title="La clasificación automática falló; se reintentará"
+                    title="La IA lo intentó y no pudo; vuelve a pulsar «Clasificar con IA»"
                     className="rounded-md border border-[var(--content-border)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--content-ink-dim)]"
                   >
-                    Pendiente de clasificación
+                    Sin clasificar
                   </span>
                 )}
                 <PriorityBadge priority={ticket.priority} />
-                <SlaTag
-                  state={ticket.resolutionState}
-                  label={`Resolución ${formatDeadline(ticket.resolutionDueAt)}`}
-                />
+                {/* El margen del SLA, en ficha: "-4h" dice más rápido que
+                    "Resolución hace 4 h" que se va tarde, y el detalle de cada
+                    plazo se abre al pasar por encima. */}
+                <SlaTimeline sla={ticket.sla} status={ticket.status} />
               </div>
             </div>
 
@@ -330,6 +363,30 @@ export default function TicketDetailPage() {
                   <MergeIcon className="h-3.5 w-3.5" /> Fusionar…
                 </button>
               )}
+              {/* Las dos acciones de IA que trabajan sobre un ticket ya creado.
+                  Ninguna corre sola: el alta no gasta cuota (spec §6.3). */}
+              {isAgentView && ai?.configured && ai.enabled.classify && (
+                <button
+                  onClick={() => classify.mutate()}
+                  disabled={classify.isPending}
+                  title="La IA propone categoría y prioridad para este ticket"
+                  className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/15 disabled:opacity-50"
+                >
+                  <SparkleIcon className={`h-3.5 w-3.5 ${classify.isPending ? "animate-pulse" : ""}`} />
+                  {classify.isPending ? "Clasificando…" : "Clasificar con IA"}
+                </button>
+              )}
+              {isAgentView && ai?.configured && ai.enabled.detectIncidents && (
+                <button
+                  onClick={() => findIncident.mutate()}
+                  disabled={findIncident.isPending}
+                  title="Busca si varios tickets recientes describen el mismo problema"
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
+                >
+                  <AlertIcon className="h-3.5 w-3.5" />
+                  {findIncident.isPending ? "Buscando…" : "Buscar incidente"}
+                </button>
+              )}
               {permissions.changeStatus && (
                 <select
                   value={ticket.status}
@@ -364,11 +421,7 @@ export default function TicketDetailPage() {
         </Plate>
 
         {isAgentView && ai?.configured && ai.enabled.summary && (
-          <SummaryPanel
-            ticketId={ticket.id}
-            open={summaryOpen}
-            onToggle={() => setSummaryOpen((open) => !open)}
-          />
+          <SummaryPanel ticketId={ticket.id} />
         )}
 
         <Plate className="p-4">
@@ -377,7 +430,7 @@ export default function TicketDetailPage() {
           ) : (
             <ol className="flex flex-col gap-4">
               {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+                <MessageBubble key={message.id} message={message} meId={me?.id} />
               ))}
             </ol>
           )}
@@ -437,6 +490,9 @@ export default function TicketDetailPage() {
                         setGhostFor(null);
                       } else if (event.key === "Escape") {
                         setGhostFor(null);
+                      } else if (event.key === " " && event.ctrlKey && aiCompletes && canGhost) {
+                        event.preventDefault();
+                        askForCompletion();
                       }
                     }}
                     rows={3}
@@ -463,6 +519,21 @@ export default function TicketDetailPage() {
                   <p className="mt-1 text-[10px] text-[var(--content-ink-dim)]">
                     Tab para aceptar · Esc para descartar
                   </p>
+                )}
+
+                {/* La IA solo continúa la frase si se le pide: ni un token por
+                    el mero hecho de estar escribiendo. */}
+                {aiCompletes && canGhost && (
+                  <button
+                    type="button"
+                    onClick={askForCompletion}
+                    disabled={ghosting}
+                    title="Ctrl + Espacio"
+                    className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-accent hover:underline disabled:opacity-50"
+                  >
+                    <SparkleIcon className={`h-3 w-3 ${ghosting ? "animate-pulse" : ""}`} />
+                    {ghosting ? "Pensando…" : "Sugerir continuación"}
+                  </button>
                 )}
 
                 {files.length > 0 && (
@@ -549,13 +620,19 @@ export default function TicketDetailPage() {
           )}
           <DetailRow
             label="SLA respuesta"
-            value={<SlaTag state={ticket.responseState} />}
+            value={<SlaTag state={ticket.responseState} status={ticket.status} />}
           />
           <DetailRow
             label="SLA resolución"
-            value={<SlaTag state={ticket.resolutionState} />}
+            value={<SlaTag state={ticket.resolutionState} status={ticket.status} />}
           />
-          <DetailRow label="Vence" value={formatDateTime(ticket.resolutionDueAt)} />
+          {/* "Vence" solo tiene sentido mientras falte por vencer. */}
+          <DetailRow
+            label={settled ? "Cerrado" : "Vence"}
+            value={formatDateTime(
+              settled ? (ticket.sla.settledAt ?? ticket.resolutionDueAt) : ticket.resolutionDueAt,
+            )}
+          />
         </Plate>
 
         {isAgentView && ticket.ai?.incident?.status === "detected" && (
@@ -592,35 +669,67 @@ export default function TicketDetailPage() {
             <p className="mb-2 font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
               Duplicados
             </p>
+
+            {/* Este ticket es el absorbido: lo único que hace falta es el camino
+                de vuelta al principal, donde sigue la conversación. */}
             {ticket.mergedInto && (
-              <p className="text-xs text-[var(--content-ink-dim)]">
-                Fusionado dentro de{" "}
-                <Link
-                  to={`/tickets/${formatTicketNumber(ticket.mergedInto.number)}`}
-                  className="text-accent hover:underline"
-                >
-                  {formatTicketNumber(ticket.mergedInto.number)}
-                </Link>
-              </p>
-            )}
-            <ul className="space-y-1.5 text-xs text-[var(--content-ink-dim)]">
-              {ticket.mergedTickets.map((merged) => (
-                <li key={merged.id} className="flex items-start justify-between gap-2">
+              <div className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5 text-xs">
+                <p className="text-[var(--content-ink-dim)]">
+                  Fusionado dentro de{" "}
                   <Link
-                    to={`/tickets/${formatTicketNumber(merged.number)}`}
-                    className="min-w-0 hover:underline"
+                    to={`/tickets/${formatTicketNumber(ticket.mergedInto.number)}`}
+                    className="font-display tabular text-accent hover:underline"
                   >
-                    {formatTicketNumber(merged.number)} — {merged.title}
+                    {formatTicketNumber(ticket.mergedInto.number)}
                   </Link>
-                  {permissions.unmerge && (
-                    <button
-                      onClick={() => unmerge.mutate(merged.id)}
-                      disabled={unmerge.isPending}
-                      className="shrink-0 text-[var(--content-ink-dim)] underline hover:text-[var(--content-ink)] disabled:opacity-50"
+                  {ticket.mergedInto.mergedAt && ` · ${formatWhen(ticket.mergedInto.mergedAt)}`}
+                </p>
+                <p className="mt-0.5 text-[var(--content-ink)]">{ticket.mergedInto.title}</p>
+                <p className="mt-1 text-[var(--content-ink-dim)]">
+                  Este ticket quedó cerrado; su atención continúa allí.
+                </p>
+              </div>
+            )}
+
+            {/* Este ticket es el principal: de cada duplicado se muestra la
+                ficha, no solo el número. Quien atiende tiene que saber quién lo
+                reportó y qué contaba sin abrir otra pestaña (spec §7.5.1). */}
+            <ul className="space-y-2">
+              {ticket.mergedTickets.map((merged) => (
+                <li
+                  key={merged.id}
+                  className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      to={`/tickets/${formatTicketNumber(merged.number)}`}
+                      className="min-w-0 text-xs hover:underline"
                     >
-                      Separar
-                    </button>
+                      <span className="font-display tabular text-[var(--content-ink-dim)]">
+                        {formatTicketNumber(merged.number)}
+                      </span>{" "}
+                      <span className="text-[var(--content-ink)]">{merged.title}</span>
+                    </Link>
+                    {permissions.unmerge && (
+                      <button
+                        onClick={() => unmerge.mutate(merged.id)}
+                        disabled={unmerge.isPending}
+                        className="shrink-0 text-xs text-[var(--content-ink-dim)] underline hover:text-[var(--content-ink)] disabled:opacity-50"
+                      >
+                        Separar
+                      </button>
+                    )}
+                  </div>
+                  {merged.description && (
+                    <p className="mt-1 line-clamp-3 text-xs text-[var(--content-ink-dim)]">
+                      {merged.description}
+                    </p>
                   )}
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--content-ink-dim)]">
+                    {merged.requesterName && <span>{merged.requesterName}</span>}
+                    {merged.createdAt && <span>· creado {formatWhen(merged.createdAt)}</span>}
+                    {merged.mergedAt && <span>· fusionado {formatWhen(merged.mergedAt)}</span>}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -677,23 +786,23 @@ export default function TicketDetailPage() {
 
 
 /**
- * IA-3. El resumen se guarda en el ticket y se reutiliza hasta que la
- * conversación avanza tres mensajes; "Regenerar" fuerza uno nuevo. Si no llega
- * ninguno, el panel lo dice y no pasa nada más (spec §6.3).
+ * IA-3, a petición. El panel no pide nada al abrirse el ticket: mientras nadie
+ * pulse «Ver resumen del ticket» no se gasta ni una llamada al modelo, que es
+ * justo lo que hace sostenible la cuota gratuita (spec §6.3).
+ *
+ * Una vez pedido, el resumen guardado en el ticket se reutiliza hasta que la
+ * conversación avanza tres mensajes; «Regenerar» fuerza uno nuevo. Si no llega
+ * ninguno, el panel lo dice y no pasa nada más.
  */
-function SummaryPanel({
-  ticketId,
-  open,
-  onToggle,
-}: {
-  ticketId: string;
-  open: boolean;
-  onToggle: () => void;
-}) {
+function SummaryPanel({ ticketId }: { ticketId: string }) {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const [requested, setRequested] = useState(false);
+  const [open, setOpen] = useState(true);
+
+  const { data, isFetching } = useQuery({
     queryKey: aiKeys.summary(ticketId),
     queryFn: () => getSummary(ticketId),
+    enabled: requested,
   });
 
   const regenerate = useMutation({
@@ -701,10 +810,28 @@ function SummaryPanel({
     onSuccess: (result) => queryClient.setQueryData(aiKeys.summary(ticketId), result),
   });
 
+  // Antes de pedirlo, el panel es solo el botón: ocupa una línea y no promete
+  // un resumen que todavía no existe.
+  if (!requested) {
+    return (
+      <Plate className="p-4">
+        <button
+          onClick={() => setRequested(true)}
+          className="flex items-center gap-2 text-sm font-medium text-accent hover:underline"
+        >
+          <SummaryIcon /> Ver resumen del ticket
+        </button>
+      </Plate>
+    );
+  }
+
   return (
     <Plate className="p-4">
       <div className="flex items-center justify-between gap-2">
-        <button onClick={onToggle} className="flex flex-1 items-center justify-between text-left">
+        <button
+          onClick={() => setOpen((value) => !value)}
+          className="flex flex-1 items-center justify-between text-left"
+        >
           <span className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-accent">
             <SparkleIcon /> Resumen de IA
           </span>
@@ -712,12 +839,15 @@ function SummaryPanel({
         <div className="flex items-center gap-2">
           <button
             onClick={() => regenerate.mutate()}
-            disabled={regenerate.isPending}
+            disabled={regenerate.isPending || isFetching}
             className="text-xs text-[var(--content-ink-dim)] hover:text-[var(--content-ink)] disabled:opacity-50"
           >
             {regenerate.isPending ? "Generando…" : "Regenerar"}
           </button>
-          <button onClick={onToggle} aria-label={open ? "Ocultar resumen" : "Mostrar resumen"}>
+          <button
+            onClick={() => setOpen((value) => !value)}
+            aria-label={open ? "Ocultar resumen" : "Mostrar resumen"}
+          >
             <ChevronDownIcon
               className={`text-[var(--content-ink-dim)] transition-transform ${open ? "rotate-180" : ""}`}
             />
@@ -727,10 +857,9 @@ function SummaryPanel({
 
       {open && (
         <p className="mt-2 text-sm leading-relaxed text-[var(--content-ink-dim)]">
-          {isLoading
+          {isFetching
             ? "Preparando el resumen…"
-            : (data?.summary ??
-              "Todavía no hay resumen. Pulsa «Regenerar» para pedirlo.")}
+            : (data?.summary ?? "La IA no devolvió resumen. Pulsa «Regenerar» para reintentarlo.")}
         </p>
       )}
     </Plate>
@@ -746,12 +875,20 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-function MessageBubble({ message }: { message: MessageView }) {
+function MessageBubble({ message, meId }: { message: MessageView; meId?: string }) {
   if (message.type === "system") {
     const event = message.systemEvent;
     return (
       <li className="flex justify-center">
         <span className="rounded-full bg-[var(--content-bg)] px-3 py-1 text-[11px] text-[var(--content-ink-dim)]">
+          {/* La conversación del principal incluye los eventos de los duplicados
+              que absorbió. Sin decir de cuál viene, un «Este ticket se fusionó
+              con…» leído aquí parece hablar del que se está mirando. */}
+          {message.fromTicket && (
+            <span className="font-display tabular">
+              {formatTicketNumber(message.fromTicket.number)} ·{" "}
+            </span>
+          )}
           {describeEvent(event)} · {formatWhen(message.createdAt)}
         </span>
       </li>
@@ -759,50 +896,81 @@ function MessageBubble({ message }: { message: MessageView }) {
   }
 
   const internal = message.type === "internal";
+
+  /*
+   * Lo propio va a la derecha y con color; lo de los demás, a la izquierda y en
+   * gris. Es la gramática de cualquier conversación, y ahorra leer el nombre
+   * para saber quién habla.
+   *
+   * La nota interna no entra en ese reparto de color: es amarilla porque el
+   * solicitante no la lee, y esa advertencia pesa más que saber de quién es. Lo
+   * propio se reconoce igual por el lado, que es lo que el ojo mira primero.
+   */
+  const mine = Boolean(message.author && message.author.id === meId);
+  const own = mine && !internal;
+
   return (
-    <li className="flex gap-3">
+    <li className={`flex gap-3 ${mine ? "flex-row-reverse" : ""}`}>
       <Avatar name={message.author?.name} size="sm" />
       <div
-        className={`min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm ${
-          internal ? "border border-amber/40 bg-amber/10" : "bg-[var(--content-bg)]"
+        className={`min-w-0 max-w-[85%] rounded-xl px-3 py-2.5 text-sm ${
+          internal
+            ? "border border-amber/40 bg-amber/10"
+            : own
+              ? "bg-accent text-white"
+              : "bg-[var(--content-bg)]"
         } ${message.fromTicket ? "border-l-2 border-l-[var(--content-ink-dim)]/40" : ""}`}
       >
-        <div className="mb-0.5 flex flex-wrap items-center gap-2">
-          <span className="font-medium text-[var(--content-ink)]">
-            {message.author?.name ?? "Sistema"}
+        <div
+          className={`mb-0.5 flex flex-wrap items-center gap-2 ${mine ? "justify-end" : ""}`}
+        >
+          <span className={`font-medium ${own ? "text-white" : "text-[var(--content-ink)]"}`}>
+            {/* El nombre primero y el "(Tú)" detrás: al releer el hilo —o al
+                exportarlo— un "Tú" suelto no dice quién escribió. */}
+            {mine ? `${message.author!.name} (Tú)` : (message.author?.name ?? "Sistema")}
           </span>
           {internal && (
             <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber">
               <LockIcon className="h-3 w-3" /> Interna
             </span>
           )}
-          <span className="text-xs text-[var(--content-ink-dim)]">
+          <span className={`text-xs ${own ? "text-white/70" : "text-[var(--content-ink-dim)]"}`}>
             {formatWhen(message.createdAt)}
           </span>
           {/* Viene de un duplicado absorbido: se lee aquí, pero vive allí. */}
           {message.fromTicket && (
             <Link
               to={`/tickets/${formatTicketNumber(message.fromTicket.number)}`}
-              className="rounded-full border border-[var(--content-border)] px-1.5 py-0.5 text-[10px] text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+              className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
+                own
+                  ? "border-white/30 text-white/80 hover:text-white"
+                  : "border-[var(--content-border)] text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+              }`}
             >
               Original de {formatTicketNumber(message.fromTicket.number)}
             </Link>
           )}
         </div>
-        <p className="whitespace-pre-wrap text-[var(--content-ink)]">{message.body}</p>
+        <p className={`whitespace-pre-wrap ${own ? "text-white" : "text-[var(--content-ink)]"}`}>
+          {message.body}
+        </p>
         {message.attachments.length > 0 && (
-          <ul className="mt-2 flex flex-wrap gap-1.5">
+          <ul className={`mt-2 flex flex-wrap gap-1.5 ${mine ? "justify-end" : ""}`}>
             {message.attachments.map((file) => (
               <li key={file.id}>
                 <a
                   href={attachmentUrl(file.id)}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 rounded-md border border-[var(--content-border)] px-2 py-1 text-xs text-[var(--content-ink)] hover:bg-[var(--content-surface)]"
+                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
+                    own
+                      ? "border-white/30 text-white hover:bg-white/10"
+                      : "border-[var(--content-border)] text-[var(--content-ink)] hover:bg-[var(--content-surface)]"
+                  }`}
                 >
                   <PaperclipIcon className="h-3 w-3" />
                   {file.fileName}
-                  <span className="text-[var(--content-ink-dim)]">
+                  <span className={own ? "text-white/70" : "text-[var(--content-ink-dim)]"}>
                     {formatBytes(file.sizeBytes)}
                   </span>
                 </a>
@@ -829,7 +997,9 @@ function describeEvent(event: MessageView["systemEvent"]): string {
     case "transferred":
       return `Transferido de ${event.from} a ${event.to}${event.reason ? ` · ${event.reason}` : ""}`;
     case "merged":
-      return `Fusionado con ${event.to}${event.reason ? ` · ${event.reason}` : ""}`;
+      return `Absorbió el duplicado ${event.to}${event.reason ? ` · ${event.reason}` : ""}`;
+    case "merged_into":
+      return `Este ticket se fusionó con ${event.to} y quedó cerrado${event.reason ? ` · ${event.reason}` : ""}`;
     case "unmerged":
       return `Fusión deshecha: ${event.to}`;
     case "join_requested":
@@ -1232,21 +1402,56 @@ function MergeModal({
   const [addAssignees, setAddAssignees] = useState(true);
   const [notifyRequesters, setNotifyRequesters] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Tickets que la persona añadió escribiendo su número; se suman a los que
+  // propuso la búsqueda, para que las dos listas se traten igual.
+  const [typed, setTyped] = useState<DuplicateCandidate[]>([]);
+  const [numberDraft, setNumberDraft] = useState("");
 
-  const { data: candidates = [], isLoading } = useQuery({
+  const { data: found = [], isLoading } = useQuery({
     queryKey: [...ticketKeys.all, ticket.id, "duplicates"],
     queryFn: () => listDuplicateCandidates(ticket.id),
     enabled: open,
   });
 
+  // Lo escrito manda: si el mismo ticket llega por los dos caminos, se lista una vez.
+  const candidates = [...typed, ...found.filter((item) => !typed.some((t) => t.id === item.id))];
+
+  const lookup = useMutation({
+    mutationFn: () => lookupMergeCandidate(ticket.id, numberDraft.trim()),
+    onSuccess: (candidate) => {
+      setError(null);
+      setNumberDraft("");
+      setTyped((current) =>
+        current.some((item) => item.id === candidate.id) ? current : [candidate, ...current],
+      );
+      // Se marca solo: escribir su número ya es decir que ese es el duplicado.
+      setPicked((current) =>
+        current.includes(candidate.id) ? current : [...current, candidate.id],
+      );
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
   // Si el ticket pertenece a un incidente, sus compañeros llegan marcados; el
   // usuario siempre confirma (spec §7.5.1).
   const [primed, setPrimed] = useState(false);
-  if (open && !primed && candidates.length > 0) {
+  if (open && !primed && found.length > 0) {
     setPrimed(true);
-    setPicked(candidates.filter((item) => item.sameIncident).map((item) => item.id));
+    setPicked(found.filter((item) => item.sameIncident).map((item) => item.id));
   }
-  if (!open && primed) setPrimed(false);
+
+  // Al cerrarse, el modal se olvida de todo: la próxima fusión empieza limpia.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) {
+      setPrimed(false);
+      setPicked([]);
+      setTyped([]);
+      setNumberDraft("");
+      setError(null);
+    }
+  }
 
   const merge = useMutation({
     mutationFn: () =>
@@ -1291,9 +1496,41 @@ function MergeModal({
     >
       {error && <p className="mb-2 text-sm text-red">{error}</p>}
 
+      {/* Lo habitual es que quien fusiona ya sepa cuál es el otro ticket: se
+          escribe su número y listo, sin depender de que la búsqueda lo proponga. */}
+      <label
+        htmlFor="numero-duplicado"
+        className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]"
+      >
+        Número del ticket a fusionar
+      </label>
+      <div className="mb-4 flex gap-2">
+        <input
+          id="numero-duplicado"
+          value={numberDraft}
+          onChange={(event) => setNumberDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && numberDraft.trim()) {
+              event.preventDefault();
+              lookup.mutate();
+            }
+          }}
+          placeholder="Ej. TK-000076"
+          className="min-w-0 flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 font-display text-sm tabular text-[var(--content-ink)] outline-none focus:border-accent"
+        />
+        <button
+          type="button"
+          onClick={() => lookup.mutate()}
+          disabled={!numberDraft.trim() || lookup.isPending}
+          className="shrink-0 rounded-lg border border-[var(--content-border)] px-3 py-2 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
+        >
+          {lookup.isPending ? "Buscando…" : "Añadir"}
+        </button>
+      </div>
+
       <p className="mb-3 text-sm text-[var(--content-ink-dim)]">
-        Posibles duplicados en {ticket.area.name}, creados en las últimas 48 h con palabras
-        parecidas en el título.
+        Y estos son los posibles duplicados en {ticket.area.name}, creados en las últimas 48 h con
+        palabras parecidas en el título.
       </p>
 
       {isLoading ? (
@@ -1339,11 +1576,15 @@ function MergeModal({
         </ul>
       )}
 
-      <div className="mb-3 flex items-center gap-2 text-sm text-[var(--content-ink)]">
+      <div className="mb-1 flex items-center gap-2 text-sm text-[var(--content-ink)]">
         <ArrowRightIcon className="h-3.5 w-3.5 text-[var(--content-ink-dim)]" />
         Ticket principal:{" "}
         <span className="font-display tabular">{formatTicketNumber(ticket.number)}</span>
       </div>
+      <p className="mb-3 text-xs text-[var(--content-ink-dim)]">
+        Los marcados se cierran con un mensaje que apunta a {formatTicketNumber(ticket.number)}, y
+        aquí queda su ficha y su conversación.
+      </p>
 
       <label className="mb-1.5 flex items-center gap-2 text-sm text-[var(--content-ink)]">
         <input

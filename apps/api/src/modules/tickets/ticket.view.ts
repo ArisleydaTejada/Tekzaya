@@ -13,9 +13,12 @@ import {
   canTransfer,
   canUnmerge,
   canWriteInternalNote,
+  businessDaysAfter,
   slaStateAt,
   type Actor,
   type Attachment,
+  type BusinessCalendar,
+  type MergedTicketRef,
   type MessageView,
   type SlaState,
   type TicketDetail,
@@ -27,6 +30,7 @@ import { Area } from "../../models/area.model";
 import { Attachment as AttachmentModel } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
+import { getSettings } from "../settings/settings.service";
 import { refOf, type LeanTicket } from "./ticket.access";
 
 /** Estados en los que el ticket ya no admite fusiones (spec §7.5.1). */
@@ -37,6 +41,14 @@ export interface Hydration {
   users: Map<string, UserSummary>;
   areas: Map<string, { id: string; name: string; color: string }>;
   categories: Map<string, string>;
+  /**
+   * La jornada y el plazo de abandono, leídos una vez por página. Son ajustes
+   * de la empresa, no del ticket, pero la fila los necesita para decir cuándo
+   * se cierra solo un ticket en espera, y van aquí por el mismo motivo que los
+   * nombres y los colores: para no consultarlos una vez por fila.
+   */
+  calendar: BusinessCalendar;
+  onHoldAutoCloseDays: number;
 }
 
 const UNKNOWN_USER = (id: string): UserSummary => ({
@@ -86,16 +98,23 @@ export async function hydrate(tickets: LeanTicket[]): Promise<Hydration> {
     areaIds.add(String(ticket["areaId"]));
   }
 
-  const [users, areas] = await Promise.all([
+  const [users, areas, settings] = await Promise.all([
     User.find({ _id: { $in: [...userIds] } })
       .select("name avatarUrl areaId availability")
       .lean(),
     Area.find({ _id: { $in: [...areaIds] } })
       .select("name color categories")
       .lean(),
+    getSettings(),
   ]);
 
-  const hydration: Hydration = { users: new Map(), areas: new Map(), categories: new Map() };
+  const hydration: Hydration = {
+    users: new Map(),
+    areas: new Map(),
+    categories: new Map(),
+    calendar: { hours: settings.businessHours, holidays: settings.holidays },
+    onHoldAutoCloseDays: settings.onHoldAutoCloseDays,
+  };
   for (const user of users) hydration.users.set(String(user._id), summaryOf(user));
   for (const area of areas) {
     hydration.areas.set(String(area._id), {
@@ -119,7 +138,7 @@ function userOf(h: Hydration, id: unknown): UserSummary {
  * Instante en que el ticket dejó de consumir SLA. Sin él, un ticket cancelado
  * seguiría "venciendo" cada vez que alguien abre la lista.
  */
-function settledAt(ticket: LeanTicket): Date | undefined {
+export function settledAt(ticket: LeanTicket): Date | undefined {
   const sla = ticket["sla"] ?? {};
   if (sla.resolvedAt) return sla.resolvedAt as Date;
   if (sla.closedAt) return sla.closedAt as Date;
@@ -148,6 +167,33 @@ export function slaStatesOf(ticket: LeanTicket, now = new Date()): {
       riskAt: sla.resolutionRiskAt as Date,
       completedAt: settled,
     }),
+  };
+}
+
+/**
+ * La espera del solicitante, si el ticket está parado ahora mismo: desde cuándo
+ * y hasta cuándo. El "hasta" es el mismo umbral que dispara el cierre automático
+ * en `runLifecycleJobs`, calculado con el mismo calendario y los mismos días,
+ * para que lo que se enseña y lo que ocurre no puedan discrepar.
+ *
+ * Solo lo recibe quien atiende el ticket: al solicitante no se le enseña una
+ * cuenta atrás para que su propio ticket se cierre. Ya se le avisa con el
+ * recordatorio de los `onHoldReminderDays`, que es el aviso que le toca.
+ */
+function requesterWaitOf(
+  ticket: LeanTicket,
+  h: Hydration,
+  actor?: Actor,
+): { onHoldSince?: string; requesterWaitDueAt?: string } {
+  if (ticket["status"] !== "on_hold") return {};
+  const since = ticket["sla"]?.onHoldSince as Date | undefined;
+  if (!since) return {};
+  if (!actor || !canReadInternalNotes(actor, refOf(ticket))) return {};
+
+  const dueAt = businessDaysAfter(since, h.onHoldAutoCloseDays, h.calendar);
+  return {
+    onHoldSince: since.toISOString(),
+    ...(dueAt ? { requesterWaitDueAt: dueAt.toISOString() } : {}),
   };
 }
 
@@ -188,6 +234,7 @@ export function toListItem(ticket: LeanTicket, h: Hydration, actor?: Actor): Tic
     ...(ticket["sla"].firstResponseAt
       ? { firstResponseAt: (ticket["sla"].firstResponseAt as Date).toISOString() }
       : {}),
+    ...requesterWaitOf(ticket, h, actor),
     attachmentsCount: (ticket["attachmentsCount"] as number | undefined) ?? 0,
     ...(incidentLabelFor(ticket, actor) ? { incidentLabel: incidentLabelFor(ticket, actor)! } : {}),
     createdAt: (ticket["createdAt"] as Date).toISOString(),
@@ -236,13 +283,35 @@ export async function toDetail(
   ];
   const linked = linkedIds.length
     ? await Ticket.find({ _id: { $in: linkedIds } })
-        .select("number title")
+        .select("number title description status requesterId createdAt mergedAt")
         .lean()
     : [];
   const linkedById = new Map(linked.map((t) => [String(t._id), t]));
   const parent = ticket["mergedIntoId"]
     ? linkedById.get(String(ticket["mergedIntoId"]))
     : undefined;
+
+  // El nombre del solicitante del otro extremo no está en la hidratación de este
+  // ticket, pero es justo lo que hace útil la ficha del duplicado.
+  const linkedRequesters = await User.find({
+    _id: { $in: linked.map((t) => t.requesterId).filter(Boolean) },
+  })
+    .select("name")
+    .lean();
+  const linkedNameById = new Map(linkedRequesters.map((u) => [String(u._id), u.name ?? ""]));
+
+  const mergedRefOf = (t: (typeof linked)[number]): MergedTicketRef => ({
+    id: String(t._id),
+    number: t.number!,
+    title: t.title!,
+    ...(t.description ? { description: t.description } : {}),
+    ...(t.status ? { status: t.status as TicketStatus } : {}),
+    ...(linkedNameById.get(String(t.requesterId))
+      ? { requesterName: linkedNameById.get(String(t.requesterId))! }
+      : {}),
+    ...(t.createdAt ? { createdAt: (t.createdAt as Date).toISOString() } : {}),
+    ...(t.mergedAt ? { mergedAt: (t.mergedAt as Date).toISOString() } : {}),
+  });
 
   return {
     ...base,
@@ -259,7 +328,11 @@ export async function toDetail(
         : {}),
       ...(sla.resolvedAt ? { resolvedAt: (sla.resolvedAt as Date).toISOString() } : {}),
       ...(sla.closedAt ? { closedAt: (sla.closedAt as Date).toISOString() } : {}),
+      ...(settledAt(ticket) ? { settledAt: settledAt(ticket)!.toISOString() } : {}),
       pausedMs: (sla.pausedMs as number | undefined) ?? 0,
+      // Ya los filtró `toListItem` por permiso; aquí solo se copian.
+      ...(base.onHoldSince ? { onHoldSince: base.onHoldSince } : {}),
+      ...(base.requesterWaitDueAt ? { requesterWaitDueAt: base.requesterWaitDueAt } : {}),
       responseState: base.responseState,
       resolutionState: base.resolutionState,
     },
@@ -301,11 +374,11 @@ export async function toDetail(
           },
         }
       : {}),
-    ...(parent ? { mergedInto: { id: String(parent._id), number: parent.number! } } : {}),
+    ...(parent ? { mergedInto: mergedRefOf(parent) } : {}),
     mergedTickets: ((ticket["mergedTicketIds"] as unknown[] | undefined) ?? [])
       .map((id) => linkedById.get(String(id)))
       .filter((t): t is NonNullable<typeof t> => Boolean(t))
-      .map((t) => ({ id: String(t._id), number: t.number!, title: t.title! })),
+      .map(mergedRefOf),
     history: ((ticket["statusHistory"] as { status: TicketStatus; at: Date; byId?: unknown }[]) ?? [])
       .map((entry) => ({
         status: entry.status,

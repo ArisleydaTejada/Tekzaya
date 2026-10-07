@@ -72,6 +72,19 @@ describe("estadísticas del tablero", () => {
       expect(response.status).toBe(200);
       expect(response.body.areaName).toBe("Ventas");
     });
+
+    /**
+     * Es lo que sostiene el selector de área del tablero: los mismos dos roles
+     * que lo tienen en Reportes, y nadie más (spec §7.2.3).
+     */
+    it("el supervisor de RRHH también elige un área concreta del tablero", async () => {
+      const agent = await loginAs(fx.users.supRrhh.email);
+      const response = await agent.get(
+        `/api/v1/stats/overview?scope=area&areaId=${fx.areas.it}`,
+      );
+      expect(response.status).toBe(200);
+      expect(response.body.areaName).toBe("IT y Sistemas");
+    });
   });
 
   describe("KPI de área", () => {

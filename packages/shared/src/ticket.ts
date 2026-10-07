@@ -10,8 +10,29 @@ export const ticketSla = z.object({
   firstResponseAt: isoDateTime.optional(),
   resolvedAt: isoDateTime.optional(),
   closedAt: isoDateTime.optional(),
+  /**
+   * Instante en que el reloj paró de verdad: la resolución, el cierre, o el
+   * momento de cancelar o fusionar. Lo calcula el servidor porque es el único que
+   * sabe mirar el historial de estados, y es lo que permite a la interfaz dejar de
+   * contar días en un ticket entregado en vez de pintarlo vencido para siempre.
+   */
+  settledAt: isoDateTime.optional(),
   /** Tiempo acumulado en "En espera": el reloj del SLA se pausa (spec §5.2). */
   pausedMs: z.number().int().min(0),
+  /**
+   * Desde cuándo está "En espera", si lo está ahora mismo. Solo viaja mientras
+   * la pausa dura: es lo que convierte `pausedMs` —un total histórico— en una
+   * espera que se puede mirar correr.
+   */
+  onHoldSince: isoDateTime.optional(),
+  /**
+   * Cuándo se cierra solo por falta de respuesta del solicitante: `onHoldSince`
+   * más `onHoldAutoCloseDays` días hábiles (spec §5.2). Es un plazo de verdad
+   * —lo ejecuta `runLifecycleJobs`—, pero no es del SLA: vencerlo no es
+   * incumplir, es dar el ticket por abandonado. Solo viaja con el ticket en
+   * espera, y únicamente hacia quien lo atiende.
+   */
+  requesterWaitDueAt: isoDateTime.optional(),
   /** Estado derivado en el backend a partir de los vencimientos y las pausas. */
   responseState: slaState,
   resolutionState: slaState,
@@ -152,6 +173,10 @@ export const ticketListItem = z.object({
   resolutionDueAt: isoDateTime,
   /** Cuándo contestó el área; el panel "Mis solicitudes" distingue con esto (spec §7.2.1). */
   firstResponseAt: isoDateTime.optional(),
+  /** Los dos del ticket en espera; ver `ticketSla`. La lista los lleva para que
+      la ficha del SLA cuente lo mismo en la tabla que en el detalle. */
+  onHoldSince: isoDateTime.optional(),
+  requesterWaitDueAt: isoDateTime.optional(),
   attachmentsCount: z.number().int().min(0),
   /**
    * Etiqueta del incidente al que pertenece, si lo hay. Solo viaja hacia quien
@@ -174,6 +199,23 @@ export const ticketHistoryEntry = z.object({
 });
 export type TicketHistoryEntry = z.infer<typeof ticketHistoryEntry>;
 
+/**
+ * Ficha del otro extremo de una fusión. Lleva más que el número porque el
+ * principal tiene que **mostrar el detalle del duplicado** sin obligar a abrirlo:
+ * quien atiende necesita ver de quién venía y qué contaba (spec §7.5.1).
+ */
+export const mergedTicketRef = z.object({
+  id: objectId,
+  number: z.number().int().positive(),
+  title: z.string(),
+  description: z.string().optional(),
+  status: ticketStatus.optional(),
+  requesterName: z.string().optional(),
+  createdAt: isoDateTime.optional(),
+  mergedAt: isoDateTime.optional(),
+});
+export type MergedTicketRef = z.infer<typeof mergedTicketRef>;
+
 export const ticketDetail = ticketListItem.extend({
   description: z.string(),
   createdBy: userSummary,
@@ -189,10 +231,8 @@ export const ticketDetail = ticketListItem.extend({
       answeredAt: isoDateTime,
     })
     .optional(),
-  mergedInto: z.object({ id: objectId, number: z.number().int().positive() }).optional(),
-  mergedTickets: z.array(
-    z.object({ id: objectId, number: z.number().int().positive(), title: z.string() }),
-  ),
+  mergedInto: mergedTicketRef.optional(),
+  mergedTickets: z.array(mergedTicketRef),
   history: z.array(ticketHistoryEntry),
   permissions: ticketPermissions,
 });
@@ -214,9 +254,40 @@ function commaSeparated<T extends z.ZodType>(item: T) {
   );
 }
 
-export const TICKET_SORTS = ["sla", "recent", "oldest"] as const;
+/**
+ * Orden del listado. `sla`, `recent` y `oldest` son los tres atajos de siempre y
+ * ya llevan su dirección dentro; el resto son columnas de la tabla y se combinan
+ * con `dir`, que es lo que permite pulsar una cabecera dos veces.
+ *
+ * Ordenar vive en el servidor y no en el navegador porque la lista está paginada:
+ * ordenar las 25 filas que se ven no es ordenar los 800 tickets que hay.
+ */
+export const TICKET_SORTS = [
+  "sla",
+  "recent",
+  "oldest",
+  "number",
+  "title",
+  "requester",
+  "area",
+  "priority",
+  "status",
+  "created",
+] as const;
 export const ticketSort = z.enum(TICKET_SORTS);
 export type TicketSort = z.infer<typeof ticketSort>;
+
+/** Columnas de la tabla de tickets por las que el servidor sabe ordenar. */
+export const SORTABLE_TICKET_COLUMNS = [
+  "number",
+  "title",
+  "requester",
+  "area",
+  "priority",
+  "status",
+  "sla",
+  "created",
+] as const satisfies readonly TicketSort[];
 
 export const ticketListQuery = paginationQuery.extend({
   scope: ticketScope.default("area"),
@@ -229,6 +300,8 @@ export const ticketListQuery = paginationQuery.extend({
   /** Número (`TK-000512` o `512`) o trozo del título. */
   q: z.string().trim().max(120).optional(),
   sort: ticketSort.default("sla"),
+  /** Solo lo usan las columnas; los atajos ya traen su propio sentido. */
+  dir: z.enum(["asc", "desc"]).default("asc"),
 });
 export type TicketListQuery = z.infer<typeof ticketListQuery>;
 

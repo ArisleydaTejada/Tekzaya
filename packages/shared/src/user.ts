@@ -118,6 +118,27 @@ export const resetPasswordInput = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordInput>;
 
+// ── Mi perfil ─────────────────────────────────────────────
+
+/**
+ * Lo que cada persona cambia de sí misma. El área y el rol no están aquí a
+ * propósito: los decide quien administra, no el interesado.
+ */
+export const updateProfileInput = z.object({
+  name: z.string().trim().min(2, "Mínimo 2 caracteres").max(80, "Máximo 80 caracteres"),
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileInput>;
+
+/**
+ * Cambiar la propia contraseña exige la actual aunque la sesión ya esté abierta:
+ * es lo que impide que un equipo desatendido se convierta en una cuenta robada.
+ */
+export const changePasswordInput = z.object({
+  currentPassword: z.string().min(1, "Escribe tu contraseña actual"),
+  password: newPassword,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordInput>;
+
 /** Lo que la pantalla de invitación muestra antes de pedir la contraseña. */
 export const invitePreview = z.object({
   name: z.string(),

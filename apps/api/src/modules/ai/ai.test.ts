@@ -137,7 +137,79 @@ describe("sin clave de Gemini", () => {
 
 // ─────────────────────────────────────────────────────────────
 
-describe("IA-1 · sugerencia de área", () => {
+/**
+ * La regla que ordena todo lo demás: la IA no se llama sola. Cada función tiene
+ * un botón detrás, para que la cuota se gaste cuando alguien decide gastarla.
+ */
+describe("ninguna función de IA se dispara sola", () => {
+  it("crear un ticket no llama al modelo ni una vez", async () => {
+    const stub = new StubAiProvider({
+      categoryNumber: 1,
+      priority: "urgent",
+      confidence: 0.9,
+      rationale: "Parece urgente",
+    });
+    setAiProvider(stub);
+
+    const solicitante = await loginAs(fixture.users.employeeVentas.email);
+    const creado = await solicitante.post("/api/v1/tickets").send({
+      title: "Se cayó el wifi en el segundo piso",
+      description: "Nadie tiene conexión desde hace media hora y nadie puede trabajar.",
+      areaId: String(fixture.areas.it),
+    });
+
+    expect(creado.status).toBe(201);
+    expect(stub.requests).toHaveLength(0);
+
+    // Sin clasificar, pero perfectamente utilizable: su número y su plazo están.
+    const guardado = await Ticket.findById(creado.body.id).lean();
+    expect(guardado!.ai!.classificationStatus).toBe("pending");
+    expect(guardado!.priority).toBe("medium");
+  });
+
+  it("el botón de clasificar sí lo llama, y aplica lo que decida", async () => {
+    setAiProvider(
+      new StubAiProvider({
+        categoryNumber: 1,
+        priority: "urgent",
+        confidence: 0.9,
+        rationale: "Afecta a todo el piso",
+      }),
+    );
+
+    const ticket = await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeVentas.id,
+      priority: "medium",
+    });
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const response = await agente.post(`/api/v1/ai/tickets/${String(ticket._id)}/classify`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.classification.priority).toBe("urgent");
+
+    const clasificado = await Ticket.findById(ticket._id).lean();
+    expect(clasificado!.priority).toBe("urgent");
+    expect(clasificado!.categoryId).toBeTruthy();
+  });
+
+  it("clasificar es cosa del área, no del solicitante", async () => {
+    setAiProvider(new StubAiProvider({ categoryNumber: 1, priority: "low", confidence: 0.5, rationale: "x" }));
+
+    const ticket = await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeVentas.id,
+    });
+
+    const solicitante = await loginAs(fixture.users.employeeVentas.email);
+    const response = await solicitante.post(`/api/v1/ai/tickets/${String(ticket._id)}/classify`);
+
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("IA-1 · sugerencia de área y categoría", () => {
   it("traduce la elección del modelo a un área real", async () => {
     setAiProvider(new StubAiProvider({ areaNumber: 1, confidence: 0.91, rationale: "Es de redes" }));
 
@@ -151,6 +223,42 @@ describe("IA-1 · sugerencia de área", () => {
     // El área llega por número de lista, así que siempre existe.
     expect(response.body.suggestion.areaId).toMatch(/^[0-9a-f]{24}$/);
     expect(response.body.suggestion.confidence).toBe(0.91);
+  });
+
+  it("propone también la categoría, en la misma llamada", async () => {
+    const stub = new StubAiProvider({
+      areaNumber: 1,
+      categoryNumber: 1,
+      confidence: 0.84,
+      rationale: "Es un problema de red",
+    });
+    setAiProvider(stub);
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const response = await agente.post("/api/v1/ai/suggest-area").send({
+      title: "Se cayó el wifi en el segundo piso",
+      description: "Nadie tiene conexión desde hace media hora.",
+    });
+
+    expect(response.body.suggestion.areaName).toBe("IT y Sistemas");
+    expect(response.body.suggestion.categoryName).toBe("Redes y conectividad");
+    // Una sola llamada para los dos desplegables.
+    expect(stub.requests).toHaveLength(1);
+  });
+
+  it("una categoría que no existe se descarta, pero el área se conserva", async () => {
+    setAiProvider(
+      new StubAiProvider({ areaNumber: 1, categoryNumber: 99, confidence: 0.7, rationale: "x" }),
+    );
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const response = await agente.post("/api/v1/ai/suggest-area").send({
+      title: "Se cayó el wifi en el segundo piso",
+      description: "Nadie tiene conexión desde hace media hora.",
+    });
+
+    expect(response.body.suggestion.areaName).toBe("IT y Sistemas");
+    expect(response.body.suggestion.categoryId).toBeUndefined();
   });
 
   it("no pregunta con menos de 20 caracteres", async () => {

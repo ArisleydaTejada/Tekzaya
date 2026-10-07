@@ -1,15 +1,17 @@
 import {
   ACTIVE_TICKET_STATUSES,
+  canGrantPrivileges,
   formatTicketNumber,
   inviteUserInput,
   updateUserInput,
+  type Actor,
   type AdminUser,
   type InviteUserInput,
   type UpdateUserInput,
 } from "@tekzaya/shared";
 import { Router } from "express";
 import { Types } from "mongoose";
-import { requireAdmin } from "../../middleware/auth";
+import { requireUserManager } from "../../middleware/auth";
 import { AppError } from "../../middleware/errors";
 import { validateBody } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
@@ -22,8 +24,33 @@ import { issueAccessLink } from "./accessLinks.service";
 
 const router = Router();
 
-// Toda la administración de personas es del administrador (spec §7.7).
-router.use("/users", requireAdmin);
+// La administración de personas la comparten el administrador y RRHH (spec §7.7).
+router.use("/users", requireUserManager);
+
+/**
+ * El reparto de privilegios no viaja con el resto de la ficha: lo que decide si
+ * alguien es administrador o supervisor de RRHH solo lo toca el administrador, y
+ * una cuenta que ya es administradora no la edita nadie más.
+ *
+ * Se comprueba aquí y no en la pantalla porque la pantalla solo esconde botones.
+ */
+function assertMayGrant(
+  actor: Actor,
+  input: { role?: string; hasGlobalReadAccess?: boolean },
+  target?: { role?: string },
+): void {
+  if (canGrantPrivileges(actor)) return;
+
+  if (input.role === "admin") {
+    throw new AppError(403, "forbidden", "Solo el administrador nombra administradores");
+  }
+  if (input.hasGlobalReadAccess === true) {
+    throw new AppError(403, "forbidden", "Solo el administrador concede la lectura global de RRHH");
+  }
+  if (target?.role === "admin") {
+    throw new AppError(403, "forbidden", "Solo el administrador edita una cuenta de administrador");
+  }
+}
 
 function toAdminUser(
   user: Record<string, any>,
@@ -98,6 +125,8 @@ router.post("/users", validateBody(inviteUserInput), async (req, res) => {
   const input = req.body as InviteUserInput;
   const email = input.email.toLowerCase();
 
+  assertMayGrant(res.locals.actor, input);
+
   if (await User.exists({ email })) {
     throw new AppError(409, "email_taken", "Ya existe una cuenta con ese correo");
   }
@@ -126,8 +155,9 @@ router.post("/users", validateBody(inviteUserInput), async (req, res) => {
 
 router.post("/users/:id/access-link", async (req, res) => {
   const id = routeParam(req.params["id"]);
-  const user = await User.findById(id).select("status").lean();
+  const user = await User.findById(id).select("status role").lean();
   if (!user) throw new AppError(404, "not_found", "Esa persona no existe");
+  assertMayGrant(res.locals.actor, {}, { role: user.role });
   if (user.status === "disabled") {
     throw new AppError(409, "account_disabled", "Reactiva la cuenta antes de generar un enlace");
   }
@@ -201,6 +231,8 @@ router.patch("/users/:id", validateBody(updateUserInput), async (req, res) => {
 
   const user = await User.findById(id);
   if (!user) throw new AppError(404, "not_found", "Esa persona no existe");
+
+  assertMayGrant(actor, input, { role: user.get("role") });
 
   // Quedarse sin administrador deja el sistema sin quien lo administre, y no hay
   // forma de recuperarlo desde la propia aplicación.

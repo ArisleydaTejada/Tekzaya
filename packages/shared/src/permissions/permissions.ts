@@ -188,6 +188,26 @@ export function canManageSystem(actor: Actor): boolean {
   return isAdmin(actor);
 }
 
+/**
+ * Llevar las altas y bajas del personal: invitar, corregir datos, cambiar de
+ * área, activar y desactivar, y repartir enlaces de acceso. Es trabajo de RRHH
+ * además del administrador — son quienes saben quién entra y quién sale.
+ */
+export function canManageUsers(actor: Actor): boolean {
+  return isAdmin(actor) || actor.hasGlobalReadAccess;
+}
+
+/**
+ * Repartir privilegios — el rol de administrador y la lectura global de RRHH —
+ * es otra cosa, y se queda en el administrador. Si RRHH pudiera concederlos,
+ * cualquier cuenta de RRHH podría nombrarse administradora y el límite anterior
+ * dejaría de existir. Por el mismo motivo nadie que no sea administrador toca
+ * una cuenta que ya lo es.
+ */
+export function canGrantPrivileges(actor: Actor): boolean {
+  return isAdmin(actor);
+}
+
 // ── Alcance de datos ──────────────────────────────────────────
 
 export type DataScope =

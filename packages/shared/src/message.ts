@@ -18,7 +18,10 @@ export const systemEvent = z.object({
     "priority_changed",
     "category_changed",
     "transferred",
+    /** En el principal: absorbió a estos duplicados. */
     "merged",
+    /** En el duplicado: se fusionó dentro del principal y quedó cerrado. */
+    "merged_into",
     "unmerged",
     "reopened",
     "join_requested",

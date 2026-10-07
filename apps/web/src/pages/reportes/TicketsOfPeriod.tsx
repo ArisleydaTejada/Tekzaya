@@ -19,7 +19,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listReportTickets, reportKeys, reportTicketsCsvUrl, type ReportScopeRequest } from "../../api/reports";
 import { AvatarStack } from "../../components/Avatar";
-import { PriorityBadge, SlaTag, StatusBadge, AreaTag } from "../../components/badges";
+import { PriorityBadge, StatusBadge, AreaTag } from "../../components/badges";
+import { SlaTimeline } from "../../components/SlaTimeline";
 import { Plate } from "../../components/Plate";
 import { DownloadIcon, FilterIcon, SearchIcon, StarIcon, XIcon } from "../../components/icons";
 import { formatWhen } from "../../lib/format";
@@ -278,15 +279,23 @@ export function TicketsOfPeriod({
   );
 }
 
+/**
+ * Columnas con cabecera pulsable. Las que faltan — solicitante, creado por,
+ * área, categoría, encargados, SLA y fusionado con — no son campos del ticket:
+ * son nombres de otras colecciones o valores derivados, y ordenar por ellos
+ * obligaría a cruzar tablas sobre todo el histórico. Para esas están los filtros.
+ */
 const SORTABLE = new Set<string>([
   "number",
   "title",
   "priority",
   "status",
   "createdAt",
+  "firstResponse",
   "resolvedAt",
   "resolutionTime",
   "csat",
+  "reopened",
 ]);
 
 function Cell({ row, column }: { row: ReportTicketRow; column: ReportColumn }) {
@@ -340,7 +349,7 @@ function Cell({ row, column }: { row: ReportTicketRow; column: ReportColumn }) {
     case "resolutionTime":
       return <Hours value={row.resolutionHours} />;
     case "slaState":
-      return <SlaTag state={row.resolutionState} />;
+      return <SlaTimeline sla={row} status={row.status} />;
     case "csat":
       return row.csat ? (
         <span className="inline-flex items-center gap-1 text-[var(--content-ink-dim)]">

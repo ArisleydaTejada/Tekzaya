@@ -16,7 +16,15 @@ import {
   routeParam,
   type LeanTicket,
 } from "../tickets/ticket.access";
-import { aiStatus, autocomplete, detectIncident, dismissIncident, suggestArea, summarizeTicket } from "./ai.service";
+import {
+  aiStatus,
+  autocomplete,
+  classifyTicket,
+  detectIncident,
+  dismissIncident,
+  suggestArea,
+  summarizeTicket,
+} from "./ai.service";
 
 const router = Router();
 
@@ -36,6 +44,27 @@ router.post("/ai/suggest-area", validateBody(suggestAreaInput), async (req, res)
   // Nunca 503 ni error: sin IA la respuesta es "no hay sugerencia", que es un
   // resultado válido y la pantalla ya sabe tratarlo.
   res.json({ suggestion: await suggestArea(input) });
+});
+
+// ── IA-2 ──────────────────────────────────────────────────
+
+/**
+ * Clasificar un ticket ya creado. Es una acción del área, no un efecto del alta:
+ * la IA solo se llama cuando alguien pulsa el botón (spec §6.3).
+ *
+ * Toca la categoría y puede recalcular el plazo, así que pide lo mismo que
+ * cambiar esos campos a mano: pertenecer al área que atiende el ticket.
+ */
+router.post("/ai/tickets/:id/classify", async (req, res) => {
+  const actor = res.locals.actor;
+  const ticket = await loadVisibleTicket(routeParam(req.params["id"]), actor);
+
+  if (!canReadInternalNotes(actor, refOf(ticket.toObject() as LeanTicket))) {
+    throw new AppError(403, "forbidden", "Solo el área que atiende el ticket lo clasifica");
+  }
+
+  // `null` si no hay IA o si Gemini no contestó; la pantalla ya sabe tratarlo.
+  res.json({ classification: await classifyTicket(String(idOf(ticket))) });
 });
 
 // ── IA-3 ──────────────────────────────────────────────────────

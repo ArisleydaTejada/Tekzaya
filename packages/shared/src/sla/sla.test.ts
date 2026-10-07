@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SLA_POLICIES } from "../settings";
 import {
   addBusinessMinutes,
+  businessDaysAfter,
+  businessDaysPassed,
   businessMinutesBetween,
   computeSlaTargets,
   shiftTargets,
@@ -80,6 +82,47 @@ describe("addBusinessMinutes", () => {
     expect(() => addBusinessMinutes(laPazTime("2026-09-16T10:00"), 60, imposible)).toThrow(
       /businessHours/,
     );
+  });
+});
+
+describe("businessDaysAfter", () => {
+  it("vence al cierre del último día hábil del plazo", () => {
+    // Miércoles 08:00 + 10 días hábiles (10 h cada uno) = 100 h de jornada, que
+    // se consumen enteras el martes de la semana siguiente: del 16 al 29 hay
+    // justo 10 días laborables, y el décimo se agota a las 18:00, no al abrir
+    // el undécimo.
+    const result = businessDaysAfter(laPazTime("2026-09-16T08:00"), 10, laPaz);
+    expect(result?.toISOString()).toBe(laPazTime("2026-09-29T18:00").toISOString());
+  });
+
+  it("no inventa una fecha cuando no hay jornada", () => {
+    const imposible: BusinessCalendar = { ...laPaz, hours: { ...laPaz.hours, days: [] } };
+    expect(businessDaysAfter(laPazTime("2026-09-16T10:00"), 10, imposible)).toBeUndefined();
+  });
+
+  /*
+   * El invariante del que depende la línea de tiempo: la fecha que se le enseña
+   * a quien atiende el ticket es exactamente el umbral que dispara el cierre
+   * automático. Si las dos cuentas se separaran, la interfaz prometería un plazo
+   * y el trabajo programado ejecutaría otro.
+   */
+  it("marca el mismo umbral que businessDaysPassed", () => {
+    const since = laPazTime("2026-09-16T11:30");
+    const dueAt = businessDaysAfter(since, 10, laPaz)!;
+
+    expect(businessDaysPassed(since, new Date(dueAt.getTime() - 60_000), 10, laPaz)).toBe(false);
+    expect(businessDaysPassed(since, dueAt, 10, laPaz)).toBe(true);
+  });
+
+  it("mantiene el umbral cuando la espera empieza fuera de jornada", () => {
+    // Sábado: la espera no empieza a correr hasta el lunes a las 08:00, así que
+    // los cinco días hábiles se agotan el viernes siguiente al cerrar.
+    const since = laPazTime("2026-09-19T15:00");
+    const dueAt = businessDaysAfter(since, 5, laPaz)!;
+
+    expect(dueAt.toISOString()).toBe(laPazTime("2026-09-25T18:00").toISOString());
+    expect(businessDaysPassed(since, new Date(dueAt.getTime() - 60_000), 5, laPaz)).toBe(false);
+    expect(businessDaysPassed(since, dueAt, 5, laPaz)).toBe(true);
   });
 });
 

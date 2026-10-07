@@ -468,4 +468,119 @@ describe("listado", () => {
     expect(porEstado.body.items).toHaveLength(1);
     expect(porEstado.body.items[0].status).toBe("in_progress");
   });
+
+  // ── Orden por columna (cabeceras de la tabla) ────────────────
+
+  describe("orden por columna", () => {
+    async function tresTickets() {
+      await seedTicket({
+        areaId: fixture.areas.it,
+        requesterId: fixture.users.employeeVentas.id,
+        title: "Zumbido en el proyector",
+        priority: "low",
+      });
+      await seedTicket({
+        areaId: fixture.areas.it,
+        requesterId: fixture.users.employeeIt.id,
+        title: "Arranque lento",
+        priority: "urgent",
+      });
+      await seedTicket({
+        areaId: fixture.areas.it,
+        requesterId: fixture.users.agentIt.id,
+        title: "Monitor parpadeando",
+        priority: "medium",
+      });
+      return loginAs(fixture.users.agentIt.email);
+    }
+
+    it("ordena por título en los dos sentidos", async () => {
+      const agente = await tresTickets();
+
+      const asc = await agente.get("/api/v1/tickets?scope=area&sort=title&dir=asc");
+      expect(asc.body.items.map((item: { title: string }) => item.title)).toEqual([
+        "Arranque lento",
+        "Monitor parpadeando",
+        "Zumbido en el proyector",
+      ]);
+
+      const desc = await agente.get("/api/v1/tickets?scope=area&sort=title&dir=desc");
+      expect(desc.body.items[0].title).toBe("Zumbido en el proyector");
+    });
+
+    /** Lo que el orden alfabético se cargaría: "high" iría antes que "urgent". */
+    it("la prioridad se ordena por urgencia, no por su texto", async () => {
+      const agente = await tresTickets();
+
+      const response = await agente.get("/api/v1/tickets?scope=area&sort=priority&dir=asc");
+      expect(response.body.items.map((item: { priority: string }) => item.priority)).toEqual([
+        "urgent",
+        "medium",
+        "low",
+      ]);
+    });
+
+    it("ordena por el nombre del solicitante, que vive en otra colección", async () => {
+      const agente = await tresTickets();
+
+      const response = await agente.get("/api/v1/tickets?scope=area&sort=requester&dir=asc");
+      expect(
+        response.body.items.map((item: { requester: { name: string } }) => item.requester.name),
+      ).toEqual(["Aldo Agente", "Elsa Empleada", "Vito Ventas"]);
+    });
+
+    it("los atajos de siempre siguen funcionando", async () => {
+      const agente = await tresTickets();
+
+      const recientes = await agente.get("/api/v1/tickets?scope=area&sort=recent");
+      expect(recientes.body.items[0].title).toBe("Monitor parpadeando");
+
+      const antiguos = await agente.get("/api/v1/tickets?scope=area&sort=oldest");
+      expect(antiguos.body.items[0].title).toBe("Zumbido en el proyector");
+    });
+  });
+});
+
+// ── El reloj del SLA de un ticket entregado (spec §5.3) ────────
+
+describe("SLA de los tickets ya cerrados", () => {
+  it("el detalle dice cuándo paró el reloj, no cuánto lleva vencido", async () => {
+    const hace60Dias = new Date(Date.now() - 60 * 86_400_000);
+    const ticket = await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeVentas.id,
+      assigneeIds: [fixture.users.agentIt.id],
+      status: "in_progress",
+      createdAt: hace60Dias,
+    });
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const resuelto = await agente
+      .patch(`/api/v1/tickets/${String(ticket._id)}`)
+      .send({ status: "resolved", note: "Era el cable de red" });
+
+    expect(resuelto.status).toBe(200);
+    // Con esto la interfaz deja de contar días contra un ticket entregado.
+    expect(resuelto.body.sla.settledAt).toBeTruthy();
+    expect(resuelto.body.sla.settledAt).toBe(resuelto.body.sla.resolvedAt);
+  });
+
+  it("un ticket cancelado también deja de correr", async () => {
+    const ticket = await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeVentas.id,
+      assigneeIds: [fixture.users.agentIt.id],
+      status: "in_progress",
+      createdAt: new Date(Date.now() - 30 * 86_400_000),
+    });
+
+    const supervisora = await loginAs(fixture.users.supIt.email);
+    const cancelado = await supervisora
+      .patch(`/api/v1/tickets/${String(ticket._id)}`)
+      .send({ status: "cancelled" });
+
+    // No hay `resolvedAt`, así que la fecha sale del historial de estados.
+    expect(cancelado.body.sla.resolvedAt).toBeUndefined();
+    expect(cancelado.body.sla.settledAt).toBeTruthy();
+  });
 });

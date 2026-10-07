@@ -1,3 +1,3 @@
-# TICKETS
--cuando cambias de tabla en el kanban de abierto a asignado, deberia asignarselo a quien mismo lo movio, o si es administrador o supervisor a quien se lo quiere asignar
--Todas las sugerencias realizadas por ia sean mediante un boton y no automaticas. Ej: cuando se vaya a crear un ticket, en el campo de departamento y categoria, podria aparecer un boton para que la ia lo clasifique automaticamente, pero solo dandole al boton para que no se acaben los tokens rapido
+Reportes:
+-El boton de plantillas y reportes en vez de que sea icono pon "Reportes" y veo que cuando quito el sidebar, se queda un espacio, elimina ese espacio
+
