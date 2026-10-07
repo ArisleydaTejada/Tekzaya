@@ -1,3 +1,8 @@
-Reportes:
--El boton de plantillas y reportes en vez de que sea icono pon "Reportes" y veo que cuando quito el sidebar, se queda un espacio, elimina ese espacio
+# AJUSTES
+## Logo:
+- Utiliza los logos de la carpeta logo y utiliza los logos donde creas necesarios
 
+- Cambia el color principal de la pagina a los siguientes: primary: #58479d secundary: #b5a3cf
+
+## SideBar
+- Cambia el color del sidebar en el modo claro ya que actualmente solo esta en modo oscuro

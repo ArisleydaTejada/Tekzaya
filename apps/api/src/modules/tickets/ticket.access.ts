@@ -1,5 +1,6 @@
 import {
   ACTIVE_TICKET_STATUSES,
+  SETTLED_TICKET_STATUSES,
   canViewTicket,
   isAdmin,
   type Actor,
@@ -83,10 +84,34 @@ export function scopeFilter(actor: Actor, query: TicketListQuery): Filter {
           { additionalRequesterIds: oid(actor.id) },
         ],
       };
+    /*
+     * "Asignados a mí" y "Mi área" son bandejas de trabajo, no archivos: lo
+     * entregado sale de ellas en cuanto deja de requerir trabajo. Sin esto, el
+     * contador de la pestaña crecía para siempre y acababa midiendo la antigüedad
+     * del área en vez de lo que queda por hacer. Lo terminado vive en `settled`.
+     */
     case "assigned":
-      return { assigneeIds: oid(actor.id) };
+      return { assigneeIds: oid(actor.id), status: { $in: [...ACTIVE_TICKET_STATUSES] } };
     case "area":
-      return { areaId: oid(resolveAreaId(actor, query.areaId)) };
+      return {
+        areaId: oid(resolveAreaId(actor, query.areaId)),
+        status: { $in: [...ACTIVE_TICKET_STATUSES] },
+      };
+    /*
+     * El archivo, por el otro extremo: lo que ya terminó, sea mío o de mi área.
+     * Se incluyen los fusionados porque también terminaron —dentro de otro
+     * ticket— y si no quedarían fuera de todas las pestañas menos "Todos".
+     */
+    case "settled":
+      return {
+        status: { $in: [...SETTLED_TICKET_STATUSES] },
+        $or: [
+          { requesterId: oid(actor.id) },
+          { createdById: oid(actor.id) },
+          { additionalRequesterIds: oid(actor.id) },
+          { areaId: oid(resolveAreaId(actor, query.areaId)) },
+        ],
+      };
     case "unassigned":
       return {
         areaId: oid(resolveAreaId(actor, query.areaId)),

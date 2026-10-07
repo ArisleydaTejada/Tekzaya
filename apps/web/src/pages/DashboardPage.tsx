@@ -106,11 +106,10 @@ export default function DashboardPage() {
                   <button
                     key={item.id}
                     onClick={() => setScope(item.id)}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                      activeScope === item.id
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${activeScope === item.id
                         ? "bg-accent text-white"
                         : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -137,11 +136,10 @@ export default function DashboardPage() {
                 <button
                   key={item}
                   onClick={() => setPeriod(item)}
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                    period === item
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${period === item
                       ? "bg-accent text-white"
                       : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-                  }`}
+                    }`}
                 >
                   {STATS_PERIOD_LABEL[item]}
                 </button>
@@ -208,6 +206,15 @@ export default function DashboardPage() {
         )}
       </KpiRow>
 
+      {personal ? (
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AssignedPanel />
+          <RequestsPanel />
+        </div>
+      ) : (
+        <AvailabilityPanel query={query} global={activeScope === "global"} />
+      )}
+
       {overview.data?.incident && (
         <Plate className="mb-6 flex flex-wrap items-center gap-3 border-amber/40 bg-amber/10 px-4 py-3">
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber" aria-hidden="true" />
@@ -232,14 +239,6 @@ export default function DashboardPage() {
         </Plate>
       )}
 
-      {personal ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AssignedPanel />
-          <RequestsPanel />
-        </div>
-      ) : (
-        <AvailabilityPanel query={query} global={activeScope === "global"} />
-      )}
     </div>
   );
 }
@@ -353,7 +352,7 @@ function AvailabilityPanel({ query, global }: { query: StatsRequest; global: boo
   });
 
   return (
-    <Plate className="p-4">
+    <Plate className="p-4 mb-6">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
           Disponibilidad del equipo

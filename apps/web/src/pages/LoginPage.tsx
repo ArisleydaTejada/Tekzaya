@@ -9,32 +9,27 @@ import { ME_QUERY_KEY } from "../auth/AuthContext";
 import { Field } from "../components/Field";
 import { GoogleMark } from "../components/GoogleMark";
 import { LeverButton } from "../components/LeverButton";
+import { LogoLockup } from "../components/Logo";
 import { AlertIcon, CheckIcon, LockIcon, MailIcon } from "../components/icons";
 
 type FormStatus = "idle" | "loading" | "error" | "locked" | "success";
 
-function Wordmark({
-  size = "md",
-  tone = "panel",
-  className = "",
-}: {
+/*
+ * La plancha de la izquierda es oscura en los dos temas —ahí el contraste es el
+ * diseño—, así que su logotipo va en blanco siempre. El de arriba del formulario
+ * se posa sobre la placa clara y va en negro. Es el mismo logotipo; lo que
+ * cambia es sobre qué se apoya.
+ */
+function Wordmark({ size = "md", on, className = "" }: {
   size?: "sm" | "md";
-  tone?: "panel" | "placard";
+  on: "dark" | "light";
   className?: string;
 }) {
-  const box = size === "md" ? "h-20 w-20 rounded-2xl" : "h-8 w-8 rounded-lg";
-  const glyph = size === "md" ? 42 : 16;
-  const text = size === "md" ? "text-6xl" : "text-xl";
-  const textTone = tone === "panel" ? "text-panel-ink" : "text-placard-ink";
   return (
-    <div className={`flex items-center gap-3.5 ${className}`}>
-      <span className={`flex shrink-0 items-center justify-center ${box} bg-panel-surface-2 ring-1 ring-inset ring-panel-bezel`}>
-        <svg viewBox="0 0 24 24" width={glyph} height={glyph} aria-hidden="true">
-          <path d="M6 7h12M12 7v10" stroke="#f5f3f7" strokeWidth={2.4} strokeLinecap="round" />
-        </svg>
-      </span>
-      <span className={`font-display ${text} font-semibold tracking-wide ${textTone}`}>TEKZAYA</span>
-    </div>
+    <LogoLockup
+      on={on}
+      className={`w-auto object-contain object-left ${size === "md" ? "h-20" : "h-9"} ${className}`}
+    />
   );
 }
 
@@ -113,7 +108,7 @@ export default function LoginPage() {
       {/* Left panel — left empty by design, just the brand mark. */}
       <section className="hidden bg-panel px-10 py-12 lg:flex lg:w-1/2 lg:flex-col lg:justify-center xl:px-16">
         <div>
-          <Wordmark />
+          <Wordmark on="dark" />
           <p className="mt-6 max-w-sm text-base text-panel-ink-dim">Soporte y mantenimiento, en un solo lugar.</p>
         </div>
       </section>
@@ -131,7 +126,7 @@ export default function LoginPage() {
       {/* Placard — the form, always visible */}
       <section className="flex min-h-dvh w-full items-center justify-center bg-placard px-6 py-12 lg:min-h-0 lg:w-1/2">
         <div className="w-full max-w-sm">
-          <Wordmark size="sm" tone="placard" className="mb-8 lg:hidden" />
+          <Wordmark size="sm" on="light" className="mb-8 lg:hidden" />
 
           <h1 className="font-display text-3xl font-semibold tracking-tight text-placard-ink">Bienvenido de nuevo</h1>
           <p className="mt-1.5 text-sm text-placard-ink-dim">Inicia sesión para continuar.</p>
@@ -216,7 +211,7 @@ export default function LoginPage() {
               type="submit"
               disabled={status === "locked" || status === "loading" || status === "success"}
               whileTap={status === "idle" || status === "error" ? { y: 1 } : undefined}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(108,92,231,0.65)] transition-colors hover:bg-accent-dim disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(88,71,157,0.65)] transition-colors hover:bg-accent-dim disabled:cursor-not-allowed disabled:opacity-70"
             >
               {status === "loading" && (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />

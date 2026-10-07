@@ -27,7 +27,7 @@ import { areaKeys, listAreaMembers, listAreas } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
-import { ChevronDownIcon, DownloadIcon, PanelIcon, PlusIcon, XIcon } from "../components/icons";
+import { ChevronDownIcon, DownloadIcon, ChartIcon, PlusIcon, XIcon } from "../components/icons";
 import { TicketsOfPeriod } from "./reportes/TicketsOfPeriod";
 import { WidgetCard } from "./reportes/WidgetCard";
 import { WidgetEditor } from "./reportes/WidgetEditor";
@@ -312,7 +312,7 @@ export default function ReportesPage() {
                 aria-expanded={railOpen}
                 className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
               >
-                <PanelIcon className="h-3.5 w-3.5 -scale-x-100" /> Reportes
+                <ChartIcon className="h-3.5 w-3.5 -scale-x-100" /> Reportes
               </button>
               {draft.id && (
                 <button

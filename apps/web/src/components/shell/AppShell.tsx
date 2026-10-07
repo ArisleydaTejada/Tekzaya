@@ -10,9 +10,10 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-dvh bg-[var(--content-bg)]">
-      {/* Desktop sidebar — the cockpit frame, fixed dark in both themes */}
+      {/* La barra de escritorio. Sigue al tema: clara con el claro, oscura con
+          el oscuro, al contrario que el resto del cromo "instrumento". */}
       <aside
-        className={`relative hidden shrink-0 border-r border-panel-bezel bg-panel transition-[width] duration-200 lg:block ${
+        className={`relative hidden shrink-0 border-r border-[var(--rail-bezel)] bg-[var(--rail-bg)] transition-[width] duration-200 lg:block ${
           collapsed ? "w-[72px]" : "w-64"
         }`}
       >
@@ -41,7 +42,7 @@ export function AppShell() {
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: "spring", stiffness: 320, damping: 34 }}
-              className="fixed inset-y-0 left-0 z-50 w-64 bg-panel lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-64 bg-[var(--rail-bg)] lg:hidden"
             >
               {/* En móvil no hay rail estrecho: el mismo icono cierra el cajón. */}
               <SidebarContent collapsed={false} onToggle={() => setDrawerOpen(false)} />

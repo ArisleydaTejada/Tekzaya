@@ -120,6 +120,12 @@ export const messageType = z.enum(MESSAGE_TYPES);
 export type MessageType = z.infer<typeof messageType>;
 
 // ── Alcance de consultas (spec §12) ───────────────────────────
-export const TICKET_SCOPES = ["mine", "assigned", "area", "unassigned", "all"] as const;
+/**
+ * `settled` es el archivo: lo entregado, cerrado, cancelado o fusionado, propio
+ * o del área. Existe porque `assigned` y `area` dejaron de mostrarlo —son la
+ * bandeja de trabajo, y un ticket cerrado hace dos meses no es trabajo— y lo
+ * terminado tenía que seguir estando a un clic.
+ */
+export const TICKET_SCOPES = ["mine", "assigned", "area", "unassigned", "settled", "all"] as const;
 export const ticketScope = z.enum(TICKET_SCOPES);
 export type TicketScope = z.infer<typeof ticketScope>;

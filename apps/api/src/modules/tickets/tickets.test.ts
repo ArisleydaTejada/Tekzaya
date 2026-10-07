@@ -440,6 +440,66 @@ describe("listado", () => {
     expect(sinAsignar.body.total).toBe(1);
   });
 
+  /*
+   * "Asignados a mí" y "Mi área" son bandejas de trabajo: lo entregado sale de
+   * ellas y aparece en "Resueltos". Sin esto, el contador de la pestaña sumaba
+   * tickets cerrados hace meses y dejaba de medir lo que queda por hacer.
+   */
+  it("lo entregado sale de las bandejas de trabajo y entra en el archivo", async () => {
+    await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeIt.id,
+      assigneeIds: [fixture.users.agentIt.id],
+      status: "in_progress",
+    });
+    for (const status of ["resolved", "closed", "cancelled"] as const) {
+      await seedTicket({
+        areaId: fixture.areas.it,
+        requesterId: fixture.users.employeeIt.id,
+        assigneeIds: [fixture.users.agentIt.id],
+        status,
+      });
+    }
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+
+    const asignados = await agente.get("/api/v1/tickets?scope=assigned");
+    expect(asignados.body.total).toBe(1);
+    expect(asignados.body.items[0].status).toBe("in_progress");
+
+    const area = await agente.get("/api/v1/tickets?scope=area");
+    expect(area.body.total).toBe(1);
+
+    const archivo = await agente.get("/api/v1/tickets?scope=settled&limit=100");
+    expect(archivo.body.total).toBe(3);
+    expect(archivo.body.items.map((t: { status: string }) => t.status).sort()).toEqual([
+      "cancelled",
+      "closed",
+      "resolved",
+    ]);
+  });
+
+  it("el archivo trae lo propio aunque sea de otra área, y nada ajeno", async () => {
+    // Suyo, pero lo atiende otra área: tiene que verlo igual.
+    await seedTicket({
+      areaId: fixture.areas.ventas,
+      requesterId: fixture.users.agentIt.id,
+      status: "closed",
+    });
+    // De otra área y de otra persona: no es suyo ni de su área.
+    await seedTicket({
+      areaId: fixture.areas.ventas,
+      requesterId: fixture.users.employeeVentas.id,
+      status: "closed",
+    });
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const archivo = await agente.get("/api/v1/tickets?scope=settled&limit=100");
+
+    expect(archivo.body.total).toBe(1);
+    expect(archivo.body.items[0].requester.id).toBe(String(fixture.users.agentIt.id));
+  });
+
   it("busca por número y por título, y filtra por estado", async () => {
     const ticket = await seedTicket({
       areaId: fixture.areas.it,

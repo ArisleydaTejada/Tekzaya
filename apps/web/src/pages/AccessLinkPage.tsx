@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { acceptInvite, readAccessLink, resetPassword } from "../api/admin";
 import { ME_QUERY_KEY } from "../auth/AuthContext";
+import { LogoLockup } from "../components/Logo";
 import { AlertIcon, CheckIcon } from "../components/icons";
 
 /**
@@ -50,9 +51,8 @@ export default function AccessLinkPage({ purpose }: { purpose: "invite" | "reset
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[var(--content-bg)] px-4 py-10">
       <div className="w-full max-w-sm">
-        <p className="mb-6 text-center font-display text-2xl font-bold tracking-tight text-[var(--content-ink)]">
-          TEKZAYA
-        </p>
+        {/* El fondo aquí sí sigue al tema, así que el logotipo también. */}
+        <LogoLockup className="mx-auto mb-6 h-9 w-auto object-contain" />
 
         {!token || preview.isError ? (
           <div className="rounded-2xl border border-[var(--content-border)] bg-[var(--content-surface)] p-6 text-center">

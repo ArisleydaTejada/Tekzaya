@@ -22,10 +22,12 @@
   --color-placard-ink: #12141a;
   --color-placard-ink-dim: #5b6472;
 
-  /* Shared accent + semantic */
-  --color-accent: #6c5ce7;
-  --color-accent-bright: #8b7cf6;
-  --color-accent-dim: #4b3fa8;
+  /* Marca. Son los dos colores del logo: el morado del trazo y el lila del
+     contrachapado. `dim` es el primario oscurecido, para el hover de lo que ya
+     va pintado de primario. */
+  --color-accent: #58479d;
+  --color-accent-soft: #b5a3cf;
+  --color-accent-dim: #463a7e;
   --color-amber: #f5a623;
   --color-red: #e5484d;
   --color-green: #39d98a;
@@ -43,10 +45,31 @@
   --content-ink-dim: var(--color-placard-ink-dim);
   --content-shadow: var(--shadow-placard);
 
+  /*
+   * La barra lateral. Es lo único del cromo "instrumento" que sigue al tema:
+   * en claro es una plancha clara con tinte de marca, no un bloque negro
+   * pegado a una página blanca. El resto —la plancha del login, las placas de
+   * los indicadores— se queda oscuro a propósito, porque ahí el contraste es
+   * el diseño y no un descuido.
+   */
+  --rail-bg: #faf9fc;
+  --rail-surface-2: #efecf6;
+  --rail-bezel: #e3def0;
+  --rail-ink: #1b1726;
+  --rail-ink-dim: #6a6380;
+
+  /*
+   * El acento que se lee contra el fondo de quien lo mira: el primario sobre
+   * claro, el secundario sobre oscuro. Lo usan el anillo de foco, el indicador
+   * de la pestaña activa de la barra y la aguja de los indicadores; con un solo
+   * valor fijo, uno de los dos temas siempre perdía el contraste.
+   */
+  --accent-contrast: #58479d;
+
   /* Chart-safe steps — validated with scripts/validate_palette.js (dataviz skill).
      Distinct from the small UI accent/status dots: chart fills need more chroma
      and lightness headroom than a badge dot does. */
-  --chart-recibidos: #6c5ce7;
+  --chart-recibidos: #58479d;
   --chart-resueltos: #1f9a63;
   --chart-bar: #2f6fcb;
   --chart-urgente: #e5484d;
@@ -61,7 +84,7 @@
      (DESIGN.md, "The Semantic Three Rule"). Ordered by adjacency so the first two
      series of any chart are the furthest apart. The gray is reserved for the
      comparison term (previous period), which must never read as a series of its own. */
-  --chart-cat-1: #6c5ce7;
+  --chart-cat-1: #58479d;
   --chart-cat-2: #1f9a63;
   --chart-cat-3: #2f6fcb;
   --chart-cat-4: #d6449c;
@@ -80,7 +103,26 @@
   --content-shadow: var(--shadow-instrument);
   color-scheme: dark;
 
-  --chart-recibidos: #8b7cf6;
+  /*
+   * La barra se va al extremo oscuro de la escala y deja el lienzo en el medio.
+   * Es la misma regla del tema claro leída al revés —allí la barra es lo más
+   * claro y el lienzo queda por debajo—: en los dos casos la barra ocupa un
+   * extremo y el trabajo se queda en el centro, que es lo que la separa de un
+   * vistazo sin necesitar una línea.
+   *
+   * Antes la barra valía #221f2c y el lienzo #201c29: cuatro unidades de
+   * diferencia en total, así que lo único que los distinguía era un borde de
+   * 1 px, y a esa distancia un borde no se ve.
+   */
+  --rail-bg: #16131d;
+  --rail-surface-2: #272130;
+  --rail-bezel: #302a3c;
+  --rail-ink: var(--color-panel-ink);
+  --rail-ink-dim: var(--color-panel-ink-dim);
+
+  --accent-contrast: var(--color-accent-soft);
+
+  --chart-recibidos: #b5a3cf;
   --chart-resueltos: #2fa374;
   --chart-bar: #5b8fe0;
   --chart-urgente: #d9585c;
@@ -90,7 +132,7 @@
   --chart-grid: var(--color-panel-bezel);
   --chart-axis: var(--color-panel-ink-dim);
 
-  --chart-cat-1: #8b7cf6;
+  --chart-cat-1: #b5a3cf;
   --chart-cat-2: #2fa374;
   --chart-cat-3: #5b8fe0;
   --chart-cat-4: #c24e8e;
@@ -121,7 +163,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent-bright);
+    outline: 2px solid var(--accent-contrast);
     outline-offset: 2px;
   }
 

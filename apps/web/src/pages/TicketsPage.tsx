@@ -8,10 +8,12 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
+  ACTIVE_TICKET_STATUSES,
   formatTicketNumber,
   isSettledStatus,
   isSupervisorOf,
   PRIORITIES,
+  SETTLED_TICKET_STATUSES,
   PRIORITY_LABEL,
   TICKET_STATUS_LABEL,
   type MeResponse,
@@ -59,15 +61,36 @@ import { formatWhen } from "../lib/format";
 
 type ViewMode = "lista" | "grupos" | "kanban";
 
+/**
+ * Lo que está sin repartir abre la fila porque es lo único que nadie está
+ * mirando todavía; después, lo propio de cada quien. "Mis solicitudes" baja a
+ * donde estaba "Sin asignar": es la pestaña del otro sombrero —cuando uno pide
+ * en vez de atender— y no compite con la bandeja de trabajo.
+ *
+ * "Resueltos" cierra la serie antes de "Todos": es el archivo, y se consulta
+ * cuando ya se sabe lo que se busca.
+ */
 const TABS: { scope: TicketScope; label: string }[] = [
-  { scope: "mine", label: "Mis solicitudes" },
+  { scope: "unassigned", label: "Sin asignar" },
   { scope: "assigned", label: "Asignados a mí" },
   { scope: "area", label: "Mi área" },
-  { scope: "unassigned", label: "Sin asignar" },
+  { scope: "mine", label: "Mis solicitudes" },
+  { scope: "settled", label: "Resueltos" },
   { scope: "all", label: "Todos" },
 ];
 
-const FILTER_STATUSES: TicketStatus[] = [
+/**
+ * El desplegable de estado solo ofrece lo que la pestaña puede contener. En una
+ * bandeja de trabajo, elegir "Cerrado" devolvía una lista vacía sin explicar por
+ * qué: el alcance ya había descartado los cerrados antes de llegar al filtro.
+ */
+function statusOptionsFor(scope: TicketScope): readonly TicketStatus[] {
+  if (scope === "settled") return SETTLED_TICKET_STATUSES;
+  if (scope === "mine" || scope === "all") return ALL_FILTER_STATUSES;
+  return ACTIVE_TICKET_STATUSES;
+}
+
+const ALL_FILTER_STATUSES: TicketStatus[] = [
   "open",
   "assigned",
   "in_progress",
@@ -150,6 +173,9 @@ export default function TicketsPage() {
     setScope(next);
     setPage(1);
     setSelected([]);
+    // El estado elegido puede no existir en la pestaña de destino —"Cerrado" al
+    // saltar de Resueltos a Mi área—, y arrastrarlo dejaría la tabla vacía.
+    if (statusFilter && !statusOptionsFor(next).includes(statusFilter)) setStatusFilter("");
   }
 
   /**
@@ -324,7 +350,7 @@ export default function TicketsPage() {
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Todos los estados</option>
-          {FILTER_STATUSES.map((status) => (
+          {statusOptionsFor(scope).map((status) => (
             <option key={status} value={status}>
               {TICKET_STATUS_LABEL[status]}
             </option>

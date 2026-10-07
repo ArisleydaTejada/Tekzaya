@@ -44,10 +44,12 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
+      {/* La campana se apoya en la barra superior, así que toma sus colores; el
+          panel que abre es una superficie elevada y conserva los suyos. */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--content-ink-dim)] hover:bg-[var(--content-surface)]"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--rail-ink-dim)] hover:bg-[var(--rail-surface-2)]"
         aria-label={unread > 0 ? `Notificaciones: ${unread} sin leer` : "Notificaciones"}
       >
         <BellIcon />

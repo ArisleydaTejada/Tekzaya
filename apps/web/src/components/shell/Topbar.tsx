@@ -29,12 +29,19 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
   const isAvailable = me.availability.state === "available";
 
+  /*
+   * La barra superior es del color de la lateral, no del lienzo: las dos son
+   * cromo y juntas enmarcan el trabajo en forma de L. Pintada como el contenido
+   * parecía el borde de arriba de la página, y el único sitio donde se notaba
+   * que no lo era —la línea de abajo— se confundía con el canto de la primera
+   * tarjeta.
+   */
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--content-border)] bg-[var(--content-bg)] px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--rail-bezel)] bg-[var(--rail-bg)] px-4 sm:px-6">
       <button
         type="button"
         onClick={onMenuClick}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--content-ink-dim)] hover:bg-[var(--content-surface)] lg:hidden"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--rail-ink-dim)] hover:bg-[var(--rail-surface-2)] lg:hidden"
         aria-label="Abrir menú"
       >
         <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
@@ -49,16 +56,16 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[var(--content-surface)]"
+            className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[var(--rail-surface-2)]"
           >
             <Avatar name={me.name} initials={initialsOf(me.name)} available={isAvailable} />
             <span className="hidden text-left leading-tight md:block">
-              <span className="block text-sm font-medium text-[var(--content-ink)]">{me.name}</span>
-              <span className="block text-xs text-[var(--content-ink-dim)]">
+              <span className="block text-sm font-medium text-[var(--rail-ink)]">{me.name}</span>
+              <span className="block text-xs text-[var(--rail-ink-dim)]">
                 {me.areaName} · {roleLabelOf(me)}
               </span>
             </span>
-            <ChevronDownIcon className="hidden text-[var(--content-ink-dim)] md:block" />
+            <ChevronDownIcon className="hidden text-[var(--rail-ink-dim)] md:block" />
           </button>
           <AnimatePresence>
             {menuOpen && (

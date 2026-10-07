@@ -6,7 +6,7 @@ export type GaugeTone = "neutral" | "steel" | "accent" | "green" | "amber" | "re
 const TONE_COLOR: Record<GaugeTone, string> = {
   neutral: "var(--color-panel-ink-dim)",
   steel: "var(--color-steel)",
-  accent: "var(--color-accent-bright)",
+  accent: "var(--accent-contrast)",
   green: "var(--color-green)",
   amber: "var(--color-amber)",
   red: "var(--color-red)",

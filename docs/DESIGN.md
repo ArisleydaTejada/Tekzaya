@@ -13,9 +13,9 @@ colors:
   placard-border: "#dbe0e9"
   placard-ink: "#12141a"
   placard-ink-dim: "#5b6472"
-  accent: "#6c5ce7"
-  accent-bright: "#8b7cf6"
-  accent-dim: "#4b3fa8"
+  accent: "#58479d"
+  accent-soft: "#b5a3cf"
+  accent-dim: "#463a7e"
   steel: "#7c8cae"
   green: "#39d98a"
   amber: "#f5a623"
@@ -91,7 +91,9 @@ components:
 
 Tekzaya no se presenta como un formulario con un degradado de marca al lado: se presenta como un instrumento que ya está trabajando antes de que la persona escriba una sola letra. El mundo nace en el login (dirección "Panel de instrumentos nocturno", fusión de `signals-instruments-night-flight-six-pack`, seed `4369c73d`) y hoy es el único mundo construido; el resto de pantallas de Fase 1 (tablero, tickets, crear ticket, detalle, administración, reportes) tienen brief pero no código, y heredarán este sistema, no uno nuevo.
 
-Cada pantalla se materializa como **dos placas físicamente unidas**: un panel de instrumentos casi negro (donde vive la IA, siempre índigo, siempre en movimiento cuando actúa) y una placa clara donde vive la tarea del usuario (formularios, listas, datos). Entre ambas hay una costura visible — nunca un corte de color plano — porque el mundo trata la interfaz como hardware montado, no como paneles de CSS apilados.
+Cada pantalla se materializa como **dos placas físicamente unidas**: un panel de instrumentos casi negro (donde vive la IA, siempre morado, siempre en movimiento cuando actúa) y una placa clara donde vive la tarea del usuario (formularios, listas, datos). Entre ambas hay una costura visible — nunca un corte de color plano — porque el mundo trata la interfaz como hardware montado, no como paneles de CSS apilados.
+
+La **barra lateral** es la excepción: sigue al tema de quien mira (`--rail-*`), porque es cromo que acompaña todo el rato y un bloque oscuro pegado a una página clara se lee como un descuido, no como una plancha. El resto del mundo "instrumento" —la plancha del login, las placas de los diales— sí se queda oscuro en los dos temas, que es donde el contraste es intención.
 
 **Key Characteristics:**
 - Diales circulares (no barras de progreso genéricas) para toda lectura numérica que importe: KPI, SLA, confianza de la IA.
@@ -105,7 +107,8 @@ Cada pantalla se materializa como **dos placas físicamente unidas**: un panel d
 Paleta de instrumento: negro casi puro para el panel, blanco cálido para la placa, un único acento vivo (índigo) y un semáforo estricto de tres colores para SLA/prioridad.
 
 ### Primary
-- **Índigo IA** (`#6c5ce7`, brillo `#8b7cf6`, oscuro `#4b3fa8`): reservado a la actividad de la IA (resplandor del dial "Precisión de la IA", etiquetas de clasificación) y a la acción primaria (botón "Iniciar sesión", enlaces). Nunca aparece como color decorativo de fondo.
+- **Morado de marca** (`#58479d`, secundario `#b5a3cf`, oscuro `#463a7e`): son los dos colores del logo. Reservado a la actividad de la IA (resplandor del dial "Precisión de la IA", etiquetas de clasificación) y a la acción primaria (botón "Iniciar sesión", enlaces). Nunca aparece como color decorativo de fondo.
+- **`--accent-contrast`**: el de los dos que se lee contra el fondo de quien mira — el primario sobre claro, el secundario sobre oscuro. Lo usan el anillo de foco, el indicador de la barra lateral y la aguja de los diales, porque un valor fijo perdía el contraste en uno de los dos temas.
 
 ### Secondary
 - **Acero** (`#7c8cae`): segundo tono neutro para diferenciar un dial "positivo" (p. ej. "Resueltos por mí") de los contadores neutros sin pedir prestado un color semántico reservado.
