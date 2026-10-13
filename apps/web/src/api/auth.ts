@@ -1,5 +1,6 @@
 import {
   meResponse,
+  sessionResponse,
   type ChangePasswordInput,
   type LoginInput,
   type MeResponse,
@@ -9,8 +10,9 @@ import {
 import { z } from "zod";
 import { apiFetch, apiUpload } from "./client";
 
-export function getMe(): Promise<MeResponse> {
-  return apiFetch("/me", meResponse);
+/** La sesión actual, o `null` si no hay. Renueva la cookie de acceso si caducó. */
+export async function getSession(): Promise<MeResponse | null> {
+  return (await apiFetch("/auth/session", sessionResponse)).me;
 }
 
 export function login(input: LoginInput): Promise<MeResponse> {

@@ -20,7 +20,14 @@ import {
   resolveAccessToken,
 } from "../admin/accessLinks.service";
 import { buildMeResponse, LOCK_MINUTES, MAX_LOGIN_ATTEMPTS } from "./auth.service";
-import { clearSession, issueSession, REFRESH_COOKIE, verifyRefreshToken } from "./tokens";
+import {
+  ACCESS_COOKIE,
+  clearSession,
+  issueSession,
+  REFRESH_COOKIE,
+  verifyAccessToken,
+  verifyRefreshToken,
+} from "./tokens";
 
 const router = Router();
 
@@ -132,6 +139,45 @@ router.post("/auth/google", validateBody(googleLoginInput), async (req, res) => 
 
   issueSession(res, String(user._id));
   res.json(await buildMeResponse(String(user._id)));
+});
+
+/** El usuario del token si sigue activo; si el token no vale, `null`. */
+async function activeUserOf(token: string | undefined, verify: (token: string) => { sub: string }) {
+  if (!token) return null;
+  let userId: string;
+  try {
+    userId = verify(token).sub;
+  } catch {
+    return null;
+  }
+  const user = await User.findById(userId).select("status").lean();
+  return user?.status === "active" ? userId : null;
+}
+
+/**
+ * ¿Hay sesión? Es lo primero que pregunta la web al abrirse, también en la
+ * pantalla de inicio, donde lo normal es que no la haya. Por eso contesta siempre
+ * 200: con la persona, renovando la cookie de acceso si ya caducó, o con `null`.
+ */
+router.get("/auth/session", async (req, res) => {
+  const cookies = req.cookies as Record<string, string | undefined>;
+
+  const current = await activeUserOf(cookies[ACCESS_COOKIE], verifyAccessToken);
+  if (current) {
+    res.json({ me: await buildMeResponse(current) });
+    return;
+  }
+
+  const renewed = await activeUserOf(cookies[REFRESH_COOKIE], verifyRefreshToken);
+  if (renewed) {
+    issueSession(res, renewed);
+    res.json({ me: await buildMeResponse(renewed) });
+    return;
+  }
+
+  // Cookies caducadas o de una cuenta desactivada: se borran para no volver a enviarlas.
+  if (cookies[ACCESS_COOKIE] || cookies[REFRESH_COOKIE]) clearSession(res);
+  res.json({ me: null });
 });
 
 router.post("/auth/refresh", async (req, res) => {

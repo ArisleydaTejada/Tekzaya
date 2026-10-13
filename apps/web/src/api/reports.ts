@@ -15,7 +15,7 @@ import {
   type StatsQueryFields,
   type UpdateReportInput,
 } from "@tekzaya/shared";
-import { apiFetch, queryString } from "./client";
+import { apiFetch, queryString, sessionFetch } from "./client";
 
 /**
  * Lo que el cliente **pide**. El alcance que devuelve el servidor puede ser más
@@ -86,7 +86,7 @@ export function duplicateSavedReport(id: string): Promise<SavedReport> {
 }
 
 export async function deleteSavedReport(id: string): Promise<void> {
-  await fetch(`/api/v1/reports/${id}`, { method: "DELETE", credentials: "include" });
+  await sessionFetch(`/reports/${id}`, { method: "DELETE", credentials: "include" });
 }
 
 // ── Descargas ─────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export async function downloadWidgetCsv(
   scope: ReportScopeRequest,
   widget: ReportWidget,
 ): Promise<void> {
-  const response = await fetch("/api/v1/reports/query/export", {
+  const response = await sessionFetch("/reports/query/export", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

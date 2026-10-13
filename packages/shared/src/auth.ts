@@ -19,6 +19,13 @@ export const meResponse = user.extend({
 });
 export type MeResponse = z.infer<typeof meResponse>;
 
+/**
+ * Respuesta de `GET /auth/session`: la persona con sesión, o `null` si no la hay.
+ * No tener sesión no es un error, así que viaja como 200 y no ensucia la consola.
+ */
+export const sessionResponse = z.object({ me: meResponse.nullable() });
+export type SessionResponse = z.infer<typeof sessionResponse>;
+
 /** Motivos de rechazo que la interfaz distingue para dar un mensaje útil. */
 export const AUTH_ERROR_CODES = [
   "invalid_credentials",

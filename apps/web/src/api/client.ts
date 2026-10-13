@@ -15,6 +15,51 @@ export class ApiRequestError extends Error {
   }
 }
 
+// ── Renovación de la sesión ───────────────────────────────────
+//
+// La cookie de acceso dura 15 minutos y la de renovación, 7 días. Cuando una
+// petición vuelve con 401, se pide una cookie de acceso nueva y se repite la
+// petición una sola vez. Si la renovación también falla, la sesión terminó de
+// verdad y se avisa a quien escuche (el contexto de sesión) para volver al login.
+
+let refreshing: Promise<boolean> | null = null;
+const sessionLostListeners = new Set<() => void>();
+
+/** Avisa cuando la sesión no se pudo renovar. Devuelve la función para dejar de escuchar. */
+export function onSessionLost(listener: () => void): () => void {
+  sessionLostListeners.add(listener);
+  return () => sessionLostListeners.delete(listener);
+}
+
+/**
+ * Renueva la cookie de acceso. Si varias peticiones caducan a la vez, comparten
+ * la misma renovación en lugar de lanzar una cada una.
+ */
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= fetch(`${BASE_URL}/auth/refresh`, { method: "POST", credentials: "include" })
+    .then((response) => response.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
+}
+
+/**
+ * `fetch` con renovación, para las llamadas que no esperan JSON (borrados,
+ * descargas). `path` va sin el prefijo `/api/v1`. Las rutas de `/auth/` no se reintentan: un 401 al
+ * iniciar sesión es una contraseña mal escrita, no una sesión caducada.
+ */
+export async function sessionFetch(path: string, init: RequestInit): Promise<Response> {
+  const response = await fetch(`${BASE_URL}${path}`, init);
+  if (response.status !== 401 || path.startsWith("/auth/")) return response;
+
+  if (await refreshSession()) return fetch(`${BASE_URL}${path}`, init);
+
+  for (const listener of sessionLostListeners) listener();
+  return response;
+}
+
 /**
  * Punto único de entrada al backend. La respuesta se valida contra el mismo
  * esquema que usa la API, así que un cambio de contrato se nota aquí y no
@@ -25,7 +70,7 @@ export async function apiFetch<T extends z.ZodType>(
   schema: T,
   init?: RequestInit,
 ): Promise<z.infer<T>> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await sessionFetch(path, {
     credentials: "include",
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
@@ -54,7 +99,8 @@ export async function apiUpload<T extends z.ZodType>(
   schema: T,
   body: FormData,
 ): Promise<z.infer<T>> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  // El mismo `FormData` se puede volver a enviar si hay que repetir la petición.
+  const response = await sessionFetch(path, {
     method: "POST",
     credentials: "include",
     body,

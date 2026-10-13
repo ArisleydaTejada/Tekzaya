@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
+import { refreshSession } from "../api/client";
 import { notificationKeys } from "../api/notifications";
 import { statsKeys } from "../api/stats";
 import { ticketKeys } from "../api/tickets";
@@ -57,6 +58,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     });
     socket.on("disconnect", () => setConnected(false));
+    // Un rechazo del servidor (cookie caducada, p. ej. tras suspender el equipo) no
+    // se reintenta solo: se renueva la sesión y se vuelve a conectar. Si no se puede
+    // renovar, `apiFetch` ya llevará al inicio de sesión en la próxima petición.
+    socket.on("connect_error", (error) => {
+      if (socket.active || error.message !== "unauthenticated") return;
+      void refreshSession().then((renewed) => {
+        if (renewed) socket.connect();
+      });
+    });
 
     socket.on(REALTIME_EVENTS.notification, (payload: unknown) => {
       const parsed = notificationEvent.safeParse(payload);

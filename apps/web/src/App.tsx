@@ -1,7 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
-import { RequireAdmin, RequireAuth, RequireSettingsManager, RequireUserManager } from "./auth/RequireAuth";
+import {
+  RequireAdmin,
+  RequireAuth,
+  RequireGuest,
+  RequireSettingsManager,
+  RequireUserManager,
+} from "./auth/RequireAuth";
 import { AppShell } from "./components/shell/AppShell";
 import AccessLinkPage from "./pages/AccessLinkPage";
 import LoginPage from "./pages/LoginPage";
@@ -30,7 +36,9 @@ export default function App() {
             {/* Un solo socket para toda la sesión; de él viven la campana y los listados. */}
             <RealtimeProvider>
               <Routes>
-                <Route path="/" element={<LoginPage />} />
+                <Route element={<RequireGuest />}>
+                  <Route path="/" element={<LoginPage />} />
+                </Route>
                 {/* Enlaces que reparte el administrador; se abren sin sesión. */}
                 <Route path="/invitacion" element={<AccessLinkPage purpose="invite" />} />
                 <Route path="/restablecer" element={<AccessLinkPage purpose="reset" />} />

@@ -10,20 +10,35 @@ import { useAuth } from "./AuthContext";
 export function RequireAuth() {
   const { me, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-[var(--content-bg)]">
-        <span
-          className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--content-border)] border-t-accent"
-          aria-label="Cargando"
-        />
-      </div>
-    );
-  }
-
+  if (isLoading) return <SessionCheck />;
   if (!me) return <Navigate to="/" replace />;
 
   return <Outlet />;
+}
+
+/**
+ * El inicio de sesión es solo para quien no la tiene: con una sesión válida se va
+ * directo al tablero. Se espera a saberlo para no enseñar el formulario un instante
+ * y luego saltar. Si la cookie de acceso caducó, `getSession` la renueva antes de decidir.
+ */
+export function RequireGuest() {
+  const { me, isLoading } = useAuth();
+
+  if (isLoading) return <SessionCheck />;
+  if (me) return <Navigate to="/tablero" replace />;
+
+  return <Outlet />;
+}
+
+function SessionCheck() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-[var(--content-bg)]">
+      <span
+        className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--content-border)] border-t-accent"
+        aria-label="Cargando"
+      />
+    </div>
+  );
 }
 
 /**

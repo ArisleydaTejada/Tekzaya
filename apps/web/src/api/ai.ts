@@ -13,7 +13,7 @@ import {
   type SuggestAreaInput,
   type SummaryResponse,
 } from "@tekzaya/shared";
-import { apiFetch } from "./client";
+import { apiFetch, sessionFetch } from "./client";
 
 export const aiKeys = {
   status: ["ai", "status"] as const,
@@ -68,7 +68,7 @@ export async function detectIncident(ticketId: string): Promise<IncidentGroup | 
 }
 
 export async function dismissIncident(ticketId: string): Promise<void> {
-  await fetch(`/api/v1/tickets/${ticketId}/incident/dismiss`, {
+  await sessionFetch(`/tickets/${ticketId}/incident/dismiss`, {
     method: "POST",
     credentials: "include",
   });
