@@ -411,7 +411,7 @@ Quedó fuera, y se dice para no buscarlo después: **arrastrar y redimensionar**
 | Administración: usuarios, áreas, categorías, SLA | F4 ✓ |
 | Invitaciones y restablecimiento de contraseña | F4 ✓ (previsto en F2) |
 | Requisitos no funcionales §13 | F8 |
-| Fase 2 (activos) | Fuera de alcance — "Próximamente" en el menú |
+| Fase 2 (activos) | Módulo 2, fases A0–A7 — ver [§13](#13-módulo-2-mantenimiento-de-activos) |
 
 ---
 
@@ -559,6 +559,37 @@ Los primeros pasos, en orden, sin ambigüedad:
 3. Instalar MongoDB Community y comprobar que `/api/v1/health` reporta `db: connected`.
 4. Crear `apps/api` con `GET /api/v1/health` y el middleware de validación Zod.
 5. Escribir el **motor de SLA** con sus pruebas, antes que cualquier endpoint: es la pieza más barata de hacer bien ahora y la más cara de arreglar después.
+
+---
+
+## 13. Módulo 2: mantenimiento de activos
+
+> El plan completo, con el modelo de datos, los permisos, el DoD de cada fase y las pruebas, está en **[`PLAN_MODULO2_ACTIVOS.md`](PLAN_MODULO2_ACTIVOS.md)**. Aquí va el resumen.
+
+**Alcance** (spec §14): inventario de activos, historial, averías desde tickets, órdenes de trabajo con costo, mantenimiento preventivo, repuestos con stock mínimo, alertas, reportes MTBF/MTTR/disponibilidad e IA para fallas recurrentes.
+
+**Decisiones de partida:**
+
+- **Cada activo tiene un área responsable** (TI mantiene laptops, Mantenimiento el aire acondicionado). Reutiliza áreas, supervisores y el motor de permisos del módulo 1.
+- **La orden de trabajo es una entidad aparte (`OT-0001`) vinculada al ticket.** El ticket conserva su SLA y su conversación; la OT lleva horas, repuestos y costo, y también puede nacer de un preventivo sin ticket.
+- **Moneda configurable por el admin, USD por defecto.** Los montos se guardan en centavos enteros y cambiar la moneda no convierte los montos antiguos.
+- **MTBF, MTTR y disponibilidad se miden en horas laborables**, con el mismo motor que el SLA.
+- **La IA no inventa cifras:** los números salen del historial y el modelo solo elige casos parecidos y redacta la explicación.
+
+| Fase | Contenido | Duración |
+|---|---|---|
+| A0 | Contratos Zod, modelos, permisos ampliados con pruebas, semilla con 12 meses de historial | 0,5 sem |
+| A1 | Inventario: lista, ficha, foto, línea de tiempo, baja | 1 sem |
+| A2 | "Vincular un equipo" al crear ticket, convertir ticket en OT | 1 sem |
+| A3 | Órdenes de trabajo: estados, horas, repuestos, costo, tiempo de parada | 1,5 sem |
+| A4 | Repuestos: stock como libro de movimientos, sin negativos, alerta de mínimo | 1 sem |
+| A5 | Preventivos recurrentes (`fixed` / `from_last`) generados por un trabajo diario | 1 sem |
+| A6 | Panel de mantenimiento, alertas, fuente `maintenance` en el constructor de reportes | 1 sem |
+| A7 | IA (reparar o reemplazar, estimación de costo), E2E, rendimiento, entrega | 1 sem |
+
+**Total: ~8 semanas.** Hito de seguridad al cerrar A3 (semana ~5): inventario, averías desde tickets y órdenes con costo ya forman un módulo defendible.
+
+**Nunca se recorta:** inventario con historial, permisos por área responsable, vínculo ticket → activo → OT, costo de la OT, stock sin negativos y preventivos que generan OT.
 
 ---
 
