@@ -11,6 +11,7 @@ import areasRoutes from "./modules/areas/areas.routes";
 import attachmentsRoutes from "./modules/attachments/attachments.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import healthRoutes from "./modules/health/health.routes";
+import avatarRoutes from "./modules/me/avatar.routes";
 import meRoutes from "./modules/me/me.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
 import reportsRoutes from "./modules/reports/reports.routes";
@@ -33,6 +34,7 @@ export function createApp() {
 
   // Todo lo que va debajo exige sesión; la autorización fina la aplica cada ruta.
   app.use("/api/v1", requireAuth, meRoutes);
+  app.use("/api/v1", requireAuth, avatarRoutes);
   app.use("/api/v1", requireAuth, areasRoutes);
   app.use("/api/v1", requireAuth, ticketsRoutes);
   app.use("/api/v1", requireAuth, ticketActionsRoutes);

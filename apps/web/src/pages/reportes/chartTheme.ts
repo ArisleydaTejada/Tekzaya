@@ -72,6 +72,17 @@ export function tooltipStyle(theme: ChartTheme): Record<string, string | number>
 }
 
 /**
+ * El resalte al pasar el ratón. El de Recharts es un gris claro fijo (`#ccc`) que en
+ * el tema oscuro se ve como un bloque blanco; este sale del color de la cuadrícula, así
+ * que marca la columna sin taparla en ninguno de los dos temas.
+ */
+export function hoverCursor(theme: ChartTheme, kind: "band" | "line") {
+  return kind === "band"
+    ? { fill: theme.grid, fillOpacity: 0.45 }
+    : { stroke: theme.axis, strokeOpacity: 0.5, strokeDasharray: "3 3" };
+}
+
+/**
  * Un número con su unidad. El formato es parte de la medida, no de la gráfica: 94
  * puede ser noventa y cuatro tickets o el 94 % de cumplimiento, y la diferencia
  * importa en la tarjeta, en la tabla, en el CSV y en el tooltip.

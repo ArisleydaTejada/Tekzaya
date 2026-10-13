@@ -12,7 +12,7 @@ import {
   UsersIcon,
   WrenchIcon,
 } from "../icons";
-import { ACTIVE_TICKET_STATUSES, canManageUsers } from "@tekzaya/shared";
+import { ACTIVE_TICKET_STATUSES, canManageSettings, canManageUsers } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { listTickets, ticketKeys } from "../../api/tickets";
 import { useAuth } from "../../auth/AuthContext";
@@ -160,6 +160,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
   const { me, logout } = useAuth();
   const isAdmin = me?.role === "admin";
   const managesUsers = Boolean(me && canManageUsers(me));
+  const managesSettings = Boolean(me && canManageSettings(me));
   const myOpenCount = useMyOpenCount();
   const navigate = useNavigate();
 
@@ -268,9 +269,9 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <UserIcon />
           {!collapsed && "Administrar perfil"}
         </NavLink>
-        {/* Configuración es administración del sistema: quien no es administrador
-            ni siquiera ve la opción, porque pulsarla solo le daría un 403. */}
-        {isAdmin && (
+        {/* Configuración la llevan el administrador y RRHH; quien no puede
+            entrar ni siquiera ve la opción, porque pulsarla solo le daría un 403. */}
+        {managesSettings && (
           <NavLink
             to="/administracion/configuracion"
             title={collapsed ? "Configuración" : undefined}

@@ -56,8 +56,17 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
 }
 
 export function StatusBadge({ status }: { status: TicketStatus }) {
+  // Los colores son tokens por tema en `index.css`; "Fusionado" usa los de "Cancelado".
+  const key = status === "merged" ? "cancelled" : status;
   return (
-    <span className="inline-flex items-center rounded-md border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-0.5 font-display text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--content-ink-dim)]">
+    <span
+      className="inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-[0.1em]"
+      style={{
+        background: `var(--st-${key}-bg)`,
+        color: `var(--st-${key}-ink)`,
+        borderColor: `var(--st-${key}-border)`,
+      }}
+    >
       {TICKET_STATUS_LABEL[status]}
     </span>
   );

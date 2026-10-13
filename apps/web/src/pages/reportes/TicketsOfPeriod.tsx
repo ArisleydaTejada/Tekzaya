@@ -732,9 +732,9 @@ function readColumns(): ReportColumn[] {
     const stored = localStorage.getItem(COLUMNS_KEY);
     if (!stored) return DEFAULT_REPORT_COLUMNS;
     const parsed = JSON.parse(stored) as string[];
-    const valid = parsed.filter((item): item is ReportColumn =>
-      (REPORT_COLUMNS as readonly string[]).includes(item),
-    );
+    // Se reordena según el catálogo: una selección guardada antes de cambiar el
+    // orden de las columnas adopta el nuevo en vez de quedarse con el viejo.
+    const valid = REPORT_COLUMNS.filter((item) => parsed.includes(item));
     return valid.length ? valid : DEFAULT_REPORT_COLUMNS;
   } catch {
     return DEFAULT_REPORT_COLUMNS;

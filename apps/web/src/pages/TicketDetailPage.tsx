@@ -911,7 +911,7 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
 
   return (
     <li className={`flex gap-3 ${mine ? "flex-row-reverse" : ""}`}>
-      <Avatar name={message.author?.name} size="sm" />
+      <Avatar name={message.author?.name} src={message.author?.avatarUrl} size="sm" />
       <div
         className={`min-w-0 max-w-[85%] rounded-xl px-3 py-2.5 text-sm ${
           internal
@@ -1226,7 +1226,7 @@ function AssignModal({
                   }
                   className="h-4 w-4 accent-accent"
                 />
-                <Avatar name={member.name} available={!away} size="sm" />
+                <Avatar name={member.name} src={member.avatarUrl} available={!away} size="sm" />
 
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-sm text-[var(--content-ink)]">

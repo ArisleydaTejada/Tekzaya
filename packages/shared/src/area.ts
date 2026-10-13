@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectId } from "./common";
+import { objectId, avatarUrl } from "./common";
 
 // Las áreas dejan de ser una unión cerrada de literales: el administrador puede
 // crearlas y desactivarlas, así que solo el identificador es estable.
@@ -34,7 +34,7 @@ export type AreaRef = z.infer<typeof areaRef>;
 export const areaMember = z.object({
   id: objectId,
   name: z.string(),
-  avatarUrl: z.string().url().optional(),
+  avatarUrl: avatarUrl.optional(),
   availability: z.object({
     state: z.enum(["available", "away"]),
     awayUntil: z.iso.datetime().optional(),

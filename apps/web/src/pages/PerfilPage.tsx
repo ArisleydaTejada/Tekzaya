@@ -4,13 +4,20 @@ import {
   AWAY_REASONS,
   changePasswordInput,
   initialsOf,
+  MAX_AVATAR_BYTES,
   roleLabelOf,
   updateProfileInput,
   type AwayReason,
 } from "@tekzaya/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { changeMyPassword, updateMyAvailability, updateMyProfile } from "../api/auth";
+import { useRef, useState } from "react";
+import {
+  changeMyPassword,
+  removeMyAvatar,
+  updateMyAvailability,
+  updateMyProfile,
+  uploadMyAvatar,
+} from "../api/auth";
 import { ME_QUERY_KEY, useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
 import { PageHeader } from "../components/PageHeader";
@@ -83,8 +90,8 @@ function IdentityCard() {
         <Saved shown={save.isSuccess && !changed} />
       </div>
 
-      <div className="flex items-center gap-4">
-        <Avatar name={me.name} initials={initialsOf(me.name)} size="md" />
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+        <PhotoPicker />
         <div className="min-w-0 flex-1">
           <label
             htmlFor="nombre"
@@ -128,6 +135,74 @@ function IdentityCard() {
         </button>
       </div>
     </Plate>
+  );
+}
+
+/**
+ * La foto se guarda al elegirla, sin pasar por «Guardar»: es un archivo, no un campo
+ * del formulario, y dejarla pendiente obligaría a explicar por qué aún no se ve.
+ */
+function PhotoPicker() {
+  const { me } = useAuth();
+  const queryClient = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const onDone = {
+    onSuccess: (updated: Awaited<ReturnType<typeof uploadMyAvatar>>) => {
+      setError(null);
+      queryClient.setQueryData(ME_QUERY_KEY, updated);
+    },
+    onError: (cause: Error) => setError(cause.message),
+  };
+  const upload = useMutation({ mutationFn: uploadMyAvatar, ...onDone });
+  const remove = useMutation({ mutationFn: removeMyAvatar, ...onDone });
+  const busy = upload.isPending || remove.isPending;
+
+  if (!me) return null;
+
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar name={me.name} initials={initialsOf(me.name)} src={me.avatarUrl} size="lg" />
+      <div className="flex flex-col items-start gap-1">
+        <input
+          ref={input}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            // Se avisa antes de subir: esperar la subida para enterarse de que no cabía
+            // es tiempo perdido. El servidor lo vuelve a comprobar de todos modos.
+            if (file.size > MAX_AVATAR_BYTES) {
+              setError("La foto supera los 2 MB");
+              return;
+            }
+            upload.mutate(file);
+          }}
+        />
+        <button
+          onClick={() => input.current?.click()}
+          disabled={busy}
+          className="rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
+        >
+          {upload.isPending ? "Subiendo…" : me.avatarUrl ? "Cambiar foto" : "Subir foto"}
+        </button>
+        {me.avatarUrl && (
+          <button
+            onClick={() => remove.mutate()}
+            disabled={busy}
+            className="px-1 text-xs text-[var(--content-ink-dim)] hover:text-red disabled:opacity-50"
+          >
+            {remove.isPending ? "Quitando…" : "Quitar foto"}
+          </button>
+        )}
+        <p className="text-[11px] text-[var(--content-ink-dim)]">PNG, JPG o WebP · máx. 2 MB</p>
+        {error && <p className="text-xs text-red">{error}</p>}
+      </div>
+    </div>
   );
 }
 

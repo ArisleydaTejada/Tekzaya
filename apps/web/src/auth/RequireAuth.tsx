@@ -1,4 +1,4 @@
-import { canManageUsers } from "@tekzaya/shared";
+import { canManageSettings, canManageUsers } from "@tekzaya/shared";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
@@ -48,6 +48,17 @@ export function RequireUserManager() {
   if (isLoading) return null;
   if (!me) return <Navigate to="/" replace />;
   if (!canManageUsers(me)) return <Navigate to="/tablero" replace />;
+
+  return <Outlet />;
+}
+
+/** Configuración: el administrador y RRHH, que ve la pantalla sin la IA ni los límites. */
+export function RequireSettingsManager() {
+  const { me, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (!me) return <Navigate to="/" replace />;
+  if (!canManageSettings(me)) return <Navigate to="/tablero" replace />;
 
   return <Outlet />;
 }

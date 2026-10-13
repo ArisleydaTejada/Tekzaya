@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTime, objectId } from "./common";
+import { isoDateTime, objectId, avatarUrl } from "./common";
 import { availability } from "./user";
 
 // Las definiciones de cada medida están en el spec §9. Aquí viaja el resultado;
@@ -125,7 +125,7 @@ export type StatsOverview = z.infer<typeof statsOverview>;
 export const availabilityEntry = z.object({
   id: objectId,
   name: z.string(),
-  avatarUrl: z.string().url().optional(),
+  avatarUrl: avatarUrl.optional(),
   areaId: objectId,
   areaName: z.string(),
   availability,

@@ -398,3 +398,32 @@ export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function PencilIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...props}>
+      <path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4Z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+export function PowerIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...props}>
+      <path d="M12 3v8" />
+      <path d="M6.6 6.6a7.5 7.5 0 1 0 10.8 0" />
+    </svg>
+  );
+}
+
+export function KeyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...props}>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m10.85 12.15 8.65-8.65" />
+      <path d="m16.5 6.5 2.5 2.5" />
+      <path d="m14 9 2 2" />
+    </svg>
+  );
+}

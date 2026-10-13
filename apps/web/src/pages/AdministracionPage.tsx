@@ -2,6 +2,7 @@ import {
   PRIORITIES,
   PRIORITY_LABEL,
   canGrantPrivileges,
+  canManageSettings,
   roleLabelOf,
   type AccessLink,
   type AdminArea,
@@ -10,14 +11,15 @@ import {
   type Settings,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
-import { CheckIcon, PlusIcon } from "../components/icons";
+import { DropdownMenu, type DropdownItem } from "../components/DropdownMenu";
+import { CheckIcon, KeyIcon, MailIcon, PencilIcon, PlusIcon, PowerIcon } from "../components/icons";
 import {
   addCategory,
   adminKeys,
@@ -42,26 +44,36 @@ import {
 import { formatDateTime, formatWhen } from "../lib/format";
 
 const TABS = [
-  { id: "usuarios", label: "Usuarios", adminOnly: false },
-  { id: "areas", label: "Áreas y categorías", adminOnly: true },
-  { id: "configuracion", label: "Configuración", adminOnly: true },
-];
+  { id: "usuarios", label: "Usuarios", access: "users" },
+  { id: "areas", label: "Áreas y categorías", access: "admin" },
+  { id: "configuracion", label: "Configuración", access: "settings" },
+] as const;
 
-export default function AdministracionPage() {
-  const { tab = "usuarios" } = useParams();
+/**
+ * `tab` lo fija la ruta cuando la pestaña tiene su propia guarda (Configuración),
+ * porque esa ruta no lleva el parámetro `:tab`.
+ */
+export default function AdministracionPage({ tab: fixedTab }: { tab?: string }) {
+  const { tab: tabParam } = useParams();
+  const tab = fixedTab ?? tabParam ?? "usuarios";
   const navigate = useNavigate();
   const { me } = useAuth();
 
-  // RRHH entra solo a Usuarios, así que no ve pestañas que no puede abrir.
+  // RRHH entra a Usuarios y Configuración, así que no ve pestañas que no puede abrir.
   const isAdmin = me?.role === "admin";
-  const tabs = TABS.filter((item) => isAdmin || !item.adminOnly);
+  const managesSettings = Boolean(me && canManageSettings(me));
+  const tabs = TABS.filter(
+    (item) => item.access === "users" || isAdmin || (item.access === "settings" && managesSettings),
+  );
 
   return (
     <div>
       <PageHeader
         title="Administración"
         subtitle={
-          isAdmin ? "Usuarios, áreas y configuración del sistema." : "Altas, bajas y datos del personal."
+          isAdmin
+            ? "Usuarios, áreas y configuración del sistema."
+            : "Altas, bajas, datos del personal y reglas de la jornada."
         }
       />
       <div className="mb-5 flex gap-1 border-b border-[var(--content-border)]">
@@ -156,44 +168,91 @@ function SortableTh({
   );
 }
 
-const STATUS_TONE: Record<string, string> = {
-  active: "text-green",
-  invited: "text-amber",
-  disabled: "text-[var(--content-ink-dim)]",
+/**
+ * Reutiliza los tokens de los estados de ticket: activo en verde, invitado en
+ * naranja (falta que la persona entre) y desactivado en gris.
+ */
+const STATUS_TOKEN: Record<string, string> = {
+  active: "resolved",
+  invited: "in_progress",
+  disabled: "closed",
 };
 
+function UserStatusBadge({ status }: { status: string }) {
+  const key = STATUS_TOKEN[status] ?? "closed";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium"
+      style={{
+        background: `var(--st-${key}-bg)`,
+        color: `var(--st-${key}-ink)`,
+        borderColor: `var(--st-${key}-border)`,
+      }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+      {STATUS_LABEL[status] ?? status}
+    </span>
+  );
+}
+
+type IssuedLink = { kind: "invite" | "recovery"; name: string; link: AccessLink };
+
 /** El enlace existe una sola vez: si se cierra sin copiarlo, hay que generar otro. */
-function AccessLinkBox({ link, onDone }: { link: AccessLink; onDone: () => void }) {
+function AccessLinkModal({ issued, onClose }: { issued: IssuedLink | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+  const close = () => {
+    setCopied(false);
+    onClose();
+  };
 
   return (
-    <div className="rounded-lg border border-accent/40 bg-accent/10 p-3">
-      <p className="mb-2 text-xs font-medium text-[var(--content-ink)]">
-        Copia este enlace y compártelo. No se envía correo y no se puede volver a consultar.
-      </p>
-      <div className="flex gap-2">
-        <input
-          readOnly
-          value={link.url}
-          onFocus={(event) => event.target.select()}
-          className="min-w-0 flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-1.5 font-display text-[11px] text-[var(--content-ink)]"
-        />
+    <Modal
+      open={Boolean(issued)}
+      onClose={close}
+      title={issued?.kind === "invite" ? "Enlace de invitación" : "Enlace de recuperación"}
+      footer={
         <button
-          onClick={() => {
-            void navigator.clipboard.writeText(link.url).then(() => setCopied(true));
-          }}
-          className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+          onClick={close}
+          className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
         >
-          {copied ? "Copiado" : "Copiar"}
+          Cerrar
         </button>
-      </div>
-      <p className="mt-2 flex items-center justify-between text-[10px] text-[var(--content-ink-dim)]">
-        <span>Caduca el {formatDateTime(link.expiresAt)}</span>
-        <button onClick={onDone} className="underline hover:text-[var(--content-ink)]">
-          Ocultar
-        </button>
-      </p>
-    </div>
+      }
+    >
+      {issued && (
+        <div>
+          <p className="mb-2 text-sm text-[var(--content-ink)]">
+            {issued.kind === "invite"
+              ? `Comparte este enlace con ${issued.name} para que active su cuenta y elija su contraseña.`
+              : `Comparte este enlace con ${issued.name} para que elija una contraseña nueva.`}
+          </p>
+          <p className="mb-3 text-xs text-[var(--content-ink-dim)]">
+            No se envía correo y no se puede volver a consultar: si cierras sin copiarlo, genera otro.
+          </p>
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={issued.link.url}
+              onFocus={(event) => event.target.select()}
+              aria-label="Enlace"
+              className="min-w-0 flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-2 font-display text-xs text-[var(--content-ink)]"
+            />
+            <button
+              onClick={() => {
+                void navigator.clipboard.writeText(issued.link.url).then(() => setCopied(true));
+              }}
+              className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white"
+            >
+              {copied && <CheckIcon className="h-3.5 w-3.5" />}
+              {copied ? "Copiado" : "Copiar"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--content-ink-dim)]">
+            Caduca el {formatDateTime(issued.link.expiresAt)}
+          </p>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -203,7 +262,7 @@ function UsuariosTab() {
   const [statusFilter, setStatusFilter] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
-  const [link, setLink] = useState<{ userId: string; link: AccessLink } | null>(null);
+  const [issued, setIssued] = useState<IssuedLink | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -235,10 +294,10 @@ function UsuariosTab() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
 
   const accessLinkMutation = useMutation({
-    mutationFn: createAccessLink,
-    onSuccess: (result, userId) => {
+    mutationFn: (user: AdminUser) => createAccessLink(user.id),
+    onSuccess: (result, user) => {
       setError(null);
-      setLink({ userId, link: result });
+      setIssued({ kind: user.status === "invited" ? "invite" : "recovery", name: user.name, link: result });
     },
     onError: (cause) => setError(cause.message),
   });
@@ -257,6 +316,35 @@ function UsuariosTab() {
     },
     onError: (cause) => setError(cause.message),
   });
+
+  function userActions(user: AdminUser): DropdownItem[] {
+    const items: DropdownItem[] = [
+      { label: "Editar", icon: <PencilIcon className="h-4 w-4" />, onSelect: () => setEditing(user) },
+    ];
+    if (user.status !== "disabled") {
+      items.push({
+        label: user.status === "invited" ? "Reenviar invitación" : "Restablecer contraseña",
+        icon:
+          user.status === "invited" ? <MailIcon className="h-4 w-4" /> : <KeyIcon className="h-4 w-4" />,
+        onSelect: () => accessLinkMutation.mutate(user),
+      });
+    }
+    items.push(
+      user.status === "disabled"
+        ? {
+            label: "Reactivar",
+            icon: <PowerIcon className="h-4 w-4" />,
+            onSelect: () => toggleStatus.mutate({ id: user.id, status: "active" }),
+          }
+        : {
+            label: "Desactivar",
+            icon: <PowerIcon className="h-4 w-4" />,
+            danger: true,
+            onSelect: () => toggleStatus.mutate({ id: user.id, status: "disabled" }),
+          },
+    );
+    return items;
+  }
 
   return (
     <div>
@@ -313,15 +401,17 @@ function UsuariosTab() {
                 dir={dir}
                 onSort={sortBy}
               />
-              <th className="px-3 py-2.5 font-medium">Acciones</th>
+              <th className="w-16 px-3 py-2.5 text-right font-medium">
+                <span className="sr-only">Acciones</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
-              <tr key={user.id} className="border-b border-[var(--content-border)] last:border-0 align-top">
+              <tr key={user.id} className="border-b border-[var(--content-border)] align-middle last:border-0">
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
-                    <Avatar name={user.name} size="sm" />
+                    <Avatar name={user.name} src={user.avatarUrl} size="sm" />
                     <div>
                       <p className="text-[var(--content-ink)]">{user.name}</p>
                       <p className="text-xs text-[var(--content-ink-dim)]">{user.email}</p>
@@ -334,47 +424,13 @@ function UsuariosTab() {
                   {user.openTickets}
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className={`text-xs font-medium ${STATUS_TONE[user.status]}`}>
-                    {STATUS_LABEL[user.status]}
-                  </span>
+                  <UserStatusBadge status={user.status} />
                 </td>
                 <td className="px-3 py-2.5 text-xs text-[var(--content-ink-dim)]">
                   {user.lastLoginAt ? formatWhen(user.lastLoginAt) : "Nunca"}
                 </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <button onClick={() => setEditing(user)} className="text-accent hover:underline">
-                      Editar
-                    </button>
-                    {user.status === "disabled" ? (
-                      <button
-                        onClick={() => toggleStatus.mutate({ id: user.id, status: "active" })}
-                        className="text-[var(--content-ink-dim)] hover:underline"
-                      >
-                        Reactivar
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => toggleStatus.mutate({ id: user.id, status: "disabled" })}
-                        className="text-[var(--content-ink-dim)] hover:underline"
-                      >
-                        Desactivar
-                      </button>
-                    )}
-                    {user.status !== "disabled" && (
-                      <button
-                        onClick={() => accessLinkMutation.mutate(user.id)}
-                        className="text-[var(--content-ink-dim)] hover:underline"
-                      >
-                        {user.status === "invited" ? "Reenviar invitación" : "Restablecer contraseña"}
-                      </button>
-                    )}
-                  </div>
-                  {link?.userId === user.id && (
-                    <div className="mt-2 max-w-md">
-                      <AccessLinkBox link={link.link} onDone={() => setLink(null)} />
-                    </div>
-                  )}
+                <td className="px-3 py-2.5 text-right">
+                  <DropdownMenu label={`Acciones para ${user.name}`} items={userActions(user)} />
                 </td>
               </tr>
             ))}
@@ -394,10 +450,12 @@ function UsuariosTab() {
         areas={areas}
         onClose={() => setInviteOpen(false)}
         onInvited={async (result) => {
-          setLink({ userId: result.user.id, link: result.link });
+          setIssued({ kind: "invite", name: result.user.name, link: result.link });
           await refresh();
         }}
       />
+
+      <AccessLinkModal issued={issued} onClose={() => setIssued(null)} />
 
       {editing && (
         <EditUserModal
@@ -1042,6 +1100,10 @@ const toMinutes = (hours: string): number => Math.max(1, Math.round(Number(hours
 
 function ConfiguracionTab() {
   const queryClient = useQueryClient();
+  const { me } = useAuth();
+  // RRHH entra a Configuración, pero la IA y los límites de Reportes siguen siendo
+  // del administrador: ni se le muestran ni viajan en lo que guarda.
+  const isAdmin = me?.role === "admin";
   const { data: settings, isLoading } = useQuery({ queryKey: settingsKey, queryFn: getSettings });
   const [draft, setDraft] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1056,7 +1118,10 @@ function ConfiguracionTab() {
   }
 
   const save = useMutation({
-    mutationFn: () => updateSettings(draft!),
+    mutationFn: () => {
+      const { aiEnabled, reportLimits, ...rest } = draft!;
+      return updateSettings(isAdmin ? { ...rest, aiEnabled, reportLimits } : rest);
+    },
     onSuccess: async (saved) => {
       setError(null);
       queryClient.setQueryData(settingsKey, saved);
@@ -1079,68 +1144,71 @@ function ConfiguracionTab() {
   const patch = (change: Partial<Settings>) => setDraft({ ...draft, ...change });
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Plate className="space-y-3 p-4">
+    // Seis columnas en escritorio para poder repartir 3 + 2 + 1 tarjetas por fila;
+    // en tableta quedan de dos en dos y en el móvil, una debajo de otra.
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <Plate className="space-y-3 p-4 lg:col-span-2">
         <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           SLA por prioridad (horas laborables)
         </h3>
-        {PRIORITIES.map((priority) => {
-          const policy = draft.slaPolicies[priority]!;
-          return (
-            <div key={priority} className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="w-16 text-[var(--content-ink-dim)]">
-                {PRIORITY_LABEL[priority]}
-              </span>
-              <input
-                type="number"
-                step="0.25"
-                min="0.25"
-                value={toHours(policy.responseMinutes)}
-                onChange={(event) =>
-                  patch({
-                    slaPolicies: {
-                      ...draft.slaPolicies,
-                      [priority]: {
-                        ...policy,
-                        responseMinutes: toMinutes(event.target.value),
+        <div className="grid grid-cols-[4rem_1fr_1fr] items-center gap-x-2 gap-y-2 text-sm">
+          <span />
+          <span className="text-xs text-[var(--content-ink-dim)]">1.ª respuesta</span>
+          <span className="text-xs text-[var(--content-ink-dim)]">Resolución</span>
+          {PRIORITIES.map((priority) => {
+            const policy = draft.slaPolicies[priority]!;
+            return (
+              <Fragment key={priority}>
+                <span className="text-[var(--content-ink-dim)]">{PRIORITY_LABEL[priority]}</span>
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0.25"
+                  value={toHours(policy.responseMinutes)}
+                  onChange={(event) =>
+                    patch({
+                      slaPolicies: {
+                        ...draft.slaPolicies,
+                        [priority]: {
+                          ...policy,
+                          responseMinutes: toMinutes(event.target.value),
+                        },
                       },
-                    },
-                  })
-                }
-                aria-label={`Primera respuesta para prioridad ${PRIORITY_LABEL[priority]}`}
-                className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
-              />
-              <span className="text-xs text-[var(--content-ink-dim)]">1.ª resp.</span>
-              <input
-                type="number"
-                step="0.5"
-                min="0.5"
-                value={toHours(policy.resolutionMinutes)}
-                onChange={(event) =>
-                  patch({
-                    slaPolicies: {
-                      ...draft.slaPolicies,
-                      [priority]: {
-                        ...policy,
-                        resolutionMinutes: toMinutes(event.target.value),
+                    })
+                  }
+                  aria-label={`Primera respuesta para prioridad ${PRIORITY_LABEL[priority]}`}
+                  className="w-full min-w-0 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+                />
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  value={toHours(policy.resolutionMinutes)}
+                  onChange={(event) =>
+                    patch({
+                      slaPolicies: {
+                        ...draft.slaPolicies,
+                        [priority]: {
+                          ...policy,
+                          resolutionMinutes: toMinutes(event.target.value),
+                        },
                       },
-                    },
-                  })
-                }
-                aria-label={`Resolución para prioridad ${PRIORITY_LABEL[priority]}`}
-                className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
-              />
-              <span className="text-xs text-[var(--content-ink-dim)]">resolución</span>
-            </div>
-          );
-        })}
+                    })
+                  }
+                  aria-label={`Resolución para prioridad ${PRIORITY_LABEL[priority]}`}
+                  className="w-full min-w-0 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+                />
+              </Fragment>
+            );
+          })}
+        </div>
         <p className="text-xs text-[var(--content-ink-dim)]">
           El cambio afecta a los tickets nuevos. Los que ya existen conservan el plazo con el que
           nacieron, para que una edición no los venza de golpe.
         </p>
       </Plate>
 
-      <Plate className="space-y-3 p-4">
+      <Plate className="space-y-3 p-4 lg:col-span-2">
         <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Jornada laboral
         </h3>
@@ -1194,12 +1262,9 @@ function ConfiguracionTab() {
             className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
           />
         </div>
-        <Field
-          label="Zona horaria de la empresa"
+        <TimezoneSelect
           value={draft.businessHours.timezone}
-          onChange={(event) =>
-            patch({ businessHours: { ...draft.businessHours, timezone: event.target.value } })
-          }
+          onChange={(timezone) => patch({ businessHours: { ...draft.businessHours, timezone } })}
         />
         <p className="text-xs text-[var(--content-ink-dim)]">
           Es la zona en la que corre el reloj del SLA, igual para todo el equipo. Cada persona ve
@@ -1207,7 +1272,7 @@ function ConfiguracionTab() {
         </p>
       </Plate>
 
-      <Plate className="space-y-3 p-4">
+      <Plate className="space-y-3 p-4 md:col-span-2 lg:col-span-2">
         <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Días festivos
         </h3>
@@ -1259,7 +1324,8 @@ function ConfiguracionTab() {
         )}
       </Plate>
 
-      <Plate className="space-y-3 p-4">
+      {/* Sin la tarjeta de límites (RRHH), los cierres ocupan la fila entera. */}
+      <Plate className={`space-y-3 p-4 ${isAdmin ? "lg:col-span-3" : "md:col-span-2 lg:col-span-6"}`}>
         <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Cierres automáticos (días hábiles)
         </h3>
@@ -1286,72 +1352,73 @@ function ConfiguracionTab() {
         />
       </Plate>
 
-      <Plate className="space-y-3 p-4">
-        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
-          Límites de Reportes
-        </h3>
-        <p className="text-xs text-[var(--content-ink-dim)]">
-          Cada persona guarda sus propios reportes; el límite evita que una biblioteca
-          personal se vuelva ingobernable (spec §7.8.8).
-        </p>
-        <Field
-          label="Reportes guardados por persona"
-          type="number"
-          min="1"
-          value={String(draft.reportLimits.maxSavedReports)}
-          onChange={(event) =>
-            patch({
-              reportLimits: {
-                ...draft.reportLimits,
-                maxSavedReports: Number(event.target.value),
-              },
-            })
-          }
-        />
-        <Field
-          label="Gráficas por reporte"
-          type="number"
-          min="1"
-          value={String(draft.reportLimits.maxWidgetsPerReport)}
-          onChange={(event) =>
-            patch({
-              reportLimits: {
-                ...draft.reportLimits,
-                maxWidgetsPerReport: Number(event.target.value),
-              },
-            })
-          }
-        />
-      </Plate>
+      {isAdmin && (
+        <Plate className="space-y-3 p-4 lg:col-span-3">
+          <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+            Límites de Reportes
+          </h3>
+          <p className="text-xs text-[var(--content-ink-dim)]">
+            Cada persona guarda sus propios reportes; el límite evita que una biblioteca
+            personal se vuelva ingobernable (spec §7.8.8).
+          </p>
+          <Field
+            label="Reportes guardados por persona"
+            type="number"
+            min="1"
+            value={String(draft.reportLimits.maxSavedReports)}
+            onChange={(event) =>
+              patch({
+                reportLimits: {
+                  ...draft.reportLimits,
+                  maxSavedReports: Number(event.target.value),
+                },
+              })
+            }
+          />
+          <Field
+            label="Gráficas por reporte"
+            type="number"
+            min="1"
+            value={String(draft.reportLimits.maxWidgetsPerReport)}
+            onChange={(event) =>
+              patch({
+                reportLimits: {
+                  ...draft.reportLimits,
+                  maxWidgetsPerReport: Number(event.target.value),
+                },
+              })
+            }
+          />
+        </Plate>
+      )}
 
-      <Plate className="space-y-2 p-4 lg:col-span-2">
-        <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
-          Funciones de inteligencia artificial
-        </h3>
-        <p className="mb-1 text-xs text-[var(--content-ink-dim)]">
-          Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano.
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {(Object.keys(AI_LABEL) as (keyof Settings["aiEnabled"])[]).map((key) => (
-            <label
-              key={key}
-              className="flex items-center justify-between gap-3 rounded-lg bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
-            >
-              {AI_LABEL[key]}
-              <input
-                type="checkbox"
-                checked={draft.aiEnabled[key]}
-                onChange={(event) =>
-                  patch({ aiEnabled: { ...draft.aiEnabled, [key]: event.target.checked } })
-                }
-                className="h-4 w-4 accent-accent"
-              />
-            </label>
-          ))}
-        </div>
-      </Plate>
+      {isAdmin && (
+        <Plate className="space-y-2 p-4 md:col-span-2 lg:col-span-6">
+          <h3 className="font-display text-sm font-semibold text-[var(--content-ink)]">
+            Funciones de inteligencia artificial
+          </h3>
+          <p className="mb-1 text-xs text-[var(--content-ink-dim)]">
+            Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {(Object.keys(AI_LABEL) as (keyof Settings["aiEnabled"])[]).map((key) => (
+              <div
+                key={key}
+                className="flex items-center justify-between gap-3 rounded-lg bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)]"
+              >
+                <span id={`ia-${key}`}>{AI_LABEL[key]}</span>
+                <Switch
+                  labelledBy={`ia-${key}`}
+                  checked={draft.aiEnabled[key]}
+                  onChange={(checked) => patch({ aiEnabled: { ...draft.aiEnabled, [key]: checked } })}
+                />
+              </div>
+            ))}
+          </div>
+        </Plate>
+      )}
 
-      <div className="flex flex-wrap items-center gap-3 lg:col-span-2">
+      <div className="flex flex-wrap items-center gap-3 md:col-span-2 lg:col-span-6">
         <button
           onClick={() => save.mutate()}
           disabled={save.isPending}
@@ -1370,6 +1437,113 @@ function ConfiguracionTab() {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Interruptor accesible: un botón con `role="switch"`, que el lector anuncia como tal. */
+function Switch({
+  checked,
+  onChange,
+  labelledBy,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  labelledBy: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-labelledby={labelledBy}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+        checked ? "bg-accent" : "bg-[var(--content-border)]"
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-150 ${
+          checked ? "translate-x-[18px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+/** Respaldo para navegadores sin `Intl.supportedValuesOf`. */
+const FALLBACK_TIMEZONES = [
+  "America/La_Paz",
+  "America/Lima",
+  "America/Bogota",
+  "America/Mexico_City",
+  "America/Santiago",
+  "America/Argentina/Buenos_Aires",
+  "America/Sao_Paulo",
+  "America/Caracas",
+  "America/New_York",
+  "America/Los_Angeles",
+  "Europe/Madrid",
+  "UTC",
+];
+
+/** Desfase actual de una zona, como `UTC−04:00`; cambia con el horario de verano. */
+function offsetOf(timeZone: string): string {
+  try {
+    const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
+      .formatToParts(new Date())
+      .find((item) => item.type === "timeZoneName")?.value;
+    return !part || part === "GMT" ? "UTC+00:00" : part.replace("GMT", "UTC").replace("-", "−");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Todas las zonas IANA que conoce el navegador, agrupadas por continente y con su
+ * desfase, para elegir sin tener que escribir `America/La_Paz` de memoria.
+ */
+function TimezoneSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const groups = useMemo(() => {
+    const supported = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
+    const zones = supported ? supported("timeZone") : FALLBACK_TIMEZONES;
+    // La guardada siempre está, aunque el navegador no la liste (p. ej. "UTC").
+    const all = zones.includes(value) ? zones : [value, ...zones];
+    const map = new Map<string, { zone: string; label: string }[]>();
+    for (const zone of all) {
+      const region = zone.includes("/") ? zone.split("/")[0]! : "Otras";
+      const city = zone.includes("/") ? zone.slice(region.length + 1) : zone;
+      const label = `${city.replace(/_/g, " ").replace(/\//g, " / ")} (${offsetOf(zone)})`;
+      map.set(region, [...(map.get(region) ?? []), { zone, label }]);
+    }
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [value]);
+
+  return (
+    <div>
+      <label
+        htmlFor="zona-horaria"
+        className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]"
+      >
+        Zona horaria de la empresa
+      </label>
+      <select
+        id="zona-horaria"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+      >
+        {groups.map(([region, zones]) => (
+          <optgroup key={region} label={region}>
+            {zones.map((item) => (
+              <option key={item.zone} value={item.zone}>
+                {item.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
     </div>
   );
 }

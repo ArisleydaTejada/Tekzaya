@@ -7,7 +7,7 @@ import {
   type UpdateProfileInput,
 } from "@tekzaya/shared";
 import { z } from "zod";
-import { apiFetch } from "./client";
+import { apiFetch, apiUpload } from "./client";
 
 export function getMe(): Promise<MeResponse> {
   return apiFetch("/me", meResponse);
@@ -49,4 +49,15 @@ export async function changeMyPassword(input: ChangePasswordInput): Promise<void
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+/** La respuesta trae el perfil ya con la foto nueva, para no pedirlo otra vez. */
+export function uploadMyAvatar(file: File): Promise<MeResponse> {
+  const body = new FormData();
+  body.append("file", file);
+  return apiUpload("/me/avatar", meResponse, body);
+}
+
+export function removeMyAvatar(): Promise<MeResponse> {
+  return apiFetch("/me/avatar", meResponse, { method: "DELETE" });
 }

@@ -58,7 +58,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[var(--rail-surface-2)]"
           >
-            <Avatar name={me.name} initials={initialsOf(me.name)} available={isAvailable} />
+            <Avatar name={me.name} initials={initialsOf(me.name)} src={me.avatarUrl} available={isAvailable} />
             <span className="hidden text-left leading-tight md:block">
               <span className="block text-sm font-medium text-[var(--rail-ink)]">{me.name}</span>
               <span className="block text-xs text-[var(--rail-ink-dim)]">

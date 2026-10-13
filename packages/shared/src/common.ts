@@ -7,6 +7,18 @@ export type ObjectId = z.infer<typeof objectId>;
 /** Fecha y hora en ISO 8601 y UTC. Las fechas se guardan en UTC (spec §13). */
 export const isoDateTime = z.iso.datetime();
 
+/**
+ * Foto de perfil: una URL absoluta (la de Google) o la ruta de la API donde vive la
+ * que subió la persona. Esa ruta es relativa porque la sirve el mismo origen.
+ */
+export const avatarUrl = z
+  .string()
+  .max(500)
+  .refine((value) => value.startsWith("/api/v1/avatars/") || /^https?:\/\/\S+$/.test(value), "URL de foto inválida");
+
+/** Tope de la foto de perfil: una foto de móvil recortada cabe de sobra. */
+export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
 export const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),

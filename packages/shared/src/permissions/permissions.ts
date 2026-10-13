@@ -189,6 +189,19 @@ export function canManageSystem(actor: Actor): boolean {
 }
 
 /**
+ * Entrar a Configuración: el administrador y el supervisor de RRHH. RRHH lleva la
+ * jornada, los festivos, los plazos y los cierres, que son reglas de trabajo del
+ * personal; las funciones de IA y los límites de Reportes siguen siendo del
+ * administrador (ver `SYSTEM_ONLY_SETTINGS`).
+ */
+export function canManageSettings(actor: Actor): boolean {
+  return isAdmin(actor) || actor.hasGlobalReadAccess;
+}
+
+/** Apartados de Configuración que solo toca el administrador. */
+export const SYSTEM_ONLY_SETTINGS = ["aiEnabled", "reportLimits"] as const;
+
+/**
  * Llevar las altas y bajas del personal: invitar, corregir datos, cambiar de
  * área, activar y desactivar, y repartir enlaces de acceso. Es trabajo de RRHH
  * además del administrador — son quienes saben quién entra y quién sale.

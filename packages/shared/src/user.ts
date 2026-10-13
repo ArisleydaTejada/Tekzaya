@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTime, objectId } from "./common";
+import { isoDateTime, objectId, avatarUrl } from "./common";
 import { availabilityState, awayReason, role, userStatus, type Role } from "./enums";
 
 // Las personas se referencian por identificador, nunca por su nombre.
@@ -17,7 +17,7 @@ export type Availability = z.infer<typeof availability>;
 export const userSummary = z.object({
   id: objectId,
   name: z.string().min(2).max(80),
-  avatarUrl: z.string().url().optional(),
+  avatarUrl: avatarUrl.optional(),
   areaId: objectId,
   availability,
 });

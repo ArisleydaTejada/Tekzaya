@@ -65,7 +65,7 @@ export function WidgetCard({
 
   if (widget.chart === "kpi") {
     return (
-      <div className={`print-block ${span} relative`}>
+      <div className={`print-block ${span} group relative`}>
         {query.isPending && <Skeleton compact />}
         {query.isError && <Failed compact />}
         {query.data && <ReportChart widget={widget} result={query.data} />}
@@ -144,10 +144,22 @@ function Menu({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className={`no-print relative ${floating ? "absolute right-2 top-2" : ""}`}>
+    // La tarjeta KPI ya tiene su icono arriba a la derecha: el menú flota encima de él y
+    // solo aparece al pasar el ratón o con el foco, en vez de ocupar sitio propio.
+    <div
+      className={`no-print ${
+        floating
+          ? `absolute right-4 top-4 z-10 transition-opacity ${
+              open ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+            }`
+          : "relative"
+      }`}
+    >
       <button
         onClick={() => setOpen(!open)}
-        className="rounded-md p-1 text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)] hover:text-[var(--content-ink)]"
+        className={`rounded-md p-1 text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)] hover:text-[var(--content-ink)] ${
+          floating ? "flex h-8 w-8 items-center justify-center border border-[var(--content-border)] bg-[var(--content-surface)]" : ""
+        }`}
         aria-label={`Opciones de ${widget.title}`}
       >
         <MoreIcon className="h-4 w-4" />

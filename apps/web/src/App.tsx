@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
-import { RequireAdmin, RequireAuth, RequireUserManager } from "./auth/RequireAuth";
+import { RequireAdmin, RequireAuth, RequireSettingsManager, RequireUserManager } from "./auth/RequireAuth";
 import { AppShell } from "./components/shell/AppShell";
 import AccessLinkPage from "./pages/AccessLinkPage";
 import LoginPage from "./pages/LoginPage";
@@ -41,14 +41,20 @@ export default function App() {
                     <Route path="/tickets/nuevo" element={<CreateTicketPage />} />
                     <Route path="/tickets/:number" element={<TicketDetailPage />} />
                     <Route path="/perfil" element={<PerfilPage />} />
-                    {/* Usuarios lo llevan el administrador y RRHH; áreas y
-                        configuración, solo el administrador (spec §4.3). */}
+                    {/* Usuarios y configuración los llevan el administrador y RRHH;
+                        áreas, solo el administrador (spec §4.3). */}
                     <Route element={<RequireUserManager />}>
                       <Route
                         path="/administracion"
                         element={<Navigate to="/administracion/usuarios" replace />}
                       />
                       <Route path="/administracion/usuarios" element={<AdministracionPage />} />
+                    </Route>
+                    <Route element={<RequireSettingsManager />}>
+                      <Route
+                        path="/administracion/configuracion"
+                        element={<AdministracionPage tab="configuracion" />}
+                      />
                     </Route>
                     <Route element={<RequireAdmin />}>
                       <Route path="/administracion/:tab" element={<AdministracionPage />} />

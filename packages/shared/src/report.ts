@@ -755,20 +755,22 @@ export type ReportQueryResult = z.infer<typeof reportQueryResult>;
 // ── Lista de tickets del período (spec §7.8.9) ─────────────────
 
 export const REPORT_COLUMNS = [
+  // El mismo orden que la lista de tickets: ID, estado, título, solicitante,
+  // área/categoría, responsables, creado, SLA y prioridad. Lo demás va detrás.
   "number",
+  "status",
   "title",
   "requester",
-  "createdBy",
   "area",
   "category",
-  "priority",
-  "status",
   "assignees",
   "createdAt",
+  "slaState",
+  "priority",
+  "createdBy",
   "firstResponse",
   "resolvedAt",
   "resolutionTime",
-  "slaState",
   "csat",
   "reopened",
   "incident",
@@ -778,7 +780,7 @@ export const reportColumn = z.enum(REPORT_COLUMNS);
 export type ReportColumn = z.infer<typeof reportColumn>;
 
 export const REPORT_COLUMN_LABEL: Record<ReportColumn, string> = {
-  number: "Número",
+  number: "ID",
   title: "Título",
   requester: "Solicitante",
   createdBy: "Creado por",
@@ -786,7 +788,7 @@ export const REPORT_COLUMN_LABEL: Record<ReportColumn, string> = {
   category: "Categoría",
   priority: "Prioridad",
   status: "Estado",
-  assignees: "Encargados",
+  assignees: "Responsables",
   createdAt: "Creado",
   firstResponse: "1.ª respuesta",
   resolvedAt: "Resuelto",
@@ -800,14 +802,15 @@ export const REPORT_COLUMN_LABEL: Record<ReportColumn, string> = {
 
 export const DEFAULT_REPORT_COLUMNS: ReportColumn[] = [
   "number",
-  "title",
-  "area",
-  "priority",
   "status",
+  "title",
+  "requester",
+  "area",
+  "category",
   "assignees",
-  "slaState",
-  "csat",
   "createdAt",
+  "slaState",
+  "priority",
 ];
 
 /**

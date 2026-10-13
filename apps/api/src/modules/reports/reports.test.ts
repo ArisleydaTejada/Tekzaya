@@ -623,7 +623,7 @@ describe("reportes", () => {
 
       expect(response.headers["content-type"]).toMatch(/text\/csv/);
       const [header] = response.text.replace("﻿", "").split("\r\n");
-      expect(header).toBe("Número,Título,Estado");
+      expect(header).toBe("ID,Título,Estado");
       expect(response.text).not.toContain("nadie tiene conexión");
     });
   });

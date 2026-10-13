@@ -92,6 +92,37 @@
   --chart-cat-6: #c67f1e;
   --chart-cat-7: #7c8cae;
   --chart-compare: #9aa3b2;
+
+  /*
+   * Estados del ticket: fondo tenue, texto oscuro del mismo tono y borde intermedio.
+   * El texto siempre acompaña al color, así que el estado se lee aunque no se
+   * distinga el tono. "Reabierto" es el único relleno sólido: es el que pide volver
+   * a mirarlo ya. "Fusionado" comparte el gris oscuro de "Cancelado".
+   */
+  --st-open-bg: #fcd9d9;
+  --st-open-ink: #a3191b;
+  --st-open-border: #f0a9a9;
+  --st-assigned-bg: #fff5f5;
+  --st-assigned-ink: #e05a64;
+  --st-assigned-border: #fbd9dc;
+  --st-in_progress-bg: #fff3e2;
+  --st-in_progress-ink: #a85a07;
+  --st-in_progress-border: #f8d8a8;
+  --st-on_hold-bg: #e5f4fb;
+  --st-on_hold-ink: #0b6a93;
+  --st-on_hold-border: #b5dff1;
+  --st-resolved-bg: #e4f6ec;
+  --st-resolved-ink: #17794c;
+  --st-resolved-border: #b3e2c6;
+  --st-closed-bg: #eef0f3;
+  --st-closed-ink: #4b5563;
+  --st-closed-border: #d5d9e0;
+  --st-cancelled-bg: #d9dce2;
+  --st-cancelled-ink: #262a31;
+  --st-cancelled-border: #bfc4cd;
+  --st-reopened-bg: #c4161c;
+  --st-reopened-ink: #ffffff;
+  --st-reopened-border: #c4161c;
 }
 
 [data-theme="dark"] {
@@ -140,6 +171,31 @@
   --chart-cat-6: #e0a24a;
   --chart-cat-7: #9aa8c4;
   --chart-compare: #6b7384;
+
+  --st-open-bg: rgba(229, 72, 77, 0.26);
+  --st-open-ink: #ff7d81;
+  --st-open-border: rgba(229, 72, 77, 0.55);
+  --st-assigned-bg: rgba(255, 170, 175, 0.07);
+  --st-assigned-ink: #ffc4c7;
+  --st-assigned-border: rgba(255, 170, 175, 0.24);
+  --st-in_progress-bg: rgba(245, 166, 35, 0.14);
+  --st-in_progress-ink: #f8c47c;
+  --st-in_progress-border: rgba(245, 166, 35, 0.34);
+  --st-on_hold-bg: rgba(86, 182, 230, 0.14);
+  --st-on_hold-ink: #90d4f5;
+  --st-on_hold-border: rgba(86, 182, 230, 0.34);
+  --st-resolved-bg: rgba(57, 217, 138, 0.13);
+  --st-resolved-ink: #6fe3a8;
+  --st-resolved-border: rgba(57, 217, 138, 0.3);
+  --st-closed-bg: rgba(148, 141, 163, 0.14);
+  --st-closed-ink: #bcb6c8;
+  --st-closed-border: rgba(148, 141, 163, 0.3);
+  --st-cancelled-bg: rgba(10, 8, 14, 0.45);
+  --st-cancelled-ink: #8a8497;
+  --st-cancelled-border: #3a3444;
+  --st-reopened-bg: #d92d3a;
+  --st-reopened-ink: #ffffff;
+  --st-reopened-border: #d92d3a;
 }
 
 @layer base {

@@ -25,7 +25,7 @@ import {
 import { StatTile } from "../../components/StatTile";
 import { ChartIcon } from "../../components/icons";
 import { useTheme } from "../../theme/ThemeContext";
-import { formatAxis, formatValue, readChartTheme, tooltipStyle, trendOf } from "./chartTheme";
+import { formatAxis, formatValue, hoverCursor, readChartTheme, tooltipStyle, trendOf } from "./chartTheme";
 
 /**
  * Una gráfica, los once tipos del spec §7.8.6. El servidor manda filas ya agrupadas y
@@ -72,11 +72,15 @@ export function ReportChart({
     return <Empty />;
   }
 
+  // Las líneas y áreas se marcan con una guía vertical; barras y porciones, con una banda.
+  const cursor = hoverCursor(theme, widget.chart === "line" || widget.chart === "area" ? "line" : "band");
+
   const common = {
     grid: <CartesianGrid stroke={theme.grid} vertical={false} />,
     tooltip: (
       <Tooltip
         contentStyle={tooltipStyle(theme)}
+        cursor={cursor}
         formatter={(value, name) => {
           const index = result.measures.findIndex((measure) => measure.label === name);
           return [formatValue(Number(value ?? 0), units[index === -1 ? 0 : index]!), String(name)];
@@ -137,7 +141,11 @@ export function ReportChart({
               />
             )}
             {common.legend}
-            <Tooltip contentStyle={tooltipStyle(theme)} formatter={(value) => `${Number(value ?? 0)} %`} />
+            <Tooltip
+              contentStyle={tooltipStyle(theme)}
+              cursor={hoverCursor(theme, "line")}
+              formatter={(value) => `${Number(value ?? 0)} %`}
+            />
           </RadarChart>
         </ResponsiveContainer>
       );
@@ -269,7 +277,7 @@ export function ReportChart({
             {common.grid}
             <XAxis dataKey="label" stroke={theme.axis} fontSize={11} tickLine={false} axisLine={false} />
             <YAxis stroke={theme.axis} fontSize={11} tickLine={false} axisLine={false} width={36} />
-            <Tooltip contentStyle={tooltipStyle(theme)} />
+            <Tooltip contentStyle={tooltipStyle(theme)} cursor={cursor} />
             {common.legend}
             {splits.map((split, index) => (
               <Bar

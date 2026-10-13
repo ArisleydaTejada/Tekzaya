@@ -855,16 +855,16 @@ function ListView({
               />
             </th>
             <Th label="ID" column="number" sort={sort} dir={dir} onSort={onSort} />
+            <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
             <Th label="Título" column="title" sort={sort} dir={dir} onSort={onSort} />
             <Th label="Solicitante" column="requester" sort={sort} dir={dir} onSort={onSort} />
             <Th label="Área / categoría" column="area" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Prioridad" column="priority" sort={sort} dir={dir} onSort={onSort} />
             {/* Un ticket puede tener varios responsables: no hay un valor por el
                 que ordenar sin inventarse cuál de ellos manda. */}
             <Th label="Responsables" />
-            <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="SLA" column="sla" sort={sort} dir={dir} onSort={onSort} />
             <Th label="Creado" column="created" sort={sort} dir={dir} onSort={onSort} />
+            <Th label="SLA" column="sla" sort={sort} dir={dir} onSort={onSort} />
+            <Th label="Prioridad" column="priority" sort={sort} dir={dir} onSort={onSort} />
           </tr>
         </thead>
         <tbody>
@@ -886,6 +886,9 @@ function ListView({
               </td>
               <td className="px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
                 {formatTicketNumber(ticket.number)}
+              </td>
+              <td className="px-3 py-2.5">
+                <StatusBadge status={ticket.status} />
               </td>
               <td className="max-w-[220px] px-3 py-2.5 text-[var(--content-ink)]">
                 <TicketLink ticket={ticket} />
@@ -911,25 +914,22 @@ function ListView({
                 )}
               </td>
               <td className="px-3 py-2.5">
-                <PriorityBadge priority={ticket.priority} />
-              </td>
-              <td className="px-3 py-2.5">
                 {ticket.assignees.length ? (
                   <AvatarStack users={ticket.assignees} />
                 ) : (
                   <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>
                 )}
               </td>
-              <td className="px-3 py-2.5">
-                <StatusBadge status={ticket.status} />
+              <td className="whitespace-nowrap px-3 py-2.5 text-[var(--content-ink-dim)]">
+                {formatWhen(ticket.createdAt)}
               </td>
               <td className="px-3 py-2.5">
                 {/* El margen, no el adjetivo: entre veinte filas lo que se
                     compara es cuánto falta, y el detalle se abre encima. */}
                 <SlaTimeline sla={ticket} status={ticket.status} />
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[var(--content-ink-dim)]">
-                {formatWhen(ticket.createdAt)}
+              <td className="px-3 py-2.5">
+                <PriorityBadge priority={ticket.priority} />
               </td>
             </tr>
           ))}
@@ -1325,7 +1325,7 @@ function AssignTicketsModal({
                   }
                   className="h-4 w-4 accent-accent"
                 />
-                <Avatar name={member.name} available={!away} size="sm" />
+                <Avatar name={member.name} src={member.avatarUrl} available={!away} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-sm text-[var(--content-ink)]">
                     {member.name}

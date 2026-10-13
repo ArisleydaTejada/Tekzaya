@@ -80,3 +80,40 @@ describe("mi perfil", () => {
     expect(response.body.error.code).toBe("no_password");
   });
 });
+
+describe("foto de perfil", () => {
+  // Un PNG de 1×1: lo mínimo que pasa la comprobación por los primeros bytes.
+  const PNG = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "base64",
+  );
+
+  it("se sube, la ve cualquiera con sesión y se puede quitar", async () => {
+    const agente = await loginAs(fixture.users.agentIt.email);
+
+    const subida = await agente.post("/api/v1/me/avatar").attach("file", PNG, "yo.png");
+    expect(subida.status).toBe(200);
+    const url = subida.body.avatarUrl as string;
+    expect(url).toMatch(/^\/api\/v1\/avatars\/[0-9a-f-]{36}\.png$/);
+
+    // Aparece junto al nombre en toda la aplicación, así que la ve otra persona.
+    const otro = await loginAs(fixture.users.employeeVentas.email);
+    const vista = await otro.get(url);
+    expect(vista.status).toBe(200);
+    expect(vista.headers["content-type"]).toBe("image/png");
+
+    const quitada = await agente.delete("/api/v1/me/avatar");
+    expect(quitada.status).toBe(200);
+    expect(quitada.body.avatarUrl).toBeUndefined();
+    // El archivo se borra del disco, no solo del perfil.
+    expect((await otro.get(url)).status).toBe(404);
+  });
+
+  it("un archivo que no es imagen se rechaza aunque diga .png", async () => {
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const falsa = await agente
+      .post("/api/v1/me/avatar")
+      .attach("file", Buffer.from("%PDF-1.4 no soy una foto"), "foto.png");
+    expect(falsa.status).toBe(415);
+  });
+});

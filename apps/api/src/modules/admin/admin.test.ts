@@ -96,30 +96,42 @@ describe("acceso a la administración", () => {
       expect(enlace.status).toBe(403);
     });
 
-    it("sigue sin entrar a áreas ni a configuración", async () => {
+    it("sigue sin entrar a áreas", async () => {
       const rrhh = await loginAs(fixture.users.supRrhh.email);
       expect((await rrhh.get("/api/v1/admin/areas")).status).toBe(403);
-      expect((await rrhh.get("/api/v1/settings")).status).toBe(403);
     });
   });
 
   /**
-   * Configuración es administración del sistema, no un catálogo público: ni el
-   * supervisor de área ni el de RRHH la leen, por mucha lectura global que tenga
-   * sobre los números (spec §4.3).
+   * Configuración no es un catálogo público: el supervisor de área no la lee. La
+   * llevan el administrador y RRHH, pero RRHH sin la IA ni los límites de Reportes.
    */
-  it("la Configuración es solo del administrador, también para leerla", async () => {
+  it("la Configuración es del administrador y de RRHH, no de un supervisor de área", async () => {
     const supervisora = await loginAs(fixture.users.supIt.email);
     expect((await supervisora.get("/api/v1/settings")).status).toBe(403);
-    expect(
-      (await supervisora.patch("/api/v1/settings").send({ aiEnabled: { summary: false } })).status,
-    ).toBe(403);
-
-    const rrhh = await loginAs(fixture.users.supRrhh.email);
-    expect((await rrhh.get("/api/v1/settings")).status).toBe(403);
+    expect((await supervisora.patch("/api/v1/settings").send({ holidays: [] })).status).toBe(403);
 
     const admin = await loginAs(fixture.users.admin.email);
     expect((await admin.get("/api/v1/settings")).status).toBe(200);
+  });
+
+  it("RRHH cambia la jornada y los festivos, pero no la IA ni los límites de Reportes", async () => {
+    const rrhh = await loginAs(fixture.users.supRrhh.email);
+    expect((await rrhh.get("/api/v1/settings")).status).toBe(200);
+
+    const festivos = await rrhh.patch("/api/v1/settings").send({ holidays: ["2026-12-25"] });
+    expect(festivos.status).toBe(200);
+    expect(festivos.body.holidays).toEqual(["2026-12-25"]);
+
+    const ia = await rrhh.patch("/api/v1/settings").send({
+      aiEnabled: { suggestArea: false, classify: false, summary: false, autocomplete: false, detectIncidents: false },
+    });
+    expect(ia.status).toBe(403);
+
+    const limites = await rrhh
+      .patch("/api/v1/settings")
+      .send({ reportLimits: { maxSavedReports: 1, maxWidgetsPerReport: 1 } });
+    expect(limites.status).toBe(403);
   });
 });
 
