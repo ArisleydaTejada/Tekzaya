@@ -122,6 +122,10 @@ export default function TicketDetailPage() {
   const [ghostFor, setGhostFor] = useState<{ draft: string; text: string } | null>(null);
 
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
+  // El área del solicitante no viaja con el ticket: se busca en el catálogo de
+  // áreas, que suele estar ya en caché.
+  const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
+  const requesterArea = areas.find((area) => area.id === ticket?.requester.areaId);
 
   async function refresh() {
     await Promise.all([
@@ -600,6 +604,9 @@ export default function TicketDetailPage() {
       <div className="space-y-4">
         <Plate className="space-y-3 p-4 text-sm">
           <DetailRow label="Solicitante" value={ticket.requester.name} />
+          {requesterArea && (
+            <DetailRow label="Área del solicitante" value={<AreaTag area={requesterArea} />} />
+          )}
           {ticket.createdBy.id !== ticket.requester.id && (
             <DetailRow label="Registrado por" value={ticket.createdBy.name} />
           )}

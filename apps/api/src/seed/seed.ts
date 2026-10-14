@@ -16,7 +16,7 @@ import bcrypt from "bcryptjs";
 import mongoose, { Types } from "mongoose";
 import { env } from "../config/env";
 import { Area } from "../models/area.model";
-import { Counter } from "../models/counter.model";
+import { Counter, SEED_CLOCK_ID } from "../models/counter.model";
 import { Message } from "../models/message.model";
 import { AvailabilityLog, Notification, Settings, SETTINGS_ID } from "../models/support.models";
 import { Ticket } from "../models/ticket.model";
@@ -539,6 +539,8 @@ async function main(): Promise<void> {
   await Ticket.insertMany(built.map((ticket) => ticket.doc));
   await Message.insertMany(built.flatMap((ticket) => ticket.messages));
   await Counter.create({ _id: "ticket", seq: sequence });
+  // Referencia para `npm run seed:refresh`, que adelanta las fechas días después.
+  await Counter.create({ _id: SEED_CLOCK_ID, seq: now.getTime() });
 
   // ── Resumen ────────────────────────────────────────────────
   const byStatus = await Ticket.aggregate<{ _id: string; count: number }>([
