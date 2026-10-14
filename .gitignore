@@ -30,3 +30,6 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Sesiones guardadas por las pruebas E2E
+e2e/.auth/

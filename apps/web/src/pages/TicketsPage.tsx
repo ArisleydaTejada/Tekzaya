@@ -1,11 +1,14 @@
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type Announcements,
   type DragEndEvent,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import {
   ACTIVE_TICKET_STATUSES,
@@ -25,7 +28,7 @@ import {
   type TicketStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEventHandler } from "react";
 import { Link } from "react-router-dom";
 import { ticketsCsvUrl } from "../api/stats";
 import {
@@ -109,6 +112,46 @@ const KANBAN_STATUSES: TicketStatus[] = [
 ];
 
 const PAGE_SIZE = 25;
+
+/** Ancho de una columna del Kanban más el hueco entre columnas (`w-72` + `gap-3`). */
+const KANBAN_COLUMN_STEP = 300;
+
+/**
+ * Con teclado, las flechas saltan de columna en columna en vez de avanzar 25 px:
+ * moverse a «En progreso» no puede costar doce pulsaciones (spec §13).
+ */
+const kanbanKeyboardCoordinates: KeyboardCoordinateGetter = (event, { currentCoordinates }) => {
+  if (event.code === "ArrowRight") {
+    return { ...currentCoordinates, x: currentCoordinates.x + KANBAN_COLUMN_STEP };
+  }
+  if (event.code === "ArrowLeft") {
+    return { ...currentCoordinates, x: currentCoordinates.x - KANBAN_COLUMN_STEP };
+  }
+  return undefined;
+};
+
+/** Lo que oye un lector de pantalla al mover una tarjeta; dnd-kit lo trae en inglés. */
+function kanbanAnnouncements(tickets: TicketListItem[]): Announcements {
+  const nameOf = (id: string | number) => {
+    const ticket = tickets.find((item) => item.id === id);
+    return ticket ? formatTicketNumber(ticket.number) : "El ticket";
+  };
+  const columnOf = (id: string | number) => TICKET_STATUS_LABEL[id as TicketStatus] ?? String(id);
+  return {
+    onDragStart: ({ active }) => `${nameOf(active.id)} levantado.`,
+    onDragOver: ({ active, over }) =>
+      over ? `${nameOf(active.id)} sobre la columna ${columnOf(over.id)}.` : undefined,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `${nameOf(active.id)} soltado en ${columnOf(over.id)}.`
+        : `${nameOf(active.id)} soltado fuera de las columnas.`,
+    onDragCancel: ({ active }) => `Movimiento de ${nameOf(active.id)} cancelado.`,
+  };
+}
+
+const KANBAN_INSTRUCTIONS =
+  "Pulsa Espacio o Intro para levantar la tarjeta, las flechas izquierda y derecha para " +
+  "cambiar de columna, y Espacio o Intro otra vez para soltarla. Escape cancela.";
 
 /**
  * Qué hacer con quien ya atendía el ticket. `setAssignees` sustituye la lista
@@ -313,7 +356,7 @@ export default function TicketsPage() {
             onClick={() => changeScope(tab.scope)}
             className={`relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === tab.scope
-                ? "text-accent"
+                ? "text-accent-ink"
                 : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
@@ -337,11 +380,13 @@ export default function TicketsPage() {
               setSearch(event.target.value);
               setPage(1);
             }}
+            aria-label="Buscar tickets"
             placeholder="Buscar por número o título…"
             className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </div>
         <select
+          aria-label="Filtrar por estado"
           value={statusFilter}
           onChange={(event) => {
             setStatusFilter(event.target.value as TicketStatus | "");
@@ -357,6 +402,7 @@ export default function TicketsPage() {
           ))}
         </select>
         <select
+          aria-label="Filtrar por prioridad"
           value={priorityFilter}
           onChange={(event) => {
             setPriorityFilter(event.target.value as Priority | "");
@@ -381,6 +427,7 @@ export default function TicketsPage() {
           ).map(({ id, icon: Icon }) => (
             <button
               key={id}
+              aria-pressed={view === id}
               onClick={() => {
                 setView(id);
                 setPage(1);
@@ -708,7 +755,7 @@ function MergeSelectionModal({
                 {ticket.title}
               </span>
               {principal?.id === ticket.id ? (
-                <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-ink">
                   Principal
                 </span>
               ) : (
@@ -998,25 +1045,38 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
   const style = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
     : undefined;
+  const number = formatTicketNumber(ticket.number);
+  const titleId = `kanban-${ticket.id}`;
+  // Con el ratón se arrastra la tarjeta entera; con teclado, desde el número. Si
+  // la tarjeta fuera el botón, el enlace al ticket quedaría dentro de otro
+  // control y un lector de pantalla no podría llegar a él.
+  const { onKeyDown, ...pointerListeners } = listeners ?? {};
 
   return (
-    <div
+    <article
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
+      aria-labelledby={titleId}
+      {...pointerListeners}
       className={`cursor-grab touch-none rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-3 shadow-[var(--content-shadow)] active:cursor-grabbing ${
         isDragging ? "z-20 opacity-90" : ""
       }`}
     >
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
-          {formatTicketNumber(ticket.number)}
-        </span>
+        <button
+          type="button"
+          {...attributes}
+          onKeyDown={onKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined}
+          aria-label={`Mover ${number}`}
+          className="rounded font-display text-xs tabular text-[var(--content-ink-dim)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-contrast)]"
+        >
+          {number}
+        </button>
         <PriorityBadge priority={ticket.priority} />
       </div>
       <Link
-        to={`/tickets/${formatTicketNumber(ticket.number)}`}
+        id={titleId}
+        to={`/tickets/${number}`}
         onClick={(event) => event.stopPropagation()}
         className="text-sm font-medium text-[var(--content-ink)] hover:underline"
       >
@@ -1037,15 +1097,16 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
           <AvatarStack users={ticket.assignees} />
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
 function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: TicketListItem[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
-    <div
+    <section
       ref={setNodeRef}
+      aria-label={TICKET_STATUS_LABEL[status]}
       className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-2.5 transition-colors ${
         isOver ? "border-accent bg-accent/5" : "border-[var(--content-border)] bg-[var(--content-bg)]"
       }`}
@@ -1063,7 +1124,7 @@ function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: Tick
           <KanbanCard key={ticket.id} ticket={ticket} />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1080,7 +1141,10 @@ function KanbanView({
   onTake: (ticket: TicketListItem) => Promise<void>;
   onAssign: (ticket: TicketListItem, assigneeIds: string[]) => Promise<void>;
 }) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: kanbanKeyboardCoordinates }),
+  );
   const [pendingResolve, setPendingResolve] = useState<TicketListItem | null>(null);
   const [pendingAssign, setPendingAssign] = useState<TicketListItem | null>(null);
   const [note, setNote] = useState("");
@@ -1121,7 +1185,14 @@ function KanbanView({
 
   return (
     <>
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragEnd={handleDragEnd}
+        accessibility={{
+          announcements: kanbanAnnouncements(tickets),
+          screenReaderInstructions: { draggable: KANBAN_INSTRUCTIONS },
+        }}
+      >
         <div className="flex gap-3 overflow-x-auto pb-2">
           {KANBAN_STATUSES.map((status) => (
             <KanbanColumn

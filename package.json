@@ -19,9 +19,13 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "seed": "npm run seed --workspace @tekzaya/api"
+    "test:e2e": "playwright test",
+    "seed": "npm run seed --workspace @tekzaya/api",
+    "perf": "npm run perf --workspace @tekzaya/api"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "concurrently": "^10.0.5",
     "typescript": "~6.0.2"
   }

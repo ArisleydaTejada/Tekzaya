@@ -615,6 +615,27 @@ describe("reportes", () => {
       expect(fast.body.total).toBe(1);
     });
 
+    it("solo envejece lo que sigue vivo: un cancelado no tiene antigüedad", async () => {
+      await seedTicket({
+        areaId: fx.areas.it,
+        requesterId: fx.users.employeeIt.id,
+        status: "cancelled",
+        title: "Ya no hace falta",
+        createdAt: new Date(Date.now() - 90 * 86_400_000),
+      });
+
+      const agent = await loginAs(fx.users.supIt.email);
+      const { body } = await agent
+        .get("/api/v1/reports/tickets?scope=area&period=year")
+        .expect(200);
+      const byTitle = (title: string) =>
+        body.items.find((row: { title: string }) => row.title === title);
+
+      expect(byTitle("Ya no hace falta").ageHours).toBeNull();
+      expect(byTitle("Cerrado hace tiempo").ageHours).toBeNull();
+      expect(byTitle("Impresora atascada").ageHours).not.toBeNull();
+    });
+
     it("el CSV lleva las columnas elegidas y nunca el texto de la conversación", async () => {
       const agent = await loginAs(fx.users.supIt.email);
       const response = await agent

@@ -205,7 +205,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
 
       <nav className="flex flex-col gap-1">
         {!collapsed && (
-          <p className="px-3 pb-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--rail-ink-dim)]/70">
+          <p className="px-3 pb-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--rail-ink-dim)]">
             Principal
           </p>
         )}
@@ -214,7 +214,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
         ))}
 
         <div
-          className={`group relative flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--rail-ink-dim)]/50 ${
+          className={`group relative flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--rail-ink-dim)] ${
             collapsed ? "justify-center" : ""
           }`}
           title="Disponible en la Fase 2"
@@ -223,7 +223,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           {!collapsed && (
             <>
               <span className="flex-1">Activos y mantenimiento</span>
-              <span className="rounded-full border border-[var(--rail-bezel)] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--rail-ink-dim)]/70">
+              <span className="rounded-full border border-[var(--rail-bezel)] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--rail-ink-dim)]">
                 Próximamente
               </span>
             </>
@@ -234,7 +234,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
       {managesUsers && (
         <div className="flex flex-col gap-1">
           {!collapsed && (
-            <div className="flex items-center gap-2 px-3 py-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--rail-ink-dim)]/70">
+            <div className="flex items-center gap-2 px-3 py-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--rail-ink-dim)]">
               <UsersIcon className="h-3.5 w-3.5" />
               Administración
             </div>

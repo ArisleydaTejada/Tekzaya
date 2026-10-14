@@ -7,9 +7,9 @@ const TONE_COLOR: Record<GaugeTone, string> = {
   neutral: "var(--color-panel-ink-dim)",
   steel: "var(--color-steel)",
   accent: "var(--accent-contrast)",
-  green: "var(--color-green)",
-  amber: "var(--color-amber)",
-  red: "var(--color-red)",
+  green: "var(--status-green)",
+  amber: "var(--status-amber)",
+  red: "var(--status-red)",
 };
 
 const START_ANGLE = 135;

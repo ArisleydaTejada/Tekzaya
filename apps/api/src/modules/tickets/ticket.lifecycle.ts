@@ -7,6 +7,7 @@ import {
   computeTicketSla,
   isOwnTicket,
   shiftTargets,
+  TICKET_STATUS_LABEL,
   type Actor,
   type Priority,
   type SystemEvent,
@@ -60,7 +61,8 @@ export function assertTransition(from: TicketStatus, to: TicketStatus): void {
     throw new AppError(
       409,
       "invalid_transition",
-      `Un ticket ${from} no puede pasar a ${to}`,
+      // El mensaje llega tal cual a la pantalla: con etiquetas, no con enumerados.
+      `Un ticket «${TICKET_STATUS_LABEL[from]}» no puede pasar a «${TICKET_STATUS_LABEL[to]}»`,
     );
   }
 }

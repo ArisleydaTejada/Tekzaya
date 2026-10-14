@@ -253,7 +253,7 @@ export default function ReportesPage() {
         Se repliega para cuando el lienzo necesita todo el ancho, y no se imprime.
       */}
       <div className="flex flex-col items-start gap-5 xl:flex-row">
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 flex-1">
           {draft && (
             <>
           {/* ── Barra de acciones del reporte (spec §7.8.2) ── */}
@@ -371,7 +371,7 @@ export default function ReportesPage() {
 
           <a
             href="#tickets-del-periodo"
-            className="no-print mt-4 inline-block text-xs font-medium text-accent hover:underline"
+            className="no-print mt-4 inline-block text-xs font-medium text-accent-ink hover:underline"
           >
             Ir a la lista de tickets ↓
           </a>
@@ -465,10 +465,15 @@ function ScopeSelector({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
+      <div
+        role="group"
+        aria-label="Alcance"
+        className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5"
+      >
         {catalog.scopes.map((item) => (
           <button
             key={item.id}
+            aria-pressed={draft?.scope === item.id}
             onClick={() =>
               onChange({
                 scope: item.id as StatsScope,
@@ -490,6 +495,7 @@ function ScopeSelector({
 
       {draft?.scope === "area" && catalog.maxScope === "global" && (
         <select
+          aria-label="Área del reporte"
           value={draft.areaId ?? ""}
           onChange={(event) => onChange({ areaId: event.target.value || undefined })}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
@@ -507,6 +513,7 @@ function ScopeSelector({
         <div className="flex items-center gap-1.5">
           {catalog.maxScope === "global" && (
             <select
+              aria-label="Área de la persona"
               value={draft.areaId ?? ""}
               onChange={(event) => onChange({ areaId: event.target.value || undefined, userId: undefined })}
               className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
@@ -520,6 +527,7 @@ function ScopeSelector({
             </select>
           )}
           <select
+            aria-label="Persona del reporte"
             value={draft.userId ?? ""}
             onChange={(event) => onChange({ userId: event.target.value || undefined })}
             className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
@@ -728,8 +736,10 @@ function ReportsRail({
           ).map((item) => (
             <button
               key={item.id}
+              id={`reportes-tab-${item.id}`}
               role="tab"
               aria-selected={tab === item.id}
+              aria-controls="reportes-panel"
               onClick={() => onTabChange(item.id)}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
                 tab === item.id
@@ -745,58 +755,65 @@ function ReportsRail({
 
         {/* `min-h-0` es lo que deja encoger a este hijo del flex: sin él crece
             con la lista y el recorte se lo come el panel, no el desbordamiento. */}
-        <ul role="tabpanel" className="flex min-h-0 flex-1 flex-col xl:overflow-y-auto">
-          {tab === "templates" &&
-            templates.map((template) => (
-              <RailRow
-                key={template.templateId}
-                active={activeTemplate === template.title}
-                title={template.title}
-                description={template.description}
-                meta={`${template.widgets.length} gráficas`}
-                onOpen={() => onOpenTemplate(template)}
-              />
-            ))}
+        <div
+          id="reportes-panel"
+          role="tabpanel"
+          aria-labelledby={`reportes-tab-${tab}`}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <ul className="flex min-h-0 flex-1 flex-col xl:overflow-y-auto">
+            {tab === "templates" &&
+              templates.map((template) => (
+                <RailRow
+                  key={template.templateId}
+                  active={activeTemplate === template.title}
+                  title={template.title}
+                  description={template.description}
+                  meta={`${template.widgets.length} gráficas`}
+                  onOpen={() => onOpenTemplate(template)}
+                />
+              ))}
 
-          {tab === "saved" && loadingReports && (
-            <li className="px-2 py-2 text-xs text-[var(--content-ink-dim)]">Cargando…</li>
-          )}
-          {tab === "saved" && !loadingReports && reports.length === 0 && (
-            <li className="px-2 py-2 text-xs leading-snug text-[var(--content-ink-dim)]">
-              Aún no has guardado ninguno.{" "}
-              <button onClick={() => onTabChange("templates")} className="text-accent hover:underline">
-                Abre una plantilla
-              </button>
-              , cámbiala a tu gusto y guárdala.
-            </li>
-          )}
-          {tab === "saved" &&
-            reports.map((report) => (
-              <RailRow
-                key={report.id}
-                active={activeReportId === report.id}
-                title={report.title}
-                {...(report.description ? { description: report.description } : {})}
-                meta={`${report.widgets.length} gráfica${report.widgets.length === 1 ? "" : "s"} · ${
-                  STATS_PERIOD_LABEL[report.period]
-                }${report.scopeNarrowed ? " · alcance recortado" : ""}`}
-                onOpen={() => onOpenReport(report)}
-                actions={
-                  <>
-                    <button
-                      onClick={() => onDuplicate(report.id)}
-                      className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-                    >
-                      Duplicar
-                    </button>
-                    <button onClick={() => onDelete(report.id)} className="text-red hover:underline">
-                      Eliminar
-                    </button>
-                  </>
-                }
-              />
-            ))}
-        </ul>
+            {tab === "saved" && loadingReports && (
+              <li className="px-2 py-2 text-xs text-[var(--content-ink-dim)]">Cargando…</li>
+            )}
+            {tab === "saved" && !loadingReports && reports.length === 0 && (
+              <li className="px-2 py-2 text-xs leading-snug text-[var(--content-ink-dim)]">
+                Aún no has guardado ninguno.{" "}
+                <button onClick={() => onTabChange("templates")} className="text-accent-ink hover:underline">
+                  Abre una plantilla
+                </button>
+                , cámbiala a tu gusto y guárdala.
+              </li>
+            )}
+            {tab === "saved" &&
+              reports.map((report) => (
+                <RailRow
+                  key={report.id}
+                  active={activeReportId === report.id}
+                  title={report.title}
+                  {...(report.description ? { description: report.description } : {})}
+                  meta={`${report.widgets.length} gráfica${report.widgets.length === 1 ? "" : "s"} · ${
+                    STATS_PERIOD_LABEL[report.period]
+                  }${report.scopeNarrowed ? " · alcance recortado" : ""}`}
+                  onOpen={() => onOpenReport(report)}
+                  actions={
+                    <>
+                      <button
+                        onClick={() => onDuplicate(report.id)}
+                        className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                      >
+                        Duplicar
+                      </button>
+                      <button onClick={() => onDelete(report.id)} className="text-red hover:underline">
+                        Eliminar
+                      </button>
+                    </>
+                  }
+                />
+              ))}
+          </ul>
+        </div>
       </Plate>
     </aside>
   );
@@ -821,13 +838,17 @@ function RailRow({
   return (
     <li
       className={`group rounded-lg px-2 py-1.5 ${
-        active ? "bg-accent/10" : "hover:bg-[var(--content-bg)]"
+        // Sobre un tinte del primario, el gris secundario se quedaba en 4,47:1 en
+        // oscuro; el lienzo con un filo del primario marca igual la selección.
+        active
+          ? "bg-[var(--content-bg)] ring-1 ring-inset ring-accent/40"
+          : "hover:bg-[var(--content-bg)]"
       }`}
     >
       <button onClick={onOpen} className="block w-full text-left">
         <span
           className={`block truncate text-sm ${
-            active ? "font-medium text-accent" : "text-[var(--content-ink)]"
+            active ? "font-medium text-accent-ink" : "text-[var(--content-ink)]"
           }`}
         >
           {title}

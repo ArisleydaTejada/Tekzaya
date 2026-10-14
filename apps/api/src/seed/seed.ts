@@ -559,7 +559,7 @@ async function main(): Promise<void> {
   console.log("    arisleyda.tejada@tekzaya.com   administradora (IT y Sistemas)");
   console.log("    daury.guzman@tekzaya.com       supervisor de área (IT y Sistemas)");
   console.log("    elena.paredes@tekzaya.com      supervisora de RRHH, lectura global");
-  console.log("    luis.fernandez@tekzaya.com     empleado");
+  console.log("    diego.castillo@tekzaya.com     empleado (Ventas)");
 
   await mongoose.disconnect();
 }

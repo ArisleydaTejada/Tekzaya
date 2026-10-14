@@ -55,7 +55,7 @@ reportes personalizables con su lista de tickets y sus exportaciones (F7).
 
 ### 1.3 Lo que no existe en absoluto
 
-E2E con Playwright.
+Nada del plan. Lo último que faltaba, las pruebas de punta a punta, entró en F8.
 
 > **Cerrado en F0 y F1:** monorepo con workspaces, `packages/shared` (contrato Zod + motor de SLA con 21 pruebas), `apps/api` (Express 5, modelos Mongoose con índices, semilla de 101 tickets), MongoDB Community, CI y `.env.example`.
 >
@@ -70,6 +70,8 @@ E2E con Playwright.
 > **Cerrado en F6:** Socket.IO con las tres salas, la tabla de avisos del §8 completa, la bandeja de notificaciones, los cinco endpoints de `/stats`, el tablero de los cuatro roles con datos reales, la encuesta CSAT y la exportación CSV desde el servidor. 198 pruebas en total.
 >
 > **Cerrado en F7:** el catálogo de 35 medidas y 13 dimensiones, el constructor con sus doce tipos de gráfica, trece plantillas repartidas por rol, los reportes guardados, la lista de tickets del período con filtros avanzados y columnas, y las exportaciones CSV, PDF y PNG. 248 pruebas en total.
+>
+> **Cerrado en F8:** los 5 recorridos de la defensa en Playwright, la auditoría de accesibilidad con axe en los dos temas y a 360 px, la medición con 10 000 tickets (las 15 mediciones dentro del §13), el README de instalación y un trabajo de E2E en CI. 295 pruebas de Vitest y 37 de Playwright.
 
 ### 1.4 Desajustes de contrato que hay que resolver antes de escribir el backend
 
@@ -372,16 +374,51 @@ Quedó fuera, y se dice para no buscarlo después: **arrastrar y redimensionar**
 
 ---
 
-### F8 · Endurecimiento, demo y entrega — *1,5 semanas*
+### F8 · Endurecimiento, demo y entrega — *hecha*
 
-- **E2E con Playwright** de los 5 recorridos de la defensa (ya está instalado como dependencia, sin usar).
-- **Rendimiento:** cargar 10.000 tickets de prueba y verificar los umbrales del §13 (listados < 2 s, gráfica < 3 s, CSV < 5 s). Ajustar índices y paginación.
-- **Accesibilidad:** contraste AA, recorrido completo por teclado, prioridad nunca solo por color, 360 px.
-- Pendientes de diseño de `ajustes.md` que queden abiertos.
-- Guía de instalación local, `.env.example` final, semilla de demostración congelada.
-- **Ensayo completo en el equipo de la presentación**, incluyendo el modo sin IA.
+- **E2E con Playwright** de los 5 recorridos de la defensa (`e2e/`, `npm run test:e2e`).
+- **Rendimiento:** cargar 10.000 tickets de prueba y verificar los umbrales del §13 (`npm run perf`).
+- **Accesibilidad:** contraste AA, recorrido por teclado, prioridad nunca solo por color, 360 px.
+- Pendientes de diseño de `ajustes.md`: ya estaban cerrados (logos, colores de marca y barra lateral con tema, commit `796550f`).
+- Guía de instalación local (`README.md`), `.env.example` final, semilla de demostración reproducible.
+- **Ensayo completo en el equipo de la presentación**, incluyendo el modo sin IA: *pendiente*, es lo único que no se puede hacer desde aquí. La lista está en [`PRESENTACION.md` §13](PRESENTACION.md#13-ensayo-en-el-equipo-de-la-presentación).
 
-**DoD:** un evaluador clona el repositorio y llega a la aplicación con datos en menos de 10 minutos siguiendo el README.
+**DoD:** un evaluador clona el repositorio y llega a la aplicación con datos en menos de 10 minutos siguiendo el README. **Medido** con una copia limpia de los archivos del repositorio, sin `node_modules`, siguiendo el README al pie de la letra: `npm ci` 28 s, `npm run seed` 3 s y `npm run dev` listo en 4 s, con `/health` en `db: connected` y el inicio de sesión del empleado devolviendo sus tickets. Menos de un minuto de máquina; la descarga de dependencias en un equipo sin caché de npm añade un par de minutos.
+
+**Los cinco recorridos** (`e2e/01…05`), cada uno con su porqué:
+
+| # | Recorrido | Qué demuestra |
+|---|---|---|
+| 1 | Acceso | Sin sesión no se entra (ni a la pantalla ni a la API); la contraseña mal escrita se explica sin decir si la cuenta existe; cerrar sesión cierra de verdad |
+| 2 | Ciclo del ticket, entre dos sesiones | Crear sin IA → tomar → responder → nota interna → resolver con nota → el solicitante lee la solución y **no** la nota, tampoco por la API → CSAT una sola vez |
+| 3 | Kanban | Arrastrar persiste tras recargar, una transición prohibida vuelve atrás con aviso, y **con teclado** también se mueve |
+| 4 | Tiempo real | Con dos sesiones, crear un ticket sube el tablero del supervisor y su campana sin recargar |
+| 5 | Reportes por rol | Cada rol ve solo sus alcances, las plantillas pintan, y un alcance forzado en el payload da 403 |
+
+**Rendimiento con 10.000 tickets** (19.260 mensajes), la peor de cinco vueltas en caliente, con la primera en frío aparte:
+
+| Medición | Peor | Límite |
+|---|---|---|
+| Tablero, todas las áreas, año | 127 ms | 2 s |
+| Bandeja de tickets con sus seis pestañas | 68 ms | 2 s |
+| Bandeja ordenada por solicitante (la más cara) | 841 ms | 2 s |
+| Gráficas de reporte (cinco tipos, incluida la comparación) | 95–273 ms | 3 s |
+| Lista del período con filtro en horas laborales | 499 ms | 2 s |
+| CSV del período, todo el año | 502 ms | 5 s |
+
+Decisiones tomadas al ejecutarla:
+
+- **Las E2E corren contra su propia API, su propia web y su propia base** (`tekzaya_e2e`, puertos 4100 y 5174), sembrada en el mismo comando que arranca la API. Se pueden lanzar con la demo abierta, y nunca dependen de lo que alguien haya tocado a mano.
+- **La API de las E2E arranca sin clave de Gemini.** Así cada recorrido prueba a la vez el producto y el modo sin IA, que es el respaldo de la defensa: si un cambio hiciera depender algo de la IA, se rompería aquí y no delante del tribunal.
+- **Los selectores son de rol y de etiqueta, no de clase CSS.** Escribirlos destapó controles sin nombre accesible (el selector de estado, el redactor, el filtro de alcance de Reportes…): si una prueba no puede encontrar un control por su nombre, un lector de pantalla tampoco. Se arreglaron en la interfaz, no en la prueba.
+- **axe audita las pantallas principales en los dos temas** y falla con una línea por elemento. Encontró 104 problemas de contraste, casi todos del mismo origen: el verde, el ámbar y el rojo de estado eran fijos, pensados para fondo oscuro, y como texto sobre blanco se quedaban entre 1,7:1 y 3,9:1. Ahora dependen de la superficie (`@theme inline` + `--status-*`) y pasan AA también sobre su propio tinte. El primario como texto tenía el problema inverso en oscuro (2:1) y pasa a `text-accent-ink`, que allí lee el lila. La plancha del login es clara en los dos temas y fija sus tonos con `data-surface="light"`.
+- **El Kanban se puede usar con teclado.** Solo tenía sensor de puntero. Ahora Espacio levanta la tarjeta, las flechas saltan de columna en columna (no 25 px por pulsación) y los anuncios para lector de pantalla están en español. La tarjeta dejó de ser un botón que contenía un enlace: se arrastra desde su número.
+- **Los mensajes de error llegan con etiquetas, no con enumerados.** El rechazo de una transición decía "Un ticket in_progress no puede pasar a open"; ahora dice «En progreso» y «Abierto». Lo destapó el recorrido del Kanban.
+- **La medición siembra su propia base y clona la semilla** con fechas repartidas en un año (lo vivo, en los últimos diez días) y generador de semilla fija. Mide por HTTP lo que pide cada pantalla, en paralelo como lo hace el navegador, y sale con código 1 si algo se pasa: sirve para CI.
+- **La primera medición falló, y por un motivo que valía la pena.** La lista del período con un filtro de horas laborales tardaba 3,4 s. El motor de SLA calculaba la jornada de cada día con seis llamadas a `Intl`, y lo repetía por cada ticket: 10 000 tickets recorrían los mismos pocos cientos de días una y otra vez. Una caché por día y zona horaria en `businessTime.ts` la dejó en 0,5 s, y de paso bajó el CSV del período de 3,4 s a 0,5 s y el tablero global de 376 a 127 ms. Es una función pura con entradas finitas: memoizarla no cambia ningún resultado, y las 87 pruebas del motor lo confirman.
+- **Una antigüedad que no paraba de crecer.** La misma investigación encontró que la columna `ageHours` medía los tickets cancelados hasta hoy, porque no tienen fecha de resolución. Un cancelado hace un año "envejecía" cada día y obligaba a recorrer 365 días de calendario. Ahora solo envejece lo que sigue vivo, con prueba.
+- **La exportación CSV de la bandeja sigue con techo de 5 000 filas**, como se decidió en F6: por encima de eso la herramienta es la lista del período de Reportes, que llega a 10 000 y es la que se mide contra el umbral del §13.
+- **La semilla es reproducible, no congelada en el calendario.** El generador tiene semilla fija, pero las fechas se calculan desde el momento de sembrar. Si se congelaran, los tickets "en riesgo" del día de la grabación estarían vencidos el día de la defensa. Se siembra la mañana de la presentación.
 
 ---
 
@@ -410,7 +447,7 @@ Quedó fuera, y se dice para no buscarlo después: **arrastrar y redimensionar**
 | Exportación PDF | F7 ✓ |
 | Administración: usuarios, áreas, categorías, SLA | F4 ✓ |
 | Invitaciones y restablecimiento de contraseña | F4 ✓ (previsto en F2) |
-| Requisitos no funcionales §13 | F8 |
+| Requisitos no funcionales §13 | F8 ✓ |
 | Fase 2 (activos) | Módulo 2, fases A0–A7 — ver [§13](#13-módulo-2-mantenimiento-de-activos) |
 
 ---
@@ -443,7 +480,7 @@ Suma de fases: **~16,5 semanas** a un frente; **~12 semanas** con backend y fron
 | 9–10 | F5 — *hecha* |
 | 10–11 | F6 — *hecha* |
 | 11–12 | F7 — *hecha* (los seis escalones) |
-| 12 | F8 |
+| 12 | F8 — *hecha* (falta el ensayo en el equipo de la presentación) |
 
 > **Hito de seguridad:** al terminar F6 (semana ~11) ya existe un producto defendible completo sin Reportes avanzados. Todo lo posterior es mejora, no supervivencia.
 
@@ -493,8 +530,11 @@ Si el plazo se acorta, recortar **en este orden**, de arriba hacia abajo. Cada l
 | Medidas contra una cuenta escrita aparte | Supertest: creados, resueltos, fusionados fuera, porcentaje sin denominador | F7 ✓ |
 | Filtros y columnas de la lista del período | Supertest: número, estado, texto, horas laborales y CSV sin conversación | F7 ✓ |
 | Reporte guardado que pierde alcance | Supertest: se abre recortado, no falla | F7 ✓ |
-| Recorridos de la defensa | Playwright E2E | F8 |
-| Rendimiento con 10.000 tickets | Script de carga + medición contra §13 | F8 |
+| Recorridos de la defensa | Playwright E2E, contra una API sin clave de IA | F8 ✓ |
+| Accesibilidad | axe (WCAG 2.1 AA) en las pantallas principales, en los dos temas, y desborde a 360 px | F8 ✓ |
+| Kanban con teclado | Playwright: Espacio, flecha y Espacio mueven la tarjeta y el cambio persiste | F8 ✓ |
+| Rendimiento con 10.000 tickets | `npm run perf`: semilla de carga + medición contra §13, sale con 1 si algo se pasa | F8 ✓ |
+| Antigüedad de tickets cerrados | Supertest: un cancelado no tiene `ageHours` | F8 ✓ |
 
 Lo demás se prueba a mano. La regla del spec (§13, *Calidad*) es explícita: **SLA y permisos son lo crítico**; ahí va el esfuerzo de pruebas.
 
@@ -526,11 +566,11 @@ Además de los del spec §16, los que introduce el estado actual del repositorio
 | Los enumerados en español del prototipo se filtran al contrato | Resolver los desajustes de §1.4 **antes** de escribir el primer esquema Mongoose | F0 |
 | Las páginas mutan el array importado; el patrón se copia a la API | La capa de datos entra **antes** que el primer endpoint de tickets | F2 |
 | La semilla es muy pequeña y las gráficas quedan vacías | 80–120 tickets como entregable con DoD propio | F1 |
-| La demo depende de internet (Gemini y Google) | Modo sin IA probado + login por correo como respaldo | F5 ✓, F8 |
+| La demo depende de internet (Gemini y Google) | Modo sin IA probado + login por correo como respaldo; toda la suite E2E corre sin IA | F5 ✓, F8 ✓ |
 | **El plan gratuito de Gemini permite 5 peticiones por minuto** | Medido con la clave real: escribir en el formulario de nuevo ticket puede agotarlo en segundos. La caché y el *debounce* lo contienen, y al agotarse la aplicación sigue funcionando sin IA. Para la defensa: no encadenar creaciones de ticket, o apagar `suggestArea` en Configuración | F5 ✓ |
 | Google retira nombres de modelo | `GEMINI_MODEL` se cambia en el `.env` sin tocar código; el 404 dice cuál usar | F5 ✓ |
-| Reportes lentos con muchos tickets (spec §16) | Una consulta por gráfica, con su propio esqueleto de carga; techo de grupos por gráfica y de 10 000 filas por lista; los filtros que exigen horas laborales avisan de ese techo | F7 ✓, F8 (medición con 10.000 tickets) |
-| Falla el equipo de la presentación | Ensayo completo en esa máquina con antelación | F8 |
+| Reportes lentos con muchos tickets (spec §16) | Una consulta por gráfica, con su propio esqueleto de carga; techo de grupos por gráfica y de 10 000 filas por lista; caché por día en el motor de horas laborales. Medido con 10 000 tickets: nada pasa de 0,85 s | F7 ✓, F8 ✓ |
+| Falla el equipo de la presentación | Ensayo completo en esa máquina con antelación, con la lista de `PRESENTACION.md` §13 | F8 (pendiente) |
 
 ---
 

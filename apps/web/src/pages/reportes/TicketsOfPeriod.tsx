@@ -122,7 +122,7 @@ export function TicketsOfPeriod({
             onClick={() => setPanelOpen((value) => !value)}
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
               panelOpen || chips.length
-                ? "border-accent text-accent"
+                ? "border-accent text-accent-ink"
                 : "border-[var(--content-border)] text-[var(--content-ink)]"
             }`}
           >
@@ -153,7 +153,7 @@ export function TicketsOfPeriod({
           ))}
           <button
             onClick={() => onFiltersChange({})}
-            className="text-[11px] font-medium text-accent hover:underline"
+            className="text-[11px] font-medium text-accent-ink hover:underline"
           >
             Limpiar filtros
           </button>
@@ -245,6 +245,7 @@ export function TicketsOfPeriod({
           </p>
           <div className="no-print flex items-center gap-2">
             <select
+              aria-label="Filas por página"
               value={limit}
               onChange={(event) => setLimit(Number(event.target.value))}
               className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1 text-xs text-[var(--content-ink)]"
@@ -461,6 +462,7 @@ function FilterPanel({
 
         <Group label="Tiempo de 1.ª respuesta" hint="horas laborales">
           <Comparison
+            label="Tiempo de 1.ª respuesta"
             op={filters.responseHoursOp}
             value={filters.responseHours}
             onChange={(op, value) => set({ responseHoursOp: op, responseHours: value })}
@@ -468,6 +470,7 @@ function FilterPanel({
         </Group>
         <Group label="Tiempo de resolución" hint="horas laborales">
           <Comparison
+            label="Tiempo de resolución"
             op={filters.resolutionHoursOp}
             value={filters.resolutionHours}
             onChange={(op, value) => set({ resolutionHoursOp: op, resolutionHours: value })}
@@ -528,6 +531,7 @@ function FilterPanel({
             onToggle={(value) => set({ priorityCorrected: value })}
           />
           <select
+            aria-label="Filtrar por fusión"
             value={filters.merged ?? ""}
             onChange={(event) =>
               set({ merged: (event.target.value || undefined) as ReportTicketFilters["merged"] })
@@ -597,7 +601,7 @@ function Multi({
             }
             className={`rounded-full border px-2 py-0.5 text-[11px] ${
               on
-                ? "border-accent bg-accent/10 text-accent"
+                ? "border-accent bg-accent/10 text-accent-ink"
                 : "border-[var(--content-border)] text-[var(--content-ink-dim)]"
             }`}
           >
@@ -621,10 +625,12 @@ function DateInput({ value, onChange }: { value?: string; onChange: (value?: str
 }
 
 function Comparison({
+  label,
   op,
   value,
   onChange,
 }: {
+  label: string;
   op?: "gt" | "lt";
   value?: number;
   onChange: (op?: "gt" | "lt", value?: number) => void;
@@ -632,6 +638,7 @@ function Comparison({
   return (
     <div className="flex items-center gap-1.5">
       <select
+        aria-label={`${label}: más o menos de`}
         value={op ?? ""}
         onChange={(event) =>
           onChange((event.target.value || undefined) as "gt" | "lt" | undefined, value)
@@ -645,6 +652,7 @@ function Comparison({
       <input
         type="number"
         min={0}
+        aria-label={`${label}: horas laborales`}
         value={value ?? ""}
         onChange={(event) => onChange(op, event.target.value ? Number(event.target.value) : undefined)}
         className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
@@ -667,7 +675,7 @@ function Flag({
       onClick={() => onToggle(on ? undefined : true)}
       className={`rounded-full border px-2 py-0.5 text-[11px] ${
         on
-          ? "border-accent bg-accent/10 text-accent"
+          ? "border-accent bg-accent/10 text-accent-ink"
           : "border-[var(--content-border)] text-[var(--content-ink-dim)]"
       }`}
     >

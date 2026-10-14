@@ -2,6 +2,7 @@ import {
   businessMinutesBetween,
   canViewTicket,
   isAdmin,
+  isSettledStatus,
   PRIORITIES,
   REPORT_ROW_CAP,
   TICKET_STATUSES,
@@ -447,7 +448,13 @@ function toRow(
     ...(sla.closedAt ? { closedAt: (sla.closedAt as Date).toISOString() } : {}),
     firstResponseHours: workingHours(createdAt, sla.firstResponseAt as Date | undefined, paused, calendar),
     resolutionHours: workingHours(createdAt, sla.resolvedAt as Date | undefined, paused, calendar),
-    ageHours: sla.resolvedAt ? null : workingHours(createdAt, now, paused, calendar),
+    // Solo envejece lo que sigue vivo. Un cancelado o un cerrado por abandono no
+    // tiene `resolvedAt`, y medirlo hasta hoy le daba una antigüedad que no para de
+    // crecer (y recorría un año de calendario por cada uno).
+    ageHours:
+      sla.resolvedAt || isSettledStatus(ticket["status"] as TicketStatus)
+        ? null
+        : workingHours(createdAt, now, paused, calendar),
     responseState: states.response,
     resolutionState: states.resolution,
     responseDueAt: (sla.responseDueAt as Date).toISOString(),

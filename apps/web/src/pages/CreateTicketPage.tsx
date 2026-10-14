@@ -255,9 +255,10 @@ export default function CreateTicketPage() {
                 <span className="text-sm text-[var(--content-ink)]">Yo</span>
                 {/* Solo compañeros del propio área: es lo que el servidor acepta. */}
                 <select
+                  aria-label="Crear en nombre de un compañero"
                   value=""
                   onChange={(event) => setOnBehalfOf(event.target.value)}
-                  className="rounded-lg border border-dashed border-[var(--content-border)] bg-transparent px-2 py-1 text-xs text-accent"
+                  className="rounded-lg border border-dashed border-[var(--content-border)] bg-transparent px-2 py-1 text-xs text-accent-ink"
                 >
                   <option value="">Crear en nombre de un compañero…</option>
                   {colleagues
@@ -326,7 +327,7 @@ export default function CreateTicketPage() {
                     ? "La IA propone departamento y categoría a partir de lo que escribiste"
                     : "Escribe primero el título y la descripción"
                 }
-                className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-ink transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <SparkleIcon className={analyzing ? "animate-pulse" : ""} />
                 {analyzing ? "Clasificando…" : "Clasificar con IA"}
@@ -374,7 +375,7 @@ export default function CreateTicketPage() {
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-2 overflow-hidden rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-[var(--content-ink)]"
                   >
-                    <p className="flex items-center gap-1.5 font-medium text-accent">
+                    <p className="flex items-center gap-1.5 font-medium text-accent-ink">
                       <SparkleIcon /> Sugerido por IA: {visibleSuggestion.areaName}
                       {visibleSuggestion.categoryName
                         ? ` · ${visibleSuggestion.categoryName}`
@@ -417,7 +418,9 @@ export default function CreateTicketPage() {
             <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
               Adjuntos
             </label>
-            <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-dashed border-[var(--content-border)] px-4 py-6 text-center text-xs text-[var(--content-ink-dim)] hover:border-accent">
+            {/* `sr-only` en el campo, no `hidden`: así se llega con Tab y el
+                recuadro entero se ilumina con el foco. */}
+            <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-dashed border-[var(--content-border)] px-4 py-6 text-center text-xs text-[var(--content-ink-dim)] hover:border-accent focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
               <PaperclipIcon />
               {upload.isPending
                 ? "Subiendo…"
@@ -425,8 +428,9 @@ export default function CreateTicketPage() {
               <input
                 type="file"
                 multiple
+                aria-label="Adjuntos"
                 accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
-                className="hidden"
+                className="sr-only"
                 onChange={(event) => {
                   addFiles(event.target.files);
                   event.target.value = "";
@@ -497,7 +501,7 @@ export default function CreateTicketPage() {
 
         <Plate className="h-fit space-y-3 p-5 text-sm text-[var(--content-ink-dim)]">
           <p className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
-            <SparkleIcon className="text-accent" /> Antes de enviar
+            <SparkleIcon className="text-accent-ink" /> Antes de enviar
           </p>
           <p className="flex items-start gap-1.5">
             <LightbulbIcon className="mt-0.5 shrink-0 text-[var(--content-ink-dim)]" />

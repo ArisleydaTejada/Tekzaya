@@ -121,18 +121,46 @@ interface DayWindow {
   endMs: number;
 }
 
+interface ZonedDay extends DayWindow {
+  /** Medianoche de ese día en la zona de la empresa. */
+  midnightMs: number;
+}
+
+/**
+ * Las horas de un día concreto en una zona son siempre las mismas, y obtenerlas
+ * cuesta seis llamadas a `Intl`. Un reporte de 10 000 tickets recorre los mismos
+ * pocos cientos de días una y otra vez: sin esta caché, la lista del período con
+ * un filtro de horas tardaba 3,4 s; el umbral del spec §13 es 2 s.
+ */
+const zonedDayCache = new Map<string, ZonedDay>();
+const ZONED_DAY_CACHE_LIMIT = 20_000;
+
+function zonedDay(date: CalendarDate, hours: BusinessHours): ZonedDay {
+  const key = `${hours.timezone}|${hours.start}|${hours.end}|${dateKey(date)}`;
+  const cached = zonedDayCache.get(key);
+  if (cached) return cached;
+
+  const open = parseHourMinute(hours.start);
+  const close = parseHourMinute(hours.end);
+  const day: ZonedDay = {
+    startMs: zonedTimeToUtc(date, open.hour, open.minute, hours.timezone).getTime(),
+    endMs: zonedTimeToUtc(date, close.hour, close.minute, hours.timezone).getTime(),
+    midnightMs: zonedTimeToUtc(date, 0, 0, hours.timezone).getTime(),
+  };
+  // Un tope, no una política de expulsión: basta con que no crezca sin límite.
+  if (zonedDayCache.size >= ZONED_DAY_CACHE_LIMIT) zonedDayCache.clear();
+  zonedDayCache.set(key, day);
+  return day;
+}
+
 /** Ventana laborable de ese día, o `null` si es fin de semana o festivo. */
 function windowFor(date: CalendarDate, calendar: BusinessCalendar): DayWindow | null {
   const { hours, holidays } = calendar;
   if (!hours.days.includes(weekdayOf(date))) return null;
   if (holidays.includes(dateKey(date))) return null;
 
-  const open = parseHourMinute(hours.start);
-  const close = parseHourMinute(hours.end);
-  return {
-    startMs: zonedTimeToUtc(date, open.hour, open.minute, hours.timezone).getTime(),
-    endMs: zonedTimeToUtc(date, close.hour, close.minute, hours.timezone).getTime(),
-  };
+  const { startMs, endMs } = zonedDay(date, hours);
+  return { startMs, endMs };
 }
 
 /**
@@ -191,7 +219,7 @@ export function businessMinutesBetween(
       const endMs = Math.min(toMs, window.endMs);
       if (endMs > startMs) totalMs += endMs - startMs;
     }
-    const midnightMs = zonedTimeToUtc(date, 0, 0, calendar.hours.timezone).getTime();
+    const { midnightMs } = zonedDay(date, calendar.hours);
     if (midnightMs > toMs) break;
 
     date = nextDay(date);

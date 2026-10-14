@@ -224,7 +224,7 @@ export default function DashboardPage() {
           </p>
           <Link
             to="/tickets"
-            className="ml-auto flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+            className="ml-auto flex items-center gap-1 text-sm font-medium text-accent-ink hover:underline"
           >
             Ver tickets del incidente <ArrowRightIcon className="h-3.5 w-3.5" />
           </Link>
@@ -359,7 +359,7 @@ function AvailabilityPanel({ query, global }: { query: StatsRequest; global: boo
         </h2>
         <Link
           to="/reportes"
-          className="flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+          className="flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
         >
           Ver gráficas en Reportes <ArrowRightIcon className="h-3 w-3" />
         </Link>
@@ -453,7 +453,7 @@ function AssignedPanel() {
       )}
       <Link
         to="/tickets?scope=assigned"
-        className="mt-3 flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+        className="mt-3 flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
       >
         Ver todos los asignados a mí <ArrowRightIcon className="h-3 w-3" />
       </Link>
@@ -509,7 +509,7 @@ function RequestsPanel() {
       )}
       <Link
         to="/tickets?scope=mine"
-        className="mt-3 flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+        className="mt-3 flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
       >
         Ver todas mis solicitudes <ArrowRightIcon className="h-3 w-3" />
       </Link>

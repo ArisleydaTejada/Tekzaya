@@ -86,7 +86,7 @@ export function NotificationBell() {
                   <button
                     onClick={() => mark.mutate({ all: true })}
                     disabled={mark.isPending}
-                    className="text-xs font-medium text-accent hover:underline disabled:opacity-60"
+                    className="text-xs font-medium text-accent-ink hover:underline disabled:opacity-60"
                   >
                     Marcar todas como leídas
                   </button>

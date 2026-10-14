@@ -127,6 +127,7 @@ export function WidgetEditor({
                             </label>
                             {chosen && measure.aggregations && (
                               <select
+                                aria-label={`Cálculo de ${measure.label}`}
                                 value={chosen.aggregation ?? "avg"}
                                 onChange={(event) =>
                                   set({
@@ -160,6 +161,7 @@ export function WidgetEditor({
           {allowsGroup && (
             <Row label="¿Cómo lo agrupas?">
               <Select
+                label="Agrupar por"
                 value={draft.groupBy ?? ""}
                 onChange={(value) =>
                   set({ groupBy: (value || undefined) as DimensionKey | undefined })
@@ -174,6 +176,7 @@ export function WidgetEditor({
           {allowsSplit && (
             <Row label="¿Lo segmentas?" hint="Máximo 6 segmentos">
               <Select
+                label="Segmentar por"
                 value={draft.splitBy ?? ""}
                 onChange={(value) => set({ splitBy: (value || undefined) as DimensionKey | undefined })}
                 options={[
@@ -218,6 +221,7 @@ export function WidgetEditor({
             <div className="space-y-2">
               {catalog.maxScope === "global" && (
                 <Select
+                  label="Filtrar por área"
                   value={draft.filters.areaId ?? ""}
                   onChange={(value) =>
                     set({ filters: { ...draft.filters, areaId: value || undefined } })
@@ -253,6 +257,7 @@ export function WidgetEditor({
                 }
               />
               <Select
+                label="Filtrar por estado de SLA"
                 value={draft.filters.slaState ?? ""}
                 onChange={(value) =>
                   set({
@@ -269,6 +274,7 @@ export function WidgetEditor({
               />
               {categories.length > 0 && (
                 <Select
+                  label="Filtrar por categoría"
                   value={draft.filters.categoryIds?.[0] ?? ""}
                   onChange={(value) =>
                     set({
@@ -289,11 +295,13 @@ export function WidgetEditor({
             <Row label="Orden y límite">
               <div className="flex gap-2">
                 <Select
+                  label="Orden"
                   value={draft.sort}
                   onChange={(value) => set({ sort: value as ReportWidget["sort"] })}
                   options={WIDGET_SORTS.map((value) => ({ value, label: WIDGET_SORT_LABEL[value] }))}
                 />
                 <Select
+                  label="Límite de grupos"
                   value={String(draft.limit ?? "")}
                   onChange={(value) => set({ limit: value ? Number(value) : undefined })}
                   options={[
@@ -310,6 +318,7 @@ export function WidgetEditor({
           {/* 8 · Comparar */}
           <Row label="Comparar">
             <Select
+              label="Comparar con"
               value={draft.compareWith?.kind ?? ""}
               onChange={(value) =>
                 set({
@@ -432,16 +441,20 @@ function Row({
 }
 
 function Select({
+  label,
   value,
   onChange,
   options,
 }: {
+  /** Nombre para el lector de pantalla; la fila que lo rodea no es un `<label>`. */
+  label: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
 }) {
   return (
     <select
+      aria-label={label}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-1.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
@@ -480,7 +493,7 @@ function Chips({
             }
             className={`rounded-full border px-2 py-0.5 text-[11px] ${
               on
-                ? "border-accent bg-accent/10 text-accent"
+                ? "border-accent bg-accent/10 text-accent-ink"
                 : "border-[var(--content-border)] text-[var(--content-ink-dim)]"
             }`}
           >

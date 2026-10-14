@@ -10,7 +10,7 @@ import {
   type AwayReason,
 } from "@tekzaya/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   changeMyPassword,
   removeMyAvatar,
@@ -394,12 +394,14 @@ function PasswordField({
   onChange: (value: string) => void;
   autoComplete: string;
 }) {
+  const id = useId();
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
         {label}
       </label>
       <input
+        id={id}
         type="password"
         value={value}
         autoComplete={autoComplete}

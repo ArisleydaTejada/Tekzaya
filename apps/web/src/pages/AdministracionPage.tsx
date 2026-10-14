@@ -11,7 +11,7 @@ import {
   type Settings,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
@@ -82,7 +82,7 @@ export default function AdministracionPage({ tab: fixedTab }: { tab?: string }) 
             key={t.id}
             onClick={() => navigate(`/administracion/${t.id}`)}
             className={`relative px-3 py-2.5 text-sm font-medium transition-colors ${
-              tab === t.id ? "text-accent" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+              tab === t.id ? "text-accent-ink" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
             {t.label}
@@ -831,7 +831,7 @@ function AreasTab() {
                 )}
               </div>
               <div className="flex shrink-0 gap-2 text-xs">
-                <button onClick={() => setEditing(area)} className="text-accent hover:underline">
+                <button onClick={() => setEditing(area)} className="text-accent-ink hover:underline">
                   Editar
                 </button>
                 <button
@@ -913,7 +913,7 @@ function NewCategoryButton({ onCreate }: { onCreate: (name: string) => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1 rounded-full border border-dashed border-[var(--content-border)] px-2 py-0.5 text-xs text-accent"
+        className="flex items-center gap-1 rounded-full border border-dashed border-[var(--content-border)] px-2 py-0.5 text-xs text-accent-ink"
       >
         <PlusIcon className="h-3 w-3" /> Categoría
       </button>
@@ -939,7 +939,7 @@ function NewCategoryButton({ onCreate }: { onCreate: (name: string) => void }) {
         aria-label="Nombre de la categoría"
         className="w-28 rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
       />
-      <button type="submit" className="text-xs font-medium text-accent">
+      <button type="submit" className="text-xs font-medium text-accent-ink">
         Añadir
       </button>
     </form>
@@ -1552,12 +1552,14 @@ function Field({
   label,
   ...rest
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const id = useId();
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
         {label}
       </label>
       <input
+        id={id}
         {...rest}
         className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />

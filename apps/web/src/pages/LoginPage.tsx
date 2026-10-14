@@ -124,7 +124,11 @@ export default function LoginPage() {
       />
 
       {/* Placard — the form, always visible */}
-      <section className="flex min-h-dvh w-full items-center justify-center bg-placard px-6 py-12 lg:min-h-0 lg:w-1/2">
+      {/* La plancha es clara en los dos temas: sus avisos usan los tonos de superficie clara. */}
+      <section
+        data-surface="light"
+        className="flex min-h-dvh w-full items-center justify-center bg-placard px-6 py-12 lg:min-h-0 lg:w-1/2"
+      >
         <div className="w-full max-w-sm">
           <Wordmark size="sm" on="light" className="mb-8 lg:hidden" />
 
@@ -164,7 +168,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowResetHelp(false)}
-                    className="font-medium text-accent underline-offset-2 hover:underline"
+                    className="font-medium text-accent-ink underline-offset-2 hover:underline"
                   >
                     Entendido
                   </button>
@@ -173,7 +177,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowResetHelp(true)}
-                  className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+                  className="text-xs font-medium text-accent-ink underline-offset-2 hover:underline"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>

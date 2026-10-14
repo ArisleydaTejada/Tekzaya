@@ -370,7 +370,7 @@ export default function TicketDetailPage() {
                   onClick={() => classify.mutate()}
                   disabled={classify.isPending}
                   title="La IA propone categoría y prioridad para este ticket"
-                  className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/15 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-ink hover:bg-accent/15 disabled:opacity-50"
                 >
                   <SparkleIcon className={`h-3.5 w-3.5 ${classify.isPending ? "animate-pulse" : ""}`} />
                   {classify.isPending ? "Clasificando…" : "Clasificar con IA"}
@@ -389,6 +389,7 @@ export default function TicketDetailPage() {
               )}
               {permissions.changeStatus && (
                 <select
+                  aria-label="Estado del ticket"
                   value={ticket.status}
                   onChange={(event) => {
                     const next = event.target.value as TicketStatus;
@@ -451,6 +452,7 @@ export default function TicketDetailPage() {
                 <div className="mb-2 flex w-fit rounded-lg border border-[var(--content-border)] p-0.5">
                   <button
                     onClick={() => setComposerTab("public")}
+                    aria-pressed={composerTab === "public"}
                     className={`rounded-md px-3 py-1 text-xs font-medium ${
                       composerTab === "public"
                         ? "bg-accent text-white"
@@ -461,6 +463,7 @@ export default function TicketDetailPage() {
                   </button>
                   <button
                     onClick={() => setComposerTab("internal")}
+                    aria-pressed={composerTab === "internal"}
                     className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium ${
                       composerTab === "internal"
                         ? "bg-amber text-[#3d2905]"
@@ -497,6 +500,7 @@ export default function TicketDetailPage() {
                     }}
                     rows={3}
                     maxLength={5000}
+                    aria-label={composerTab === "internal" ? "Nota interna" : "Respuesta"}
                     placeholder={
                       composerTab === "internal"
                         ? "Nota interna para el equipo…"
@@ -529,7 +533,7 @@ export default function TicketDetailPage() {
                     onClick={askForCompletion}
                     disabled={ghosting}
                     title="Ctrl + Espacio"
-                    className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-accent hover:underline disabled:opacity-50"
+                    className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-accent-ink hover:underline disabled:opacity-50"
                   >
                     <SparkleIcon className={`h-3 w-3 ${ghosting ? "animate-pulse" : ""}`} />
                     {ghosting ? "Pensando…" : "Sugerir continuación"}
@@ -560,16 +564,19 @@ export default function TicketDetailPage() {
                 {fileError && <p className="mb-2 text-xs text-red">{fileError}</p>}
 
                 <div className="mt-2 flex items-center justify-between">
+                  {/* `sr-only` y no `hidden`: con display:none el campo sale del
+                      orden de tabulación y adjuntar deja de ser posible con teclado. */}
                   <label
-                    className="cursor-pointer text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                    className="cursor-pointer rounded text-[var(--content-ink-dim)] hover:text-[var(--content-ink)] focus-within:ring-2 focus-within:ring-accent"
                     title="Adjuntar archivo"
                   >
                     <PaperclipIcon />
                     <input
                       type="file"
                       multiple
+                      aria-label="Adjuntar archivo"
                       accept={ALLOWED_ATTACHMENT_MIME.join(",")}
-                      className="hidden"
+                      className="sr-only"
                       onChange={(event) => {
                         addFiles(event.target.files);
                         event.target.value = "";
@@ -648,7 +655,7 @@ export default function TicketDetailPage() {
             {permissions.manageAssignees && (
               <div className="mt-2 flex flex-wrap gap-3 text-xs">
                 {permissions.merge && (
-                  <button onClick={() => setMergeOpen(true)} className="text-accent hover:underline">
+                  <button onClick={() => setMergeOpen(true)} className="text-accent-ink hover:underline">
                     Ver tickets del incidente
                   </button>
                 )}
@@ -678,7 +685,7 @@ export default function TicketDetailPage() {
                   Fusionado dentro de{" "}
                   <Link
                     to={`/tickets/${formatTicketNumber(ticket.mergedInto.number)}`}
-                    className="font-display tabular text-accent hover:underline"
+                    className="font-display tabular text-accent-ink hover:underline"
                   >
                     {formatTicketNumber(ticket.mergedInto.number)}
                   </Link>
@@ -817,7 +824,7 @@ function SummaryPanel({ ticketId }: { ticketId: string }) {
       <Plate className="p-4">
         <button
           onClick={() => setRequested(true)}
-          className="flex items-center gap-2 text-sm font-medium text-accent hover:underline"
+          className="flex items-center gap-2 text-sm font-medium text-accent-ink hover:underline"
         >
           <SummaryIcon /> Ver resumen del ticket
         </button>
@@ -832,7 +839,7 @@ function SummaryPanel({ ticketId }: { ticketId: string }) {
           onClick={() => setOpen((value) => !value)}
           className="flex flex-1 items-center justify-between text-left"
         >
-          <span className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-accent">
+          <span className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-accent-ink">
             <SparkleIcon /> Resumen de IA
           </span>
         </button>
@@ -1109,6 +1116,7 @@ function CsatPanel({ ticket, onAnswered }: { ticket: TicketDetail; onAnswered: (
         onChange={(event) => setComment(event.target.value)}
         rows={2}
         maxLength={1000}
+        aria-label="Comentario de la calificación"
         placeholder="¿Algo que quieras añadir? (opcional)"
         className="mt-3 w-full resize-none rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] placeholder:text-[var(--content-ink-dim)]"
       />
@@ -1655,10 +1663,14 @@ function ResolveModal({
         </>
       }
     >
-      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+      <label
+        htmlFor="nota-solucion"
+        className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]"
+      >
         Nota de solución (obligatoria)
       </label>
       <textarea
+        id="nota-solucion"
         value={note}
         onChange={(event) => setNote(event.target.value)}
         rows={3}

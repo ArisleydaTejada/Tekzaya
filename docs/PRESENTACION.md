@@ -32,7 +32,7 @@ Es un **monorepo** (npm workspaces) con tres paquetes, todo en **TypeScript**:
 Otras piezas:
 - **IA**: Google **Gemini** (`@google/genai`, modelo `gemini-3.5-flash-lite` configurable por variable de entorno).
 - **Login**: correo/contraseña **y** Google (restringido a un dominio de la empresa).
-- **Pruebas**: Vitest + Supertest. **Linter**: oxlint.
+- **Pruebas**: Vitest + Supertest (unitarias e integración), **Playwright** + axe (recorridos de punta a punta y accesibilidad). **Linter**: oxlint.
 
 **¿Por qué un paquete `shared`?** Para que el frontend y el backend usen *exactamente* las mismas reglas (permisos, validaciones, SLA). Si se escribieran dos veces, tarde o temprano se contradirían.
 
@@ -181,12 +181,14 @@ Extras:
 
 ```bash
 npm install
-npm run seed     # datos iniciales
-npm run dev      # arranca API (puerto 4000) y web (Vite, 5173) a la vez
-npm test         # pruebas de api y shared
+npm run seed       # datos iniciales
+npm run dev        # arranca API (puerto 4000) y web (Vite, 5173) a la vez
+npm test           # pruebas de api y shared (295)
+npm run test:e2e   # los 5 recorridos y la accesibilidad, en Chromium
+npm run perf       # 10 000 tickets en una base aparte, medidos contra el §13
 ```
 
-Configuración en un `.env` en la raíz (Mongo, secretos JWT, Google client ID, clave de Gemini).
+Configuración en un `.env` en la raíz (Mongo, secretos JWT, Google client ID, clave de Gemini). La guía completa, con las cuentas, está en el `README.md`.
 
 ---
 
@@ -210,5 +212,45 @@ Se guardan las *fechas* de vencimiento y riesgo (calculadas una vez); el estado 
 **¿Cómo agregarías otro tipo de gráfica?**
 Añadirlo al catálogo de `shared` (`CHART_TYPES`) y escribir su render en `ReportChart.tsx`. El backend no cambia.
 
+**¿Cómo sabes que aguanta con muchos tickets?**
+Porque está medido: `npm run perf` carga 10 000 tickets y mide cada pantalla. Lo más lento es ordenar la bandeja por solicitante (0,84 s); el spec pide menos de 2 s. La primera medición falló (3,4 s en un filtro de horas laborales) y el arreglo fue una caché por día en el motor de SLA.
+
+**¿Es accesible?**
+axe revisa las pantallas principales en tema claro y oscuro en cada ejecución de las E2E (contraste AA, controles con nombre), el Kanban se maneja con teclado y la prioridad siempre lleva texto, no solo color.
+
 **¿Qué mejorarías?**
-El módulo de mantenimiento de activos (segunda fase), caché de IA compartida (Redis) si hay varios servidores, y más pruebas de interfaz.
+El módulo de mantenimiento de activos (segunda fase), caché de IA compartida (Redis) si hay varios servidores, y probar con lector de pantalla real además de axe.
+
+---
+
+## 13. Ensayo en el equipo de la presentación
+
+Hacerlo **en esa máquina** y con antelación: es lo único de la fase F8 que no se puede comprobar desde el equipo de desarrollo.
+
+**La víspera**
+
+- [ ] `git pull`, `npm install` y `npm test` en verde.
+- [ ] MongoDB arranca solo con el equipo (`Get-Service MongoDB` → *Running*).
+- [ ] `npm run test:e2e` en verde: si pasa, los cinco recorridos funcionan en esa máquina y sin IA.
+- [ ] Probar la red del aula: ¿llega a `generativelanguage.googleapis.com`? Si no, se presenta sin IA (ver abajo).
+
+**La mañana de la defensa**
+
+- [ ] `npm run seed`: los plazos "en riesgo" y "vencidos" se calculan desde el momento de sembrar.
+- [ ] `npm run dev` y abrir <http://localhost:5173>.
+- [ ] Dos ventanas con sesión: el supervisor (`daury.guzman@…`) y el empleado (`diego.castillo@…`), para enseñar el tiempo real.
+- [ ] Zoom del navegador a 125 % para el proyector y tema claro (proyecta mejor).
+
+**El guion: los cinco recorridos**, en el mismo orden que las E2E (`e2e/01…05`)
+
+1. Acceso: contraseña mal escrita, luego bien.
+2. El empleado crea un ticket para IT; el supervisor lo toma, contesta, deja una nota interna y lo resuelve; el empleado ve la solución, **no ve la nota**, y califica.
+3. Kanban: arrastrar a *En progreso*, recargar y sigue ahí. Arrastrar a *Abierto*: el servidor lo rechaza.
+4. Con las dos ventanas a la vista, crear un ticket: sube el tablero del supervisor y suena su campana.
+5. Reportes: el empleado solo ve "Yo"; la administradora ve las cuatro opciones.
+
+**Plan B sin IA**
+
+- Dejar `GEMINI_API_KEY` vacía en `.env` y reiniciar: las funciones de IA desaparecen de la pantalla y todo lo demás funciona igual (las E2E lo prueban en cada ejecución).
+- O apagar solo «Sugerir área al crear un ticket» en *Administración → Configuración* si la cuota gratuita se agota en plena demo.
+- Si falla Google, el inicio de sesión por correo no depende de nada externo.

@@ -28,13 +28,39 @@
   --color-accent: #58479d;
   --color-accent-soft: #b5a3cf;
   --color-accent-dim: #463a7e;
-  --color-amber: #f5a623;
-  --color-red: #e5484d;
-  --color-green: #39d98a;
   --color-steel: #7c8cae;
 
   --shadow-instrument: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
   --shadow-placard: 0 1px 2px rgba(18, 20, 26, 0.04), 0 12px 24px -14px rgba(18, 20, 26, 0.18);
+}
+
+/*
+ * Los tres colores semánticos dependen de la superficie, no son fijos. El verde,
+ * el ámbar y el rojo brillantes se leen bien sobre oscuro, pero como texto sobre
+ * blanco se quedaban entre 1,7:1 y 3,9:1, lejos del 4,5:1 de AA (spec §13).
+ * `inline` hace que la utilidad lea `--status-*` donde se pinta, y no donde se
+ * declaró: así una superficie que es clara en los dos temas (la plancha del
+ * login) puede fijar sus propios tonos con `data-surface="light"`.
+ */
+@theme inline {
+  --color-amber: var(--status-amber);
+  --color-red: var(--status-red);
+  --color-green: var(--status-green);
+  /* El primario como TEXTO: sobre oscuro se queda en 2:1, así que ahí se lee el
+     lila (ver `--accent-contrast`). Para rellenos se sigue usando `accent`. */
+  --color-accent-ink: var(--accent-contrast);
+}
+
+/* Tonos oscuros: pasan AA sobre blanco, sobre el lienzo y sobre su propio tinte al 15 %. */
+:root,
+[data-surface="light"] {
+  --status-amber: #965000;
+  --status-red: #b42318;
+  --status-green: #15703f;
+}
+
+[data-surface="light"] {
+  --accent-contrast: var(--color-accent);
 }
 
 :root {
@@ -103,7 +129,7 @@
   --st-open-ink: #a3191b;
   --st-open-border: #f0a9a9;
   --st-assigned-bg: #fff5f5;
-  --st-assigned-ink: #e05a64;
+  --st-assigned-ink: #b8313c;
   --st-assigned-border: #fbd9dc;
   --st-in_progress-bg: #fff3e2;
   --st-in_progress-ink: #a85a07;
@@ -152,6 +178,11 @@
   --rail-ink-dim: var(--color-panel-ink-dim);
 
   --accent-contrast: var(--color-accent-soft);
+
+  --status-amber: #f5a623;
+  /* El #e5484d de la marca se quedaba en 3,3:1 sobre su propio tinte. */
+  --status-red: #ff7a7f;
+  --status-green: #39d98a;
 
   --chart-recibidos: #b5a3cf;
   --chart-resueltos: #2fa374;
@@ -270,6 +301,10 @@
     --content-ink: #12141a;
     --content-ink-dim: #5b6472;
     --content-shadow: none;
+    --status-amber: #965000;
+    --status-red: #b42318;
+    --status-green: #15703f;
+    --accent-contrast: var(--color-accent);
   }
 
   .print-block {
