@@ -149,7 +149,7 @@ export const MEASURE_META: Record<MeasureKey, MeasureMeta> = {
     unit: "count",
     perspectives: BOTH,
     higherIsBetter: true,
-    hint: "Cuenta para cada responsable al momento de resolver (spec §9).",
+    hint: "Cuenta para cada responsable al momento de resolver.",
   },
   closed: {
     label: "Tickets cerrados",
