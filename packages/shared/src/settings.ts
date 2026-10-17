@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PRIORITIES, type Priority } from "./enums";
+import { DEFAULT_MAINTENANCE_SETTINGS, maintenanceSettings } from "./maintenance/settings";
 
 export const slaPolicy = z.object({
   responseMinutes: z.number().int().positive(),
@@ -58,6 +59,8 @@ export const settings = z.object({
     maxSavedReports: z.number().int().min(1).max(200),
     maxWidgetsPerReport: z.number().int().min(1).max(24),
   }),
+  /** Módulo 2: moneda, tarifas y umbrales de mantenimiento (plan A0). */
+  maintenance: maintenanceSettings,
 });
 export type Settings = z.infer<typeof settings>;
 
@@ -97,6 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   incidentDetection: { windowHours: 48, minConfidence: 0.6, minTickets: 3 },
   reportLimits: { maxSavedReports: 20, maxWidgetsPerReport: 12 },
+  maintenance: DEFAULT_MAINTENANCE_SETTINGS,
 };
 
 /**
@@ -125,5 +129,6 @@ export const updateSettingsInput = z.object({
       maxWidgetsPerReport: z.number().int().min(1).max(24),
     })
     .optional(),
+  maintenance: maintenanceSettings.optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsInput>;

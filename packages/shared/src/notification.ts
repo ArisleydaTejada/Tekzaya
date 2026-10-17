@@ -25,6 +25,13 @@ export const NOTIFICATION_TYPES = [
   "incident_detected",
   "join_request",
   "assignee_away",
+  // Módulo 2: mantenimiento de activos.
+  "work_order_assigned",
+  "preventive_due",
+  "preventive_overdue",
+  "low_stock",
+  "warranty_expiring",
+  "repeated_failures",
 ] as const;
 
 export const notificationType = z.enum(NOTIFICATION_TYPES);
@@ -50,6 +57,12 @@ export const NOTIFICATION_TONE: Record<NotificationType, "red" | "amber" | "acce
   incident_detected: "amber",
   join_request: "accent",
   assignee_away: "amber",
+  work_order_assigned: "accent",
+  preventive_due: "accent",
+  preventive_overdue: "red",
+  low_stock: "amber",
+  warranty_expiring: "amber",
+  repeated_failures: "red",
 };
 
 export const notificationView = z.object({

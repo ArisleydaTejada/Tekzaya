@@ -2,6 +2,14 @@ import type { TicketStatus } from "@tekzaya/shared";
 import mongoose from "mongoose";
 import { env } from "../config/env";
 import { Counter, SEED_CLOCK_ID } from "../models/counter.model";
+import {
+  Asset,
+  AssetEvent,
+  MaintenancePlan,
+  SparePart,
+  StockMovement,
+  WorkOrder,
+} from "../models/maintenance.models";
 import { Message } from "../models/message.model";
 import { AvailabilityLog, Notification, Settings } from "../models/support.models";
 import { Ticket } from "../models/ticket.model";
@@ -62,6 +70,35 @@ async function shiftCollection(
   return operations.length;
 }
 
+/** Suma días a una fecha de calendario "YYYY-MM-DD" sin pasar por zonas horarias. */
+function shiftDayKey(key: string, days: number): string {
+  const [year, month, day] = key.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * El módulo 2 guarda algunas fechas como días de calendario (compra, garantía,
+ * fecha programada de un preventivo). Se adelantan los días enteros transcurridos
+ * para que una garantía "por vencer" siga por vencer y el plan vencido de la demo
+ * siga vencido por los mismos días.
+ */
+async function shiftDayKeys(
+  collection: mongoose.Collection,
+  fields: string[],
+  days: number,
+): Promise<void> {
+  if (days === 0) return;
+  const docs = await collection.find({}).toArray();
+  const operations = docs.flatMap((doc) => {
+    const $set: Record<string, string> = {};
+    for (const field of fields) {
+      if (typeof doc[field] === "string") $set[field] = shiftDayKey(doc[field] as string, days);
+    }
+    return Object.keys($set).length ? [{ updateOne: { filter: { _id: doc._id }, update: { $set } } }] : [];
+  });
+  if (operations.length) await collection.bulkWrite(operations);
+}
+
 async function main(): Promise<void> {
   console.log(`Conectando a ${env.MONGODB_URI}`);
   await mongoose.connect(env.MONGODB_URI);
@@ -80,6 +117,18 @@ async function main(): Promise<void> {
   const messages = await shiftCollection(Message.collection, delta, ["createdAt", "updatedAt"]);
   const logs = await shiftCollection(AvailabilityLog.collection, delta, ["from", "to"]);
   await shiftCollection(User.collection, delta, ["availability"]);
+
+  // Módulo 2: los instantes, igual que los tickets; los días de calendario, aparte.
+  const wholeDays = Math.round(delta / 86_400_000);
+  const assets = await shiftCollection(Asset.collection, delta, "all");
+  await shiftCollection(AssetEvent.collection, delta, ["at"]);
+  const workOrders = await shiftCollection(WorkOrder.collection, delta, "all");
+  await shiftCollection(MaintenancePlan.collection, delta, "all");
+  await shiftCollection(SparePart.collection, delta, ["createdAt", "updatedAt", "lowStockNotifiedAt"]);
+  await shiftCollection(StockMovement.collection, delta, ["at"]);
+  await shiftDayKeys(Asset.collection, ["purchaseDate", "warrantyUntil"], wholeDays);
+  await shiftDayKeys(WorkOrder.collection, ["scheduledFor"], wholeDays);
+  await shiftDayKeys(MaintenancePlan.collection, ["startsOn", "nextDueAt"], wholeDays);
 
   // Los avisos de SLA describen el estado viejo. Se borran y se reinician las
   // marcas para que el job de SLA avise de nuevo según el estado actual.
@@ -127,6 +176,7 @@ async function main(): Promise<void> {
   const live = await Ticket.countDocuments({ status: { $in: LIVE_STATUSES } });
 
   console.log(`  ${tickets} tickets · ${messages} mensajes · ${logs} ausencias actualizados`);
+  console.log(`  ${assets} activos · ${workOrders} órdenes de trabajo actualizados`);
   console.log(`  ${deletedCount} avisos de SLA antiguos borrados`);
   console.log(`  Tickets vivos vencidos: ${overdue} de ${live}`);
 

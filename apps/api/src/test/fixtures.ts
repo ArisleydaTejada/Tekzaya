@@ -12,6 +12,7 @@ import { createApp } from "../app";
 import { env } from "../config/env";
 import { Area } from "../models/area.model";
 import { Counter } from "../models/counter.model";
+import { clearMaintenanceData } from "../models/maintenance.models";
 import { Message } from "../models/message.model";
 import { Attachment, AvailabilityLog, Notification, Settings, SETTINGS_ID } from "../models/support.models";
 import { Ticket } from "../models/ticket.model";
@@ -49,6 +50,7 @@ export async function resetDatabase(): Promise<Fixture> {
     AvailabilityLog.deleteMany({}),
     Settings.deleteMany({}),
     Counter.deleteMany({}),
+    clearMaintenanceData(),
   ]);
   invalidateSettingsCache();
 

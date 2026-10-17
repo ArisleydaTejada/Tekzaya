@@ -109,6 +109,18 @@ Igual que en el módulo 1: **cada fila tiene su prueba**, y el alcance de cualqu
 
 **DoD:** `npm run seed` crea el módulo 2 sin tocar los datos del módulo 1; las pruebas de permisos nuevas están en verde.
 
+**Decisiones tomadas al ejecutar A0** (2026-10-17):
+
+- **Índice único de preventivos: `{planId, assetId, scheduledFor}`**, no `{planId, scheduledFor}`. Un plan por tipo ("todas las impresoras de TI") genera una OT por equipo en la misma fecha; con el índice original, la segunda impresora chocaba con la primera. Sigue impidiendo dos OT del mismo plan, equipo y fecha.
+- **"Tomar una OT" y "registrar horas y repuestos" son dos permisos.** Cualquier técnico del área la toma (`canTakeWorkOrder`); cargarle horas, repuestos y costos es de quien la atiende o de su supervisor (`canWorkOnWorkOrder`), igual que cambiar el estado de un ticket.
+- **Vincular un equipo a un ticket** exige que el ticket sea propio o del área del técnico: un técnico de IT no vincula equipos en tickets de Mantenimiento.
+- **La tarifa se congela en cada registro de horas** (`timeEntries[].rate`), igual que el costo del repuesto al consumirlo. Cambiar la tarifa del área no reescribe lo que costaron órdenes pasadas.
+- **El tipo de activo es una lista cerrada** (`ASSET_TYPES`), no texto libre: es dimensión de los reportes y criterio de los planes por tipo.
+- **Los montos se redondean una sola vez**: la mano de obra se suma en "centavos × minutos" y se divide al final.
+- **La semilla del módulo 2 es aparte** (`apps/api/src/seed/maintenance.ts`), con su propio generador aleatorio, y corre al final de `npm run seed`: los tickets salen idénticos con o sin ella. `npm run seed:maintenance --workspace @tekzaya/api` la vuelve a sembrar sobre una base en uso sin tocar áreas, personas ni tickets. `seed:refresh` también adelanta sus fechas, incluidas las de calendario (garantías, fechas programadas).
+- **La semilla se valida con una prueba** (`seed/maintenance.test.ts`): contrato Zod, stock igual a la suma de movimientos y nunca negativo, costo de cada OT, nada en el futuro, estado del activo igual a su historial, y el módulo 1 intacto. Encontró dos errores de la propia semilla antes de que llegaran a la demo.
+- Resultado: 58 activos (2 de baja), ~170 OT, 25 repuestos (2 bajo mínimo), 8 planes (1 vencido), y la multifuncional de Ventas con 3 correctivas en 90 días y reparaciones por encima de su precio de compra.
+
 ---
 
 ### A1 · Inventario de activos — *1 semana*
@@ -123,6 +135,20 @@ Frontend:
 - Formulario de alta y edición.
 
 **DoD:** el supervisor de TI crea un activo con foto, lo mueve de ubicación y lo da de baja, y los tres pasos aparecen en la línea de tiempo; un empleado de Ventas solo ve los equipos que usa su área o tiene a su cargo, y **no** ve precios.
+
+**Decisiones tomadas al ejecutar A1** (2026-10-17):
+
+- **Mover es editar.** No hay un endpoint aparte: cambiar la ubicación, el área que lo usa o el área responsable en `PATCH /assets/:id` deja un paso `moved`, y cambiar la persona a cargo deja `custodian_changed`. El resto de los datos (nombre, serie, garantía) se corrige sin dejar rastro en la historia del equipo. Los campos opcionales aceptan `null` para vaciarlos.
+- **Pasar un equipo a otra área responsable** exige supervisar las dos: es entregárselo.
+- **No se da de baja con órdenes abiertas** (409); primero se cierran o cancelan. La baja pausa los planes preventivos del equipo, que A5 pedía.
+- **El historial es del área**: el empleado ve la ficha de su equipo (sin costo de compra, que el servidor no envía) y en lugar de la línea de tiempo, un botón para reportar la falla con un ticket. `GET /assets/:id/events` le responde 403.
+- **Lo que no se puede ver responde 404**, igual que un ticket ajeno.
+- **La foto es un adjunto normal** que se enlaza al activo (`attachments.assetId`). Solo vale una imagen que subió quien guarda y que no está en un ticket ni en otro equipo; la ve quien puede ver el equipo.
+- **"Persona a cargo"** necesita gente de otras áreas (la laptop de alguien de Ventas la da de alta IT), así que hay un `GET /assets/people` solo para quien gestiona activos, con nombre y área y nada más; `/areas/:id/members` no se amplió.
+- **La lista trae `statusCounts`** con los demás filtros aplicados, para el resumen por estado del panel lateral (referencia `docs/ideas_diseno/maintenance.png`), que también filtra.
+- **La línea de tiempo pliega los cambios de estado de una OT** en su falla ("quedó fuera de servicio") y su reparación ("vuelve a estar operativo"): una avería pasa de cuatro líneas a dos.
+- **Los dados de baja se distinguen por fondo y etiqueta, no atenuando el texto**: la auditoría de axe marcó que `opacity-60` bajaba del contraste AA.
+- Pruebas: 10 de API (`assets.test.ts`), el recorrido E2E `07-activos.spec.ts` y las dos páginas nuevas en la auditoría de accesibilidad (ambos temas y 360 px).
 
 ---
 

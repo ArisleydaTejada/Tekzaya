@@ -1119,8 +1119,8 @@ function ConfiguracionTab() {
 
   const save = useMutation({
     mutationFn: () => {
-      const { aiEnabled, reportLimits, ...rest } = draft!;
-      return updateSettings(isAdmin ? { ...rest, aiEnabled, reportLimits } : rest);
+      const { aiEnabled, reportLimits, maintenance, ...rest } = draft!;
+      return updateSettings(isAdmin ? { ...rest, aiEnabled, reportLimits, maintenance } : rest);
     },
     onSuccess: async (saved) => {
       setError(null);

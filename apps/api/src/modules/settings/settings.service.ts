@@ -36,6 +36,11 @@ export async function getSettings(): Promise<SettingsShape> {
           DEFAULT_SETTINGS.incidentDetection,
         reportLimits:
           (doc.reportLimits as SettingsShape["reportLimits"]) ?? DEFAULT_SETTINGS.reportLimits,
+        // Bases sembradas antes del módulo 2 no tienen el bloque: valen los valores por defecto.
+        maintenance: {
+          ...DEFAULT_SETTINGS.maintenance,
+          ...(doc.maintenance as Partial<SettingsShape["maintenance"]> | undefined),
+        },
       }
     : // Sin semilla todavía: la API arranca igual con los valores del spec §5.3.
       {

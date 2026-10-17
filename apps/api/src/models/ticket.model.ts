@@ -71,6 +71,12 @@ const ticketSchema = new Schema(
     categoryId: { type: Schema.Types.ObjectId },
     assigneeIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
 
+    // Módulo 2: el equipo afectado y las órdenes de trabajo que salieron del
+    // ticket. Vincular un equipo no es registrar una falla: la falla nace con la
+    // OT correctiva (plan A2).
+    assetId: { type: Schema.Types.ObjectId, ref: "Asset" },
+    workOrderIds: [{ type: Schema.Types.ObjectId, ref: "WorkOrder" }],
+
     status: { type: String, enum: TICKET_STATUSES, default: "open" },
     priority: { type: String, enum: PRIORITIES, default: "medium" },
 
@@ -132,5 +138,6 @@ ticketSchema.index({ areaId: 1, createdAt: -1 });
 ticketSchema.index({ areaId: 1, "sla.resolvedAt": -1 });
 ticketSchema.index({ status: 1, "sla.resolutionDueAt": 1 });
 ticketSchema.index({ title: "text", description: "text" });
+ticketSchema.index({ assetId: 1, createdAt: -1 }, { sparse: true });
 
 export const Ticket = model("Ticket", ticketSchema, "tickets");

@@ -241,7 +241,7 @@ export type TicketDetail = z.infer<typeof ticketDetail>;
 // ── Consulta del listado ──────────────────────────────────────
 
 /** `?status=open,assigned` → `["open", "assigned"]`. */
-function commaSeparated<T extends z.ZodType>(item: T) {
+export function commaSeparated<T extends z.ZodType>(item: T) {
   return z.preprocess(
     (value) =>
       typeof value === "string"

@@ -36,12 +36,12 @@ router.get("/settings", requireSettingsManager, async (_req, res) => {
 router.patch("/settings", requireSettingsManager, validateBody(updateSettingsInput), async (req, res) => {
   const input = req.body as UpdateSettingsInput;
 
-  // RRHH no ve las funciones de IA ni los límites de Reportes, y tampoco puede
-  // cambiarlos pidiéndolos a mano.
+  // RRHH no ve las funciones de IA, los límites de Reportes ni la moneda y las
+  // tarifas de mantenimiento, y tampoco puede cambiarlos pidiéndolos a mano.
   if (!canManageSystem(res.locals.actor)) {
     const blocked = SYSTEM_ONLY_SETTINGS.filter((key) => input[key] !== undefined);
     if (blocked.length) {
-      throw new AppError(403, "forbidden", "Las funciones de IA y los límites de Reportes son del administrador");
+      throw new AppError(403, "forbidden", "Las funciones de IA, los límites de Reportes y los ajustes de mantenimiento son del administrador");
     }
   }
 

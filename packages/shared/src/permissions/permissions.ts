@@ -198,8 +198,11 @@ export function canManageSettings(actor: Actor): boolean {
   return isAdmin(actor) || actor.hasGlobalReadAccess;
 }
 
-/** Apartados de Configuración que solo toca el administrador. */
-export const SYSTEM_ONLY_SETTINGS = ["aiEnabled", "reportLimits"] as const;
+/**
+ * Apartados de Configuración que solo toca el administrador. La moneda, las
+ * tarifas y los umbrales de mantenimiento también (plan §3).
+ */
+export const SYSTEM_ONLY_SETTINGS = ["aiEnabled", "reportLimits", "maintenance"] as const;
 
 /**
  * Llevar las altas y bajas del personal: invitar, corregir datos, cambiar de

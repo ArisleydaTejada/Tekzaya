@@ -43,6 +43,25 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
   { name: "administración · usuarios", path: "/administracion/usuarios", role: "admin" },
   { name: "administración · configuración", path: "/administracion/configuracion", role: "admin" },
   { name: "perfil", path: "/perfil", role: "employee" },
+  {
+    name: "activos · inventario",
+    path: "/activos",
+    role: "supervisor",
+    ready: (page) => expect(page.getByLabel("Cargando activos")).toHaveCount(0),
+  },
+  {
+    // La multifuncional de Ventas trae fallas, reparaciones y cambios de estado:
+    // es la línea de tiempo más cargada de la semilla.
+    name: "activos · ficha",
+    path: "/activos",
+    role: "supervisor",
+    ready: async (page) => {
+      await page.getByRole("textbox", { name: "Buscar activos" }).fill("multifuncional");
+      await page.getByRole("link", { name: "Impresora multifuncional de Ventas" }).click();
+      await expect(page.getByText("Cargando historial…")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toBeVisible();
+    },
+  },
 ];
 
 async function audit(page: Page) {
@@ -95,7 +114,7 @@ for (const theme of ["light", "dark"] as const) {
 test.describe("360 px de ancho", () => {
   test.use({ viewport: { width: 360, height: 740 }, storageState: storageStateOf("supervisor") });
 
-  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes"]) {
+  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos"]) {
     test(`${path} no desborda horizontalmente`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");

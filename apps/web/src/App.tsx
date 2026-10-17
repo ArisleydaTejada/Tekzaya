@@ -17,6 +17,8 @@ import CreateTicketPage from "./pages/CreateTicketPage";
 import TicketDetailPage from "./pages/TicketDetailPage";
 import AdministracionPage from "./pages/AdministracionPage";
 import PerfilPage from "./pages/PerfilPage";
+import ActivosPage from "./pages/ActivosPage";
+import ActivoDetailPage from "./pages/ActivoDetailPage";
 import ReportesPage from "./pages/ReportesPage";
 import { RealtimeProvider } from "./realtime/RealtimeContext";
 import { ThemeProvider } from "./theme/ThemeContext";
@@ -49,6 +51,9 @@ export default function App() {
                     <Route path="/tickets/nuevo" element={<CreateTicketPage />} />
                     <Route path="/tickets/:number" element={<TicketDetailPage />} />
                     <Route path="/perfil" element={<PerfilPage />} />
+                    {/* Módulo 2. Todos entran: cada uno ve los equipos que le tocan. */}
+                    <Route path="/activos" element={<ActivosPage />} />
+                    <Route path="/activos/:number" element={<ActivoDetailPage />} />
                     {/* Usuarios y configuración los llevan el administrador y RRHH;
                         áreas, solo el administrador (spec §4.3). */}
                     <Route element={<RequireUserManager />}>

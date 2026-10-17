@@ -1,3 +1,4 @@
+import type { CounterKind } from "@tekzaya/shared";
 import { model, Schema } from "mongoose";
 
 const counterSchema = new Schema({
@@ -10,10 +11,14 @@ export const Counter = model("Counter", counterSchema, "counters");
 /** Guarda en `seq` el instante, en ms, al que corresponden las fechas sembradas. */
 export const SEED_CLOCK_ID = "seedClock";
 
-/** Reserva el siguiente número de ticket de forma atómica: sin huecos ni duplicados. */
-export async function nextTicketNumber(): Promise<number> {
+/**
+ * Reserva el siguiente número de una secuencia de forma atómica: sin huecos ni
+ * duplicados. Cada tipo (`ticket`, `asset`, `work_order`, `spare_part`) lleva la
+ * suya, con el nombre del tipo como `_id`.
+ */
+export async function nextNumber(kind: CounterKind): Promise<number> {
   const counter = await Counter.findByIdAndUpdate(
-    "ticket",
+    kind,
     { $inc: { seq: 1 } },
     { returnDocument: "after", upsert: true },
   ).lean();

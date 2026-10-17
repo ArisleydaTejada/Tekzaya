@@ -1,11 +1,13 @@
 import { createReadStream } from "node:fs";
-import { canViewTicket, MAX_ATTACHMENT_BYTES } from "@tekzaya/shared";
+import { canViewAsset, canViewTicket, MAX_ATTACHMENT_BYTES } from "@tekzaya/shared";
 import { Router } from "express";
 import multer from "multer";
 import { Types } from "mongoose";
 import { AppError } from "../../middleware/errors";
+import { Asset } from "../../models/maintenance.models";
 import { Attachment } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
+import { assetRefOf } from "../assets/asset.access";
 import { refOf, routeParam, type LeanTicket } from "../tickets/ticket.access";
 import { pathOf, storeUpload } from "./attachments.service";
 
@@ -62,6 +64,12 @@ router.get("/attachments/:id", async (req, res) => {
       .select("areaId requesterId createdById assigneeIds status")
       .lean();
     if (!ticket || !canViewTicket(actor, refOf(ticket as LeanTicket))) {
+      throw new AppError(404, "not_found", "Ese archivo no existe");
+    }
+  } else if (file.assetId) {
+    // La foto de un equipo la ve quien puede ver el equipo, nada más.
+    const asset = await Asset.findById(file.assetId).select("areaId usedByAreaId custodianId").lean();
+    if (!asset || !canViewAsset(actor, assetRefOf(asset))) {
       throw new AppError(404, "not_found", "Ese archivo no existe");
     }
   } else if (String(file.uploaderId) !== actor.id) {

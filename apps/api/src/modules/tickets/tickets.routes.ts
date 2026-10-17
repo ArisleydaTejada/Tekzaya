@@ -35,7 +35,7 @@ import { Types, type PipelineStage } from "mongoose";
 import { AppError } from "../../middleware/errors";
 import { validateBody, validateQuery } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
-import { nextTicketNumber } from "../../models/counter.model";
+import { nextNumber } from "../../models/counter.model";
 import { Message } from "../../models/message.model";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
@@ -254,7 +254,7 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
 
   const ticket = await Ticket.create({
     _id: ticketId,
-    number: await nextTicketNumber(),
+    number: await nextNumber("ticket"),
     title: input.title,
     description: input.description,
     requesterId,

@@ -8,6 +8,7 @@
     "dev": "tsx watch src/index.ts",
     "seed": "tsx src/seed/seed.ts",
     "seed:refresh": "tsx src/seed/refresh-dates.ts",
+    "seed:maintenance": "tsx src/seed/seed-maintenance.ts",
     "perf": "tsx src/perf/perf.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"

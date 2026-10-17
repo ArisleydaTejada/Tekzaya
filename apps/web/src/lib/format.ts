@@ -58,3 +58,33 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Una fecha de calendario ("2026-11-04": compra, garantía) tal cual, sin zona:
+ * convertirla a instante la correría un día hacia atrás en América.
+ */
+export function formatDay(key: string): string {
+  const [year, month, day] = key.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("es-MX", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** Días de calendario entre hoy (en el reloj de quien mira) y una fecha "YYYY-MM-DD". */
+export function daysUntil(key: string): number {
+  const [year, month, day] = key.split("-").map(Number) as [number, number, number];
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((Date.UTC(year, month - 1, day) - today) / 86_400_000);
+}
+
+/** "Vence en 18 días", "Venció hace 3 días", "Vence hoy". */
+export function warrantyCountdown(until: string): string {
+  const days = daysUntil(until);
+  if (days === 0) return "Vence hoy";
+  if (days > 0) return `Vence en ${days} ${days === 1 ? "día" : "días"}`;
+  return `Venció hace ${-days} ${days === -1 ? "día" : "días"}`;
+}

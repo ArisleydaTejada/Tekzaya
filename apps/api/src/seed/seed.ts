@@ -22,23 +22,13 @@ import { AvailabilityLog, Notification, Settings, SETTINGS_ID } from "../models/
 import { Ticket } from "../models/ticket.model";
 import { User } from "../models/user.model";
 import { AREAS, INCIDENT_TICKETS, TICKET_TEMPLATES, USERS } from "./catalog";
+import { printMaintenanceSummary, seedMaintenance } from "./maintenance";
+import { createRandom } from "./random";
 
 /** Contraseña común de los datos de demostración. Cambiar antes de cualquier uso real. */
 const DEMO_PASSWORD = "Tekzaya2026!";
 const TOTAL_TICKETS = 100;
 const DAYS_OF_HISTORY = 90;
-
-/** Generador con semilla fija: dos ejecuciones producen exactamente los mismos datos. */
-function createRandom(seed: number) {
-  let state = seed;
-  return function random(): number {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 const random = createRandom(20260929);
 const now = new Date();
@@ -555,6 +545,11 @@ async function main(): Promise<void> {
 
   console.log("\n  Tickets por estado:");
   for (const row of byStatus) console.log(`    ${row._id.padEnd(14)} ${row.count}`);
+
+  // Módulo 2 al final y con su propio generador aleatorio: los tickets de arriba
+  // salen idénticos con o sin él.
+  const maintenance = await seedMaintenance(now);
+  printMaintenanceSummary(maintenance, maintenance.workOrders);
 
   console.log(`\n  Contraseña de todas las cuentas: ${DEMO_PASSWORD}`);
   console.log("  Cuentas destacadas:");

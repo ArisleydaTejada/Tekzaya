@@ -213,22 +213,8 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <NavItem key={item.to} {...item} count={myOpenCount} collapsed={collapsed} />
         ))}
 
-        <div
-          className={`group relative flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--rail-ink-dim)] ${
-            collapsed ? "justify-center" : ""
-          }`}
-          title="Disponible en la Fase 2"
-        >
-          <WrenchIcon />
-          {!collapsed && (
-            <>
-              <span className="flex-1">Activos y mantenimiento</span>
-              <span className="rounded-full border border-[var(--rail-bezel)] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--rail-ink-dim)]">
-                Próximamente
-              </span>
-            </>
-          )}
-        </div>
+        {/* Módulo 2: todos entran; el empleado ve los equipos que usa su área o tiene a cargo. */}
+        <NavItem to="/activos" label="Activos y mantenimiento" icon={WrenchIcon} collapsed={collapsed} />
       </nav>
 
       {managesUsers && (

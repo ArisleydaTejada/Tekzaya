@@ -9,6 +9,8 @@ const attachmentSchema = new Schema(
     // mensaje. Un borrador sin enlazar solo lo ve quien lo subió.
     ticketId: { type: Schema.Types.ObjectId, ref: "Ticket" },
     messageId: { type: Schema.Types.ObjectId, ref: "Message" },
+    /** Foto de un activo (módulo 2): la ve quien puede ver el equipo. */
+    assetId: { type: Schema.Types.ObjectId, ref: "Asset" },
     uploaderId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     fileName: { type: String, required: true },
     mimeType: { type: String, required: true },
@@ -29,6 +31,9 @@ const notificationSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: { type: String, required: true },
     ticketId: { type: Schema.Types.ObjectId, ref: "Ticket" },
+    // Avisos del módulo 2: enlazan al equipo o a la orden en vez de a un ticket.
+    assetId: { type: Schema.Types.ObjectId, ref: "Asset" },
+    workOrderId: { type: Schema.Types.ObjectId, ref: "WorkOrder" },
     title: { type: String, required: true },
     body: { type: String },
     readAt: { type: Date },
@@ -76,6 +81,7 @@ const settingsSchema = new Schema(
       default: () => DEFAULT_SETTINGS.incidentDetection,
     },
     reportLimits: { type: Schema.Types.Mixed, default: () => DEFAULT_SETTINGS.reportLimits },
+    maintenance: { type: Schema.Types.Mixed, default: () => DEFAULT_SETTINGS.maintenance },
   },
   { timestamps: true, _id: false },
 );
