@@ -15,10 +15,13 @@ import {
   formatTicketNumber,
   isSettledStatus,
   isSupervisorOf,
+  planAutoAssignment,
   PRIORITIES,
   SETTLED_TICKET_STATUSES,
   PRIORITY_LABEL,
   TICKET_STATUS_LABEL,
+  type AreaWorkloadMember,
+  type AutoAssignment,
   type MeResponse,
   type Priority,
   type TicketListItem,
@@ -54,9 +57,12 @@ import {
   MergeIcon,
   PaperclipIcon,
   SearchIcon,
+  SparkleIcon,
   StarIcon,
   UserPlusIcon,
 } from "../components/icons";
+import { AwayTag, LoadBar } from "../components/Workload";
+import { MemberOrderToggle, sortMembers, type MemberOrder } from "../components/MemberOrder";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
@@ -327,6 +333,28 @@ export default function TicketsPage() {
     await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
   }
 
+  /** El reparto automático ya confirmado: cada ticket a su persona, de uno en uno. */
+  async function autoAssignSelected(plan: AutoAssignment[]) {
+    setMoveError(null);
+    for (const { ticketId, assigneeId } of plan) {
+      try {
+        await setAssignees(ticketId, { assigneeIds: [assigneeId] });
+      } catch (cause) {
+        const ticket = picked.find((item) => item.id === ticketId);
+        setMoveError(
+          `${ticket ? formatTicketNumber(ticket.number) : "Un ticket"}: ${
+            cause instanceof Error ? cause.message : "no se pudo asignar"
+          }`,
+        );
+        break;
+      }
+    }
+    setAssignOpen(false);
+    setSelected([]);
+    await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+    await queryClient.invalidateQueries({ queryKey: areaKeys.all });
+  }
+
   return (
     <div>
       <PageHeader
@@ -516,6 +544,7 @@ export default function TicketsPage() {
         me={me}
         onClose={() => setAssignOpen(false)}
         onConfirm={assignSelected}
+        onAutoAssign={autoAssignSelected}
       />
 
       <MergeSelectionModal
@@ -1271,16 +1300,23 @@ function AssignTicketsModal({
   me,
   onClose,
   onConfirm,
+  onAutoAssign,
 }: {
   tickets: TicketListItem[];
   me: MeResponse | null;
   onClose: () => void;
   onConfirm: (assigneeIds: string[], mode: AssignMode) => Promise<void>;
+  /** Sin él no se ofrece el reparto automático (el tablero asigna de uno en uno). */
+  onAutoAssign?: (plan: AutoAssignment[]) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [mode, setMode] = useState<AssignMode>("add");
+  const [order, setOrder] = useState<MemberOrder>("load");
+  // El reparto propuesto, ticket → persona. Mientras exista, el modal es la vista previa.
+  const [preview, setPreview] = useState<Record<string, string> | null>(null);
   const areaId = tickets[0]?.area.id ?? "";
   const taken = tickets.filter((ticket) => ticket.assignees.length > 0);
+  const unassigned = tickets.filter((ticket) => ticket.assignees.length === 0);
 
   // Cada tanda empieza con la selección en blanco; es el patrón de React para
   // ajustar estado cuando cambia una prop, sin efecto de por medio.
@@ -1290,6 +1326,7 @@ function AssignTicketsModal({
     setShownKey(key);
     setSelected([]);
     setMode("add");
+    setPreview(null);
   }
 
   const { data: members = [] } = useQuery({
@@ -1299,10 +1336,38 @@ function AssignTicketsModal({
   });
 
   const peak = Math.max(1, ...members.map((member) => member.load));
+  const ordered = sortMembers(members, order);
+  const available = members.filter((member) => member.availability.state === "available");
+  const canAutoAssign =
+    onAutoAssign !== undefined && tickets.length > 1 && unassigned.length > 0 && available.length > 0;
   const what =
     tickets.length === 1
       ? formatTicketNumber(tickets[0]!.number)
       : `${tickets.length} tickets`;
+
+  function proposeAutoAssignment() {
+    const plan = planAutoAssignment(unassigned, members);
+    setPreview(Object.fromEntries(plan.assignments.map((row) => [row.ticketId, row.assigneeId])));
+  }
+
+  if (preview) {
+    return (
+      <AutoAssignPreview
+        tickets={unassigned}
+        skipped={taken.length}
+        members={members}
+        plan={preview}
+        onChange={(ticketId, assigneeId) => setPreview({ ...preview, [ticketId]: assigneeId })}
+        onBack={() => setPreview(null)}
+        onClose={onClose}
+        onConfirm={() =>
+          void onAutoAssign?.(
+            Object.entries(preview).map(([ticketId, assigneeId]) => ({ ticketId, assigneeId })),
+          )
+        }
+      />
+    );
+  }
 
   return (
     <Modal
@@ -1318,7 +1383,10 @@ function AssignTicketsModal({
             Cancelar
           </button>
           {/* El atajo de siempre: el supervisor también se asigna tickets. */}
-          {me && members.some((member) => member.id === me.id) && (
+          {me &&
+            members.some(
+              (member) => member.id === me.id && member.availability.state === "available",
+            ) && (
             <button
               onClick={() => void onConfirm([me.id], mode)}
               className="rounded-lg border border-[var(--content-border)] px-3 py-2 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
@@ -1378,15 +1446,37 @@ function AssignTicketsModal({
           </div>
         </div>
       )}
+      {canAutoAssign && (
+        <button
+          type="button"
+          onClick={proposeAutoAssignment}
+          className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-accent/60 px-3 py-2 text-sm font-medium text-accent-ink hover:bg-accent/10"
+        >
+          <SparkleIcon className="h-3.5 w-3.5" />
+          Repartir automáticamente{" "}
+          {unassigned.length === 1 ? "el ticket sin responsable" : `los ${unassigned.length} sin responsable`}
+        </button>
+      )}
+      {members.length > 1 && (
+        <div className="mb-2 flex justify-end">
+          <MemberOrderToggle value={order} onChange={setOrder} />
+        </div>
+      )}
       <ul className="space-y-1">
-        {members.map((member) => {
+        {ordered.map((member) => {
           const away = member.availability.state === "away";
           return (
             <li key={member.id}>
-              <label className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--content-bg)]">
+              <label
+                className={`flex items-center gap-3 rounded-lg px-2 py-2 ${
+                  away ? "cursor-not-allowed opacity-60" : "hover:bg-[var(--content-bg)]"
+                }`}
+              >
+                {/* Quien está ausente no recibe tickets: la API también lo rechaza. */}
                 <input
                   type="checkbox"
-                  checked={selected.includes(member.id)}
+                  disabled={away}
+                  checked={!away && selected.includes(member.id)}
                   onChange={(event) =>
                     setSelected((current) =>
                       event.target.checked
@@ -1394,12 +1484,21 @@ function AssignTicketsModal({
                         : current.filter((id) => id !== member.id),
                     )
                   }
-                  className="h-4 w-4 accent-accent"
+                  className="h-4 w-4 accent-accent disabled:cursor-not-allowed"
                 />
                 <Avatar name={member.name} src={member.avatarUrl} available={!away} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-sm text-[var(--content-ink)]">
                     {member.name}
+                    {/* Explica la barra: dos urgentes pesan más que cinco bajos. */}
+                    {!away && member.urgentOrHigh > 0 && (
+                      <span
+                        className="rounded-full bg-red/10 px-1.5 py-px text-[10px] font-medium text-red"
+                        title="Tickets abiertos de prioridad urgente o alta"
+                      >
+                        {member.urgentOrHigh} urg./alta
+                      </span>
+                    )}
                     {member.suggested && (
                       <span
                         className="flex items-center gap-0.5 text-[10px] font-medium text-amber"
@@ -1409,22 +1508,15 @@ function AssignTicketsModal({
                       </span>
                     )}
                   </span>
-                  <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-[var(--content-border)]">
-                    <span
-                      className={`block h-full rounded-full ${
-                        member.load / peak > 0.75
-                          ? "bg-red"
-                          : member.load / peak > 0.4
-                            ? "bg-amber"
-                            : "bg-green"
-                      }`}
-                      style={{ width: `${Math.round((member.load / peak) * 100)}%` }}
-                    />
+                  <LoadBar load={member.load} peak={peak} away={away} />
+                </span>
+                {away ? (
+                  <AwayTag awayUntil={member.availability.awayUntil} />
+                ) : (
+                  <span className="shrink-0 text-right text-xs text-[var(--content-ink-dim)]">
+                    {member.openTickets} abiertos
                   </span>
-                </span>
-                <span className="shrink-0 text-right text-xs text-[var(--content-ink-dim)]">
-                  {away ? "Ausente" : `${member.openTickets} abiertos`}
-                </span>
+                )}
               </label>
             </li>
           );
@@ -1434,6 +1526,115 @@ function AssignTicketsModal({
             No hay nadie activo en esta área.
           </p>
         )}
+      </ul>
+    </Modal>
+  );
+}
+
+/**
+ * La vista previa del reparto automático. Nada se guarda hasta confirmar: el
+ * supervisor ve cuánto recibe cada persona y puede cambiar a mano cualquier
+ * ticket antes de aplicarlo. Los que ya tenían responsables no entran.
+ */
+function AutoAssignPreview({
+  tickets,
+  skipped,
+  members,
+  plan,
+  onChange,
+  onBack,
+  onClose,
+  onConfirm,
+}: {
+  tickets: TicketListItem[];
+  skipped: number;
+  members: AreaWorkloadMember[];
+  plan: Record<string, string>;
+  onChange: (ticketId: string, assigneeId: string) => void;
+  onBack: () => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const available = members.filter((member) => member.availability.state === "available");
+  const received = (memberId: string) =>
+    tickets.filter((ticket) => plan[ticket.id] === memberId).length;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Reparto automático"
+      wide
+      footer={
+        <>
+          <button
+            onClick={onBack}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Volver
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white"
+          >
+            Confirmar reparto
+          </button>
+        </>
+      }
+    >
+      <p className="mb-3 text-sm text-[var(--content-ink-dim)]">
+        Cada ticket va a quien tiene menos carga en ese momento; los urgentes se reparten
+        primero. Las personas ausentes no reciben ninguno.
+        {skipped > 0 &&
+          ` ${skipped === 1 ? "1 ticket ya tiene" : `${skipped} tickets ya tienen`} responsables y no se toca.`}
+      </p>
+
+      <ul className="mb-4 grid gap-1.5 sm:grid-cols-2">
+        {sortMembers(available, "load").map((member) => {
+          const count = received(member.id);
+          return (
+            <li
+              key={member.id}
+              className="flex items-center gap-2 rounded-lg bg-[var(--content-bg)] px-2.5 py-2 text-sm"
+            >
+              <Avatar name={member.name} src={member.avatarUrl} size="sm" />
+              <span className="min-w-0 flex-1 truncate text-[var(--content-ink)]">{member.name}</span>
+              <span className="shrink-0 text-xs text-[var(--content-ink-dim)] tabular">
+                {member.openTickets} →{" "}
+                <span className={count > 0 ? "font-semibold text-[var(--content-ink)]" : ""}>
+                  {member.openTickets + count}
+                </span>
+                {count > 0 && <span className="text-green"> (+{count})</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <ul className="divide-y divide-[var(--content-border)]">
+        {tickets.map((ticket) => (
+          <li key={ticket.id} className="flex flex-wrap items-center gap-2 py-2">
+            <span className="font-display text-xs text-[var(--content-ink-dim)] tabular">
+              {formatTicketNumber(ticket.number)}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm text-[var(--content-ink)]">
+              {ticket.title}
+            </span>
+            <PriorityBadge priority={ticket.priority} />
+            <select
+              aria-label={`Responsable de ${formatTicketNumber(ticket.number)}`}
+              value={plan[ticket.id] ?? ""}
+              onChange={(event) => onChange(ticket.id, event.target.value)}
+              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+            >
+              {available.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </li>
+        ))}
       </ul>
     </Modal>
   );

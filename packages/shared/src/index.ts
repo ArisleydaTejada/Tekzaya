@@ -1,6 +1,7 @@
 export * from "./common";
 export * from "./enums";
 export * from "./area";
+export * from "./assignment";
 export * from "./user";
 export * from "./ticket";
 export * from "./message";

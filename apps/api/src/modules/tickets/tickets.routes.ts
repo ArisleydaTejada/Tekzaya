@@ -492,6 +492,21 @@ router.put("/tickets/:id/assignees", validateBody(setAssigneesInput), async (req
     if (members !== unique.length) {
       throw new AppError(422, "validation_error", "Solo puedes asignar a personas activas del área");
     }
+
+    // Solo cuentan los que llegan nuevos: quien ya era responsable antes de
+    // ausentarse sigue en la lista hasta que el supervisor decida quitarlo.
+    const previous = new Set((ticket.get("assigneeIds") as unknown[]).map(String));
+    const added = unique.filter((id) => !previous.has(id));
+    const away = await User.find({ _id: { $in: added }, "availability.state": "away" })
+      .select("name")
+      .lean();
+    if (away.length) {
+      throw new AppError(
+        422,
+        "validation_error",
+        `${away.map((user) => user.name).join(", ")} ${away.length === 1 ? "está ausente" : "están ausentes"} y no se le pueden asignar tickets`,
+      );
+    }
   }
 
   await saveAssignees(ticket, unique, actor, new Date());

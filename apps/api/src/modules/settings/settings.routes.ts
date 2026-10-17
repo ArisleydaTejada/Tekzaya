@@ -45,6 +45,18 @@ router.patch("/settings", requireSettingsManager, validateBody(updateSettingsInp
     }
   }
 
+  // Puede llegar solo uno de los dos plazos, así que se compara con el guardado.
+  const current = await getSettings();
+  const reminder = input.onHoldReminderDays ?? current.onHoldReminderDays;
+  const autoClose = input.onHoldAutoCloseDays ?? current.onHoldAutoCloseDays;
+  if (autoClose < reminder) {
+    throw new AppError(
+      400,
+      "invalid_settings",
+      "Cerrar un ticket en espera no puede ocurrir antes de recordar al solicitante",
+    );
+  }
+
   // Solo se escribe lo que llegó: la pantalla manda el apartado que se tocó.
   const update = Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== undefined),

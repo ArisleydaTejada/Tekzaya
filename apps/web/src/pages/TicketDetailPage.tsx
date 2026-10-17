@@ -64,6 +64,8 @@ import {
   SummaryIcon,
   XIcon,
 } from "../components/icons";
+import { AwayTag, LoadBar } from "../components/Workload";
+import { MemberOrderToggle, sortMembers, type MemberOrder } from "../components/MemberOrder";
 import { Modal } from "../components/Modal";
 import { Plate } from "../components/Plate";
 import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
@@ -1154,6 +1156,7 @@ function AssignModal({
     ticket.assignees.map((person) => person.id),
   );
   const [search, setSearch] = useState("");
+  const [order, setOrder] = useState<MemberOrder>("load");
   const [error, setError] = useState<string | null>(null);
 
   // Al abrirse, la selección vuelve a partir de los responsables actuales. Es el
@@ -1179,8 +1182,10 @@ function AssignModal({
     onError: (cause) => setError(cause.message),
   });
 
-  const visible = members.filter((member) =>
-    member.name.toLowerCase().includes(search.trim().toLowerCase()),
+  const assignedNow = ticket.assignees.map((person) => person.id);
+  const visible = sortMembers(
+    members.filter((member) => member.name.toLowerCase().includes(search.trim().toLowerCase())),
+    order,
   );
   // La barra se mide contra la persona más cargada del área, no contra un tope
   // inventado: lo que importa es el reparto relativo.
@@ -1221,17 +1226,27 @@ function AssignModal({
         placeholder="Buscar en el área…"
         className="mb-3 w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
+      <div className="mb-2 flex justify-end">
+        <MemberOrderToggle value={order} onChange={setOrder} />
+      </div>
 
       <ul className="space-y-1">
         {visible.map((member) => {
           const away = member.availability.state === "away";
           const checked = selected.includes(member.id);
+          // A quien está ausente no se le asigna; si ya era responsable, se le puede quitar.
+          const locked = away && !assignedNow.includes(member.id);
           return (
             <li key={member.id}>
-              <label className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--content-bg)]">
+              <label
+                className={`flex items-center gap-3 rounded-lg px-2 py-2 ${
+                  away ? "opacity-60" : "hover:bg-[var(--content-bg)]"
+                } ${locked ? "cursor-not-allowed" : ""}`}
+              >
                 <input
                   type="checkbox"
                   checked={checked}
+                  disabled={locked}
                   onChange={(event) =>
                     setSelected((current) =>
                       event.target.checked
@@ -1239,7 +1254,7 @@ function AssignModal({
                         : current.filter((id) => id !== member.id),
                     )
                   }
-                  className="h-4 w-4 accent-accent"
+                  className="h-4 w-4 accent-accent disabled:cursor-not-allowed"
                 />
                 <Avatar name={member.name} src={member.avatarUrl} available={!away} size="sm" />
 
@@ -1255,38 +1270,23 @@ function AssignModal({
                       </span>
                     )}
                   </span>
-                  <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-[var(--content-border)]">
-                    <span
-                      className={`block h-full rounded-full ${
-                        member.load / peak > 0.75
-                          ? "bg-red"
-                          : member.load / peak > 0.4
-                            ? "bg-amber"
-                            : "bg-green"
-                      }`}
-                      style={{ width: `${Math.round((member.load / peak) * 100)}%` }}
-                    />
-                  </span>
+                  <LoadBar load={member.load} peak={peak} away={away} />
                 </span>
 
-                <span className="w-44 shrink-0 text-right text-xs text-[var(--content-ink-dim)]">
-                  {away ? (
-                    member.availability.awayUntil ? (
-                      `Ausente hasta ${formatWhen(member.availability.awayUntil)}`
-                    ) : (
-                      "Ausente"
-                    )
-                  ) : (
-                    <>
-                      {member.openTickets} abiertos
-                      {member.urgentOrHigh > 0 && ` · ${member.urgentOrHigh} urg./alta`}
-                      {member.atRisk > 0 && (
-                        <span className="text-red"> · {member.atRisk} en riesgo</span>
-                      )}
-                      <span className="block">{member.resolvedThisWeek} resueltos esta semana</span>
-                    </>
-                  )}
-                </span>
+                {away ? (
+                  <span className="flex w-44 shrink-0 justify-end">
+                    <AwayTag awayUntil={member.availability.awayUntil} />
+                  </span>
+                ) : (
+                  <span className="w-44 shrink-0 text-right text-xs text-[var(--content-ink-dim)]">
+                    {member.openTickets} abiertos
+                    {member.urgentOrHigh > 0 && ` · ${member.urgentOrHigh} urg./alta`}
+                    {member.atRisk > 0 && (
+                      <span className="text-red"> · {member.atRisk} en riesgo</span>
+                    )}
+                    <span className="block">{member.resolvedThisWeek} resueltos esta semana</span>
+                  </span>
+                )}
               </label>
             </li>
           );
@@ -1296,12 +1296,15 @@ function AssignModal({
         )}
       </ul>
 
-      {/* Asignar a alguien ausente se permite, pero nunca en silencio (spec §7.5). */}
+      {/*
+        A nadie ausente se le asigna, pero quien ya era responsable antes de
+        ausentarse sigue en la lista: se avisa para que el supervisor decida.
+      */}
       {awaySelected.length > 0 && (
         <p className="mt-3 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-xs text-amber">
           {awaySelected.map((member) => member.name).join(", ")}{" "}
-          {awaySelected.length === 1 ? "está ausente" : "están ausentes"}: puede que nadie atienda
-          el ticket hasta su regreso.
+          {awaySelected.length === 1 ? "está ausente y sigue" : "están ausentes y siguen"} como
+          responsable: puede que nadie atienda el ticket hasta su regreso.
         </p>
       )}
     </Modal>

@@ -1142,6 +1142,11 @@ function ConfiguracionTab() {
   }
 
   const patch = (change: Partial<Settings>) => setDraft({ ...draft, ...change });
+  // Cerrar antes de recordar dejaría al solicitante sin aviso previo.
+  const onHoldProblem =
+    draft.onHoldAutoCloseDays < draft.onHoldReminderDays
+      ? "El cierre no puede llegar antes que el recordatorio."
+      : null;
 
   return (
     // Seis columnas en escritorio para poder repartir 3 + 2 + 1 tarjetas por fila;
@@ -1346,10 +1351,16 @@ function ConfiguracionTab() {
         <Field
           label="Cerrar un ticket en espera tras"
           type="number"
-          min="1"
+          min={String(draft.onHoldReminderDays)}
           value={String(draft.onHoldAutoCloseDays)}
           onChange={(event) => patch({ onHoldAutoCloseDays: Number(event.target.value) })}
+          aria-invalid={onHoldProblem !== null}
         />
+        {onHoldProblem && (
+          <p role="alert" className="text-xs text-red">
+            {onHoldProblem}
+          </p>
+        )}
       </Plate>
 
       {isAdmin && (
@@ -1421,7 +1432,7 @@ function ConfiguracionTab() {
       <div className="flex flex-wrap items-center gap-3 md:col-span-2 lg:col-span-6">
         <button
           onClick={() => save.mutate()}
-          disabled={save.isPending}
+          disabled={save.isPending || onHoldProblem !== null}
           className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dim disabled:opacity-60"
         >
           {save.isPending ? "Guardando…" : "Guardar cambios"}

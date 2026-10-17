@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Message } from "../../models/message.model";
 import { Ticket } from "../../models/ticket.model";
+import { User } from "../../models/user.model";
 import {
   app,
   connect,
@@ -410,6 +411,33 @@ describe("responsables", () => {
       .send({ assigneeIds: [String(fixture.users.employeeVentas.id)] });
 
     expect(response.status).toBe(422);
+  });
+
+  it("no se asigna a nadie ausente, pero quien ya era responsable se queda", async () => {
+    const ticket = await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeVentas.id,
+      assigneeIds: [fixture.users.agentIt.id],
+      status: "assigned",
+    });
+    await User.updateOne(
+      { _id: fixture.users.agentIt.id },
+      { $set: { availability: { state: "away" } } },
+    );
+    const url = `/api/v1/tickets/${String(ticket._id)}/assignees`;
+    const supervisora = await loginAs(fixture.users.supIt.email);
+
+    // Ya estaba: sumar a otra persona no lo echa ni falla por él.
+    const sumado = await supervisora
+      .put(url)
+      .send({ assigneeIds: [String(fixture.users.agentIt.id), String(fixture.users.supIt.id)] });
+    expect(sumado.status).toBe(200);
+
+    // Quitado y vuelto a poner estando ausente: eso ya es asignarle de nuevo.
+    await supervisora.put(url).send({ assigneeIds: [String(fixture.users.supIt.id)] });
+    const denegado = await supervisora.put(url).send({ assigneeIds: [String(fixture.users.agentIt.id)] });
+    expect(denegado.status).toBe(422);
+    expect(denegado.body.error.message).toMatch(/ausente/);
   });
 });
 

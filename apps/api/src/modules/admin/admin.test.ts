@@ -133,6 +133,19 @@ describe("acceso a la administración", () => {
       .send({ reportLimits: { maxSavedReports: 1, maxWidgetsPerReport: 1 } });
     expect(limites.status).toBe(403);
   });
+
+  it("no deja cerrar un ticket en espera antes de recordar al solicitante", async () => {
+    const admin = await loginAs(fixture.users.admin.email);
+
+    const juntos = await admin
+      .patch("/api/v1/settings")
+      .send({ onHoldReminderDays: 6, onHoldAutoCloseDays: 4 });
+    expect(juntos.status).toBe(400);
+
+    // Llega solo uno de los dos: se compara con el recordatorio ya guardado (5).
+    expect((await admin.patch("/api/v1/settings").send({ onHoldAutoCloseDays: 3 })).status).toBe(400);
+    expect((await admin.patch("/api/v1/settings").send({ onHoldAutoCloseDays: 5 })).status).toBe(200);
+  });
 });
 
 describe("invitar a alguien", () => {
