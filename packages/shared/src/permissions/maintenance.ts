@@ -77,6 +77,16 @@ export function canLinkAssetToTicket(actor: Actor, asset: AssetRef, ticket: Tick
   return isOwnTicket(actor, ticket) && usesAsset(actor, asset);
 }
 
+/**
+ * Si puede vincular *algún* equipo en este ticket: decide si se ofrece el
+ * selector. Quien pasa esto puede vincular, como mínimo, los equipos que su
+ * área mantiene (o los que usa, si el ticket es suyo); `canLinkAssetToTicket`
+ * decide equipo por equipo.
+ */
+export function canLinkAssetsOnTicket(actor: Actor, ticket: TicketRef): boolean {
+  return isAdmin(actor) || isOwnTicket(actor, ticket) || isAreaMember(actor, ticket.areaId);
+}
+
 // ── Órdenes de trabajo ────────────────────────────────────────
 
 export function canViewWorkOrder(actor: Actor, order: WorkOrderRef): boolean {

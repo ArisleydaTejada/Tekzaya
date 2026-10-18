@@ -1,10 +1,14 @@
 import {
   ALLOWED_ATTACHMENT_MIME,
+  ASSET_TYPE_LABEL,
+  formatAssetNumber,
   formatTicketNumber,
+  formatWorkOrderNumber,
   isSettledStatus,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   TICKET_STATUS_LABEL,
+  WORK_ORDER_STATUS_LABEL,
   type Area,
   type Attachment,
   type DuplicateCandidate,
@@ -46,6 +50,9 @@ import {
   uploadAttachment,
 } from "../api/tickets";
 import { answerCsat } from "../api/stats";
+import { assetKeys, createWorkOrderFromTicket, linkTicketAsset } from "../api/assets";
+import { AssetPicker } from "../components/AssetPicker";
+import { AssetStatusBadge } from "../components/assets";
 import { useAuth } from "../auth/AuthContext";
 import { useWatchTicket } from "../realtime/RealtimeContext";
 import { Avatar, AvatarStack } from "../components/Avatar";
@@ -62,6 +69,7 @@ import {
   SparkleIcon,
   StarIcon,
   SummaryIcon,
+  WrenchIcon,
   XIcon,
 } from "../components/icons";
 import { AwayTag, LoadBar } from "../components/Workload";
@@ -117,6 +125,8 @@ export default function TicketDetailPage() {
   const [resolveOpen, setResolveOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
+  const [workOrderOpen, setWorkOrderOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // La sugerencia se guarda junto al borrador para el que se pidió. Si la
   // persona sigue escribiendo, deja de coincidir y desaparece sola al pintar:
@@ -181,6 +191,16 @@ export default function TicketDetailPage() {
   const unmerge = useMutation({
     mutationFn: (duplicateId: string) => unmergeTicket(ticket!.id, { duplicateId }),
     onSuccess: refresh,
+    onError: (error) => setActionError(error.message),
+  });
+
+  // Plan A2: el equipo afectado. Lo que cambia aquí también cambia su ficha.
+  const linkAsset = useMutation({
+    mutationFn: (assetId: string | null) => linkTicketAsset(ticket!.id, { assetId }),
+    onSuccess: async () => {
+      setActionError(null);
+      await refresh();
+    },
     onError: (error) => setActionError(error.message),
   });
 
@@ -651,6 +671,14 @@ export default function TicketDetailPage() {
           />
         </Plate>
 
+        <AssetCard
+          ticket={ticket}
+          busy={linkAsset.isPending}
+          onLink={() => setAssetPickerOpen(true)}
+          onUnlink={() => linkAsset.mutate(null)}
+          onConvert={() => setWorkOrderOpen(true)}
+        />
+
         {isAgentView && ticket.ai?.incident?.status === "detected" && (
           <Plate className="border-amber/40 bg-amber/10 p-4 text-sm">
             <p className="flex items-center gap-1.5 font-medium text-amber">
@@ -795,6 +823,23 @@ export default function TicketDetailPage() {
         onClose={() => setMergeOpen(false)}
         ticket={ticket}
         onDone={refresh}
+      />
+
+      <AssetPicker
+        open={assetPickerOpen}
+        onClose={() => setAssetPickerOpen(false)}
+        ticketId={ticket.id}
+        onPick={(asset) => linkAsset.mutate(asset.id)}
+        {...(ticket.asset ? { selectedId: ticket.asset.id } : {})}
+      />
+
+      <WorkOrderModal
+        open={workOrderOpen}
+        onClose={() => setWorkOrderOpen(false)}
+        ticket={ticket}
+        onDone={async () => {
+          await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: assetKeys.all })]);
+        }}
       />
     </div>
   );
@@ -1022,6 +1067,12 @@ function describeEvent(event: MessageView["systemEvent"]): string {
       return `${event.to} pidió unirse${event.reason ? ` · ${event.reason}` : ""}`;
     case "csat_answered":
       return `El solicitante calificó la atención con ${event.to}${event.reason ? ` · "${event.reason}"` : ""}`;
+    case "asset_linked":
+      return event.from ? `Equipo cambiado: ${event.from} → ${event.to}` : `Equipo vinculado: ${event.to}`;
+    case "asset_unlinked":
+      return `Equipo desvinculado${event.from ? `: ${event.from}` : ""}`;
+    case "work_order_created":
+      return `Se abrió la orden de trabajo ${event.to} para el equipo`;
     default:
       return "Actualización";
   }
@@ -1031,6 +1082,325 @@ function label(status?: string): string {
   return status && status in TICKET_STATUS_LABEL
     ? TICKET_STATUS_LABEL[status as TicketStatus]
     : (status ?? "");
+}
+
+// ── Equipo afectado (plan A2) ─────────────────────────────────
+
+/**
+ * La tarjeta del equipo y lo que salió de él: sus últimas averías (solo para el
+ * área que lo mantiene) y las órdenes de trabajo del ticket. Sin equipo, a quien
+ * puede vincular uno se le ofrece un enlace; al resto no se le muestra nada.
+ */
+function AssetCard({
+  ticket,
+  busy,
+  onLink,
+  onUnlink,
+  onConvert,
+}: {
+  ticket: TicketDetail;
+  busy: boolean;
+  onLink: () => void;
+  onUnlink: () => void;
+  onConvert: () => void;
+}) {
+  const { asset, workOrders = [], permissions } = ticket;
+
+  if (!asset) {
+    if (!permissions.linkAsset) return null;
+    return (
+      <Plate className="p-4">
+        <button
+          onClick={onLink}
+          disabled={busy}
+          className="flex items-center gap-2 text-sm font-medium text-accent-ink hover:underline disabled:opacity-50"
+        >
+          <WrenchIcon className="h-4 w-4" /> Vincular un equipo
+        </button>
+      </Plate>
+    );
+  }
+
+  const openOrder = workOrders.some((order) => order.status !== "completed" && order.status !== "cancelled");
+  // El área del ticket no es la que mantiene el equipo: la OT no la puede abrir
+  // ella. Se dice qué hacer en vez de esconder el botón sin explicación.
+  const otherArea =
+    permissions.viewInternalNotes &&
+    !permissions.createWorkOrder &&
+    !openOrder &&
+    asset.status !== "retired" &&
+    asset.area.id !== ticket.area.id;
+
+  return (
+    <Plate role="region" aria-labelledby="equipo-afectado" className="space-y-3 p-4 text-sm">
+      <p id="equipo-afectado" className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+        Equipo afectado
+      </p>
+
+      <div className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-display text-[11px] tabular text-[var(--content-ink-dim)]">
+              {formatAssetNumber(asset.number)}
+            </p>
+            {asset.canOpen ? (
+              <Link
+                to={`/activos/${formatAssetNumber(asset.number)}`}
+                className="font-medium text-[var(--content-ink)] hover:underline"
+              >
+                {asset.name}
+              </Link>
+            ) : (
+              <p className="font-medium text-[var(--content-ink)]">{asset.name}</p>
+            )}
+          </div>
+          <AssetStatusBadge status={asset.status} />
+        </div>
+        <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
+          {ASSET_TYPE_LABEL[asset.type]} · {asset.location}
+        </p>
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--content-ink-dim)]">
+          Lo mantiene <AreaTag area={asset.area} />
+        </p>
+      </div>
+
+      {asset.recentFailures && (
+        <div>
+          <p className="mb-1 text-xs font-medium text-[var(--content-ink-dim)]">Últimas averías</p>
+          {asset.recentFailures.length === 0 ? (
+            <p className="text-xs text-[var(--content-ink-dim)]">Sin averías registradas.</p>
+          ) : (
+            <ul className="space-y-1 text-xs">
+              {asset.recentFailures.map((failure) => (
+                <li key={`${failure.at}-${failure.workOrder?.id ?? ""}`} className="flex justify-between gap-2">
+                  <span className="min-w-0 truncate text-[var(--content-ink)]" title={failure.title}>
+                    {failure.title}
+                  </span>
+                  <span className="shrink-0 text-[var(--content-ink-dim)]">
+                    {failure.workOrder && (
+                      <span className="font-display tabular">{formatWorkOrderNumber(failure.workOrder.number)} · </span>
+                    )}
+                    {formatWhen(failure.at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {workOrders.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-medium text-[var(--content-ink-dim)]">Órdenes de trabajo</p>
+          <ul className="space-y-1 text-xs">
+            {workOrders.map((order) => (
+              <li key={order.id} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-[var(--content-ink)]">
+                  <span className="font-display tabular text-[var(--content-ink-dim)]">
+                    {formatWorkOrderNumber(order.number)}
+                  </span>{" "}
+                  {order.title}
+                </span>
+                <span className="shrink-0 rounded-md border border-[var(--content-border)] px-1.5 py-0.5 text-[10px] text-[var(--content-ink-dim)]">
+                  {WORK_ORDER_STATUS_LABEL[order.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {otherArea && (
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          La orden de trabajo la abre {asset.area.name}, que mantiene el equipo: transfiere el ticket si
+          la avería es suya.
+        </p>
+      )}
+
+      {(permissions.createWorkOrder || permissions.linkAsset) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {permissions.createWorkOrder && (
+            <button
+              onClick={onConvert}
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim"
+            >
+              <WrenchIcon className="h-3.5 w-3.5" /> Convertir en orden de trabajo
+            </button>
+          )}
+          {permissions.linkAsset && (
+            <>
+              <button
+                onClick={onLink}
+                disabled={busy}
+                className="text-xs text-accent-ink hover:underline disabled:opacity-50"
+              >
+                Cambiar equipo
+              </button>
+              <button
+                onClick={onUnlink}
+                disabled={busy}
+                className="text-xs text-[var(--content-ink-dim)] hover:underline disabled:opacity-50"
+              >
+                Quitar
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </Plate>
+  );
+}
+
+/**
+ * Convertir el ticket en una OT correctiva. La pregunta del estado del equipo no
+ * trae respuesta marcada: de ella depende si empieza a contar tiempo de parada,
+ * y un "sí" por defecto inflaría la parada en los reportes.
+ */
+function WorkOrderModal({
+  open,
+  onClose,
+  ticket,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  ticket: TicketDetail;
+  onDone: () => Promise<void>;
+}) {
+  const [title, setTitle] = useState(ticket.title);
+  const [description, setDescription] = useState(ticket.description);
+  const [outOfService, setOutOfService] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cada vez que se abre, parte del ticket tal como está ahora.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setTitle(ticket.title);
+      setDescription(ticket.description);
+      setOutOfService(null);
+      setError(null);
+    }
+  }
+
+  const create = useMutation({
+    mutationFn: () =>
+      createWorkOrderFromTicket(ticket.id, {
+        title: title.trim(),
+        ...(description.trim() ? { description: description.trim() } : {}),
+        outOfService: outOfService!,
+      }),
+    onSuccess: async () => {
+      await onDone();
+      onClose();
+    },
+    onError: (cause) => setError(cause.message),
+  });
+
+  const asset = ticket.asset;
+  const valid = title.trim().length >= 5 && outOfService !== null;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Convertir en orden de trabajo"
+      wide
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--content-ink-dim)] hover:bg-[var(--content-bg)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => create.mutate()}
+            disabled={!valid || create.isPending}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {create.isPending ? "Abriendo…" : "Abrir orden correctiva"}
+          </button>
+        </>
+      }
+    >
+      {asset && (
+        <p className="mb-3 text-sm text-[var(--content-ink-dim)]">
+          La falla queda registrada en la historia de{" "}
+          <strong className="text-[var(--content-ink)]">
+            {formatAssetNumber(asset.number)} · {asset.name}
+          </strong>
+          . El ticket conserva su SLA y su conversación: el solicitante sigue hablando aquí.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mb-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
+          {error}
+        </p>
+      )}
+
+      <label className="mb-3 block">
+        <span className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Título de la orden</span>
+        <input
+          value={title}
+          maxLength={120}
+          onChange={(event) => setTitle(event.target.value)}
+          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        />
+      </label>
+      <label className="mb-4 block">
+        <span className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+          Descripción técnica <span className="font-normal">(sale del ticket; ajústala si hace falta)</span>
+        </span>
+        <textarea
+          value={description}
+          rows={4}
+          maxLength={5000}
+          onChange={(event) => setDescription(event.target.value)}
+          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        />
+      </label>
+
+      <fieldset>
+        <legend className="mb-1.5 text-xs font-medium text-[var(--content-ink-dim)]">
+          ¿El equipo queda fuera de servicio?
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[
+            { value: true, label: "Sí, no se puede usar", hint: "Pasa a En reparación y cuenta tiempo de parada." },
+            { value: false, label: "No, sigue funcionando", hint: "Se registra la falla sin parada." },
+          ].map((option) => (
+            <label
+              key={String(option.value)}
+              className={`flex cursor-pointer gap-2 rounded-lg border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-accent/25 ${
+                outOfService === option.value
+                  ? "border-accent bg-accent/10"
+                  : "border-[var(--content-border)] hover:bg-[var(--content-bg)]"
+              }`}
+            >
+              <input
+                type="radio"
+                name="out-of-service"
+                checked={outOfService === option.value}
+                onChange={() => setOutOfService(option.value)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-medium text-[var(--content-ink)]">{option.label}</span>
+                <span className="block text-xs text-[var(--content-ink-dim)]">{option.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {asset?.status === "in_repair" && (
+          <p className="mt-2 text-xs text-[var(--content-ink-dim)]">
+            El equipo ya está en reparación por otra orden; su tiempo de parada ya está contando.
+          </p>
+        )}
+      </fieldset>
+    </Modal>
+  );
 }
 
 function ResolvedPanel({

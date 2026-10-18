@@ -6,3 +6,4 @@ export * from "./cost";
 export * from "./downtime";
 export * from "./settings";
 export * from "./assetApi";
+export * from "./ticketLink";

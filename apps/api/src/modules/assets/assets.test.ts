@@ -188,6 +188,19 @@ describe("quién ve qué", () => {
     expect(retiredOnly.body.statusCounts).toEqual({ operational: 3, in_repair: 0, retired: 0 });
     expect(retiredOnly.body.currency).toBe("USD");
   });
+
+  it("«área que lo usa» encuentra también los equipos que usa su propia área responsable", async () => {
+    const tecnico = await loginAs(fixture.users.agentIt.email);
+    const usedByIt = await tecnico.get(`/api/v1/assets?usedByAreaId=${String(fixture.areas.it)}`);
+    // El servidor no tiene "área que lo usa": la usa IT, que lo mantiene.
+    expect(usedByIt.body.items.map((item: { name: string }) => item.name)).toEqual(["Servidor"]);
+
+    const usedByVentas = await tecnico.get(`/api/v1/assets?usedByAreaId=${String(fixture.areas.ventas)}`);
+    expect(usedByVentas.body.total).toBe(2);
+
+    const csv = await tecnico.get(`/api/v1/assets/export?usedByAreaId=${String(fixture.areas.it)}`);
+    expect(csv.text).toMatch(/Servidor.*IT y Sistemas.*IT y Sistemas/);
+  });
 });
 
 describe("reglas de gestión", () => {

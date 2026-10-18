@@ -26,6 +26,10 @@ export const systemEvent = z.object({
     "reopened",
     "join_requested",
     "csat_answered",
+    /** Módulo 2: equipo vinculado o quitado, y OT abierta desde el ticket. */
+    "asset_linked",
+    "asset_unlinked",
+    "work_order_created",
   ]),
   from: z.string().optional(),
   to: z.string().optional(),

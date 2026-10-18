@@ -2,6 +2,7 @@ import { z } from "zod";
 import { areaRef } from "./area";
 import { isoDateTime, objectId, paginated, paginationQuery } from "./common";
 import { priority, slaState, ticketScope, ticketStatus } from "./enums";
+import { ticketAsset, ticketWorkOrderRef } from "./maintenance/ticketLink";
 import { userSummary } from "./user";
 
 export const ticketSla = z.object({
@@ -108,6 +109,8 @@ export const createTicketInput = z.object({
   requesterId: objectId.optional(),
   /** Adjuntos ya subidos con `POST /attachments`, aún sin ticket. */
   attachmentIds: z.array(objectId).max(5).default([]),
+  /** Equipo afectado (plan A2). Opcional: el formulario sigue teniendo cuatro campos. */
+  assetId: objectId.optional(),
 });
 export type CreateTicketInput = z.infer<typeof createTicketInput>;
 
@@ -153,6 +156,10 @@ export const ticketPermissions = z.object({
   requestJoin: z.boolean(),
   /** La encuesta se abre al resolver y se cierra al cerrar el ticket (spec §7.6). */
   answerCsat: z.boolean(),
+  /** Vincular, cambiar o quitar el equipo afectado (plan A2). */
+  linkAsset: z.boolean(),
+  /** Convertir el ticket en una orden de trabajo correctiva. */
+  createWorkOrder: z.boolean(),
 });
 export type TicketPermissions = z.infer<typeof ticketPermissions>;
 
@@ -234,6 +241,10 @@ export const ticketDetail = ticketListItem.extend({
   mergedInto: mergedTicketRef.optional(),
   mergedTickets: z.array(mergedTicketRef),
   history: z.array(ticketHistoryEntry),
+  /** Equipo afectado, si el ticket lo señala (plan A2). */
+  asset: ticketAsset.optional(),
+  /** Órdenes de trabajo que salieron del ticket; solo para quien puede verlas. */
+  workOrders: z.array(ticketWorkOrderRef).optional(),
   permissions: ticketPermissions,
 });
 export type TicketDetail = z.infer<typeof ticketDetail>;

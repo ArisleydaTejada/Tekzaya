@@ -4,6 +4,7 @@ import {
   ASSET_TYPE_LABEL,
   formatAssetNumber,
   formatMoney,
+  formatTicketNumber,
   formatWorkOrderNumber,
   type AssetDetail,
   type AssetEventKind,
@@ -142,7 +143,9 @@ export default function ActivoDetailPage() {
               <Item label="Área responsable">
                 <AreaTag area={asset.area} />
               </Item>
-              <Item label="Área que lo usa">{asset.usedByArea ? <AreaTag area={asset.usedByArea} /> : "La misma"}</Item>
+              <Item label="Área que lo usa">
+                <AreaTag area={asset.usedByArea ?? asset.area} />
+              </Item>
               <Item label="Número de serie">{asset.serial ?? "—"}</Item>
               <Item label="Fecha de compra">{asset.purchaseDate ? formatDay(asset.purchaseDate) : "—"}</Item>
               {asset.permissions.viewDetails && (
@@ -167,7 +170,7 @@ export default function ActivoDetailPage() {
                 Repórtalo con un ticket a {asset.area.name}: es el área que lo mantiene.
               </p>
               <Link
-                to="/tickets/nuevo"
+                to={`/tickets/nuevo?activo=${formatAssetNumber(asset.number)}`}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim"
               >
                 <PlusIcon className="h-3.5 w-3.5" /> Reportar una falla
@@ -348,7 +351,23 @@ function Timeline({ assetId }: { assetId: string }) {
               {event.kind === "repair" && event.workOrder && backInService.has(event.workOrder.id) && (
                 <p className="mt-0.5 text-xs font-medium text-green">Vuelve a estar operativo</p>
               )}
-              {event.actor && <p className="mt-0.5 text-xs text-[var(--content-ink-dim)]">por {event.actor.name}</p>}
+              {event.actor && (
+                <p className="mt-0.5 text-xs text-[var(--content-ink-dim)]">
+                  por {event.actor.name}
+                  {/* La avería nació de un ticket: de aquí se vuelve a la conversación. */}
+                  {event.ticket && (
+                    <>
+                      {" · desde "}
+                      <Link
+                        to={`/tickets/${formatTicketNumber(event.ticket.number)}`}
+                        className="font-display tabular text-accent-ink hover:underline"
+                      >
+                        {formatTicketNumber(event.ticket.number)}
+                      </Link>
+                    </>
+                  )}
+                </p>
+              )}
             </li>
           ))}
         </ol>

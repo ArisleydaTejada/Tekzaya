@@ -30,6 +30,7 @@ import { Area } from "../../models/area.model";
 import { Attachment as AttachmentModel } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
+import { maintenanceOfTicket } from "../assets/asset.ticket";
 import { getSettings } from "../settings/settings.service";
 import { refOf, type LeanTicket } from "./ticket.access";
 
@@ -242,7 +243,10 @@ export function toListItem(ticket: LeanTicket, h: Hydration, actor?: Actor): Tic
   };
 }
 
-function permissionsOf(actor: Actor, ticket: LeanTicket): TicketDetail["permissions"] {
+function permissionsOf(
+  actor: Actor,
+  ticket: LeanTicket,
+): Omit<TicketDetail["permissions"], "linkAsset" | "createWorkOrder"> {
   const ref = refOf(ticket);
   return {
     viewInternalNotes: canReadInternalNotes(actor, ref),
@@ -273,7 +277,9 @@ export async function toDetail(
 ): Promise<TicketDetail> {
   const base = toListItem(ticket, h, actor);
   const sla = ticket["sla"] ?? {};
-  const permissions = permissionsOf(actor, ticket);
+  // El equipo afectado y sus OT (plan A2) traen sus propios dos permisos.
+  const { linkAsset, createWorkOrder, ...maintenance } = await maintenanceOfTicket(ticket, actor);
+  const permissions = { ...permissionsOf(actor, ticket), linkAsset, createWorkOrder };
 
   // Los tickets enlazados se resuelven aquí y no en el listado: solo el detalle
   // muestra "fusionado con TK-…".
@@ -385,6 +391,7 @@ export async function toDetail(
         at: entry.at.toISOString(),
         ...(entry.byId ? { by: userOf(h, entry.byId) } : {}),
       })),
+    ...maintenance,
     permissions,
   };
 }

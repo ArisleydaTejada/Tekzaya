@@ -168,6 +168,19 @@ Decisiones:
 
 **DoD:** crear ticket con activo → convertir en OT → la falla aparece en la línea de tiempo del activo y la OT enlaza al ticket y viceversa.
 
+**Decisiones tomadas al ejecutar A2** (2026-10-18):
+
+- **El selector es `GET /assets/link-options`** (con `ticketId` opcional) y devuelve solo lo que el servidor aceptará: es `canLinkAssetToTicket` escrita como consulta. Agrupa para la persona que reporta: *a su cargo*, *los que usa su área* y *otros que mantiene tu área*. Los dados de baja no salen.
+- **Elegir el equipo rellena el área si está vacía; si ya hay otra, solo la sugiere** con un botón ("Enviar el ticket a IT y Sistemas"). "Reportar una falla" en la ficha del activo abre el formulario con `?activo=ACT-0012` y el equipo ya elegido.
+- **El equipo no se cambia ni se quita una vez abierta una OT** (409): la falla ya quedó en su historia. Tampoco en un ticket terminado (resuelto, cerrado, cancelado o fusionado). Quitar o cambiar exige poder vincular el actual: el solicitante no quita el equipo que señaló IT.
+- **Convertir es del área que mantiene el equipo, y hay una sola OT abierta por ticket.** Si el ticket está en otra área, la tarjeta explica que hay que transferirlo en vez de esconder el botón sin más. La OT nace *Pendiente* y sin responsables: tomarla y asignarla es A3.
+- **Dos clics a la vez abren una sola OT**: el hueco se reserva en el ticket con un `$push` condicionado al tamaño de `workOrderIds` antes de crear la orden (hay prueba).
+- **"¿Queda fuera de servicio?" no trae respuesta marcada**: un "sí" por defecto inflaría la parada en los reportes. Si el equipo ya estaba *En reparación* por otra OT, no se escribe un segundo cambio de estado (la actualización va condicionada a `status: "operational"`); `outOfService` guarda la respuesta tal cual. **Pendiente para A3:** completar una OT solo devuelve el equipo a *Operativo* si no queda otra abierta fuera de servicio.
+- **La falla y su cambio de estado llevan `ticketId`**, y la línea de tiempo muestra "desde TK-…": así la OT enlaza al ticket y el ticket a la OT. El ticket recibe los mensajes de sistema `asset_linked`, `asset_unlinked` y `work_order_created`, que el solicitante ve: saber que se abrió una orden no expone nada del área.
+- **El solicitante ve el equipo vinculado y su estado** aunque lo haya señalado un técnico y no pueda abrir su ficha (`canOpen`). Las últimas averías solo viajan a quien ve el historial del equipo, y las OT, a quien puede verlas.
+- El mensaje en el ticket al completar la OT y la sugerencia de resolver pasan a A3, que es donde se completa.
+- Pruebas: 11 de API (`ticketLink.test.ts`, con la de concurrencia), las del permiso del selector, el recorrido E2E `08-averias.spec.ts` y dos pantallas más en la auditoría de accesibilidad (selector y tarjeta del equipo, ambos temas).
+
 ---
 
 ### A3 · Órdenes de trabajo — *1,5 semanas*

@@ -1,5 +1,6 @@
 import {
   createTicketInput,
+  formatAssetNumber,
   formatTicketNumber,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
@@ -12,8 +13,9 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { aiKeys, getAiStatus, suggestArea } from "../api/ai";
+import { assetKeys, getAsset } from "../api/assets";
 import { ApiRequestError } from "../api/client";
 import {
   areaKeys,
@@ -24,7 +26,9 @@ import {
   uploadAttachment,
 } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
-import { CheckIcon, LightbulbIcon, PaperclipIcon, SparkleIcon, XIcon } from "../components/icons";
+import { AssetPicker, type PickedAsset } from "../components/AssetPicker";
+import { AssetStatusBadge } from "../components/assets";
+import { CheckIcon, LightbulbIcon, PaperclipIcon, SparkleIcon, WrenchIcon, XIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { formatBytes } from "../lib/format";
@@ -46,6 +50,37 @@ export default function CreateTicketPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [created, setCreated] = useState<TicketDetail | null>(null);
+  const [asset, setAsset] = useState<PickedAsset | null>(null);
+  const [pickingAsset, setPickingAsset] = useState(false);
+
+  /*
+   * "Reportar una falla" desde la ficha de un equipo llega con `?activo=ACT-0012`:
+   * el equipo ya viene elegido y, si no hay área, la suya. Se aplica una sola vez
+   * al llegar —comparando con la última que se aplicó— para que quitarlo a mano
+   * no lo vuelva a poner.
+   */
+  const [searchParams] = useSearchParams();
+  const fromAsset = searchParams.get("activo") ?? "";
+  const { data: presetAsset } = useQuery({
+    queryKey: assetKeys.detail(fromAsset),
+    queryFn: () => getAsset(fromAsset),
+    enabled: Boolean(fromAsset),
+    retry: false,
+  });
+  const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
+  if (presetAsset && presetAsset.status !== "retired" && appliedPreset !== presetAsset.id) {
+    setAppliedPreset(presetAsset.id);
+    pickAsset(presetAsset);
+  }
+
+  /** Elegir el equipo rellena el área si está vacía; si no, solo la sugiere abajo. */
+  function pickAsset(picked: PickedAsset) {
+    setAsset(picked);
+    if (!areaId) {
+      setAreaId(picked.area.id);
+      setCategoryId("");
+    }
+  }
 
   const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
@@ -143,6 +178,7 @@ export default function CreateTicketPage() {
       areaId,
       ...(categoryId ? { categoryId } : {}),
       ...(onBehalfOf ? { requesterId: onBehalfOf } : {}),
+      ...(asset ? { assetId: asset.id } : {}),
       attachmentIds: files.map((file) => file.id),
     });
 
@@ -179,6 +215,12 @@ export default function CreateTicketPage() {
           />
           <Row label="Área" value={created.area.name} />
           {created.categoryName && <Row label="Categoría" value={created.categoryName} />}
+          {created.asset && (
+            <Row
+              label="Equipo"
+              value={`${formatAssetNumber(created.asset.number)} · ${created.asset.name}`}
+            />
+          )}
           <Row label="Prioridad" value={PRIORITY_LABEL[created.priority]} />
           <Row
             label="Primera respuesta antes de"
@@ -205,6 +247,7 @@ export default function CreateTicketPage() {
               setSuggestion(null);
               setAiError(null);
               setFiles([]);
+              setAsset(null);
             }}
             className="rounded-lg border border-[var(--content-border)] px-4 py-2 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-surface)]"
           >
@@ -313,6 +356,65 @@ export default function CreateTicketPage() {
             />
             <FieldError messages={fieldErrors["description"]} />
           </div>
+
+          {/* Plan A2: un enlace, no un campo. Quien no lo necesita sigue viendo un
+              formulario de cuatro campos (regla de simplicidad del spec). */}
+          {asset ? (
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+                Equipo afectado
+              </span>
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm">
+                <WrenchIcon className="h-3.5 w-3.5 shrink-0 text-[var(--content-ink-dim)]" />
+                <span className="min-w-0 flex-1 truncate text-[var(--content-ink)]">
+                  <span className="font-display tabular text-[var(--content-ink-dim)]">
+                    {formatAssetNumber(asset.number)}
+                  </span>{" "}
+                  {asset.name}
+                </span>
+                <AssetStatusBadge status={asset.status} />
+                <button
+                  type="button"
+                  onClick={() => setPickingAsset(true)}
+                  className="text-xs text-accent-ink hover:underline"
+                >
+                  Cambiar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAsset(null)}
+                  className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                  aria-label="Quitar equipo"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {/* La impresora de Ventas la mantiene TI: el ticket debe ir allí. */}
+              {areaId && areaId !== asset.area.id && (
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-amber">
+                  Este equipo lo mantiene {asset.area.name}.
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAreaId(asset.area.id);
+                      setCategoryId("");
+                    }}
+                    className="font-medium text-accent-ink underline"
+                  >
+                    Enviar el ticket a {asset.area.name}
+                  </button>
+                </p>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPickingAsset(true)}
+              className="-mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--content-border)] px-2 py-1 text-xs text-accent-ink hover:border-accent"
+            >
+              <WrenchIcon className="h-3.5 w-3.5" /> Vincular un equipo
+            </button>
+          )}
 
           {/* Un solo botón para los dos campos que siguen: es una clasificación,
               no dos preguntas, y así cuesta una sola llamada al modelo. */}
@@ -513,6 +615,13 @@ export default function CreateTicketPage() {
           </p>
         </Plate>
       </form>
+
+      <AssetPicker
+        open={pickingAsset}
+        onClose={() => setPickingAsset(false)}
+        onPick={pickAsset}
+        {...(asset ? { selectedId: asset.id } : {})}
+      />
     </div>
   );
 }

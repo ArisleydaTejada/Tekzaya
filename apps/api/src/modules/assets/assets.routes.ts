@@ -29,6 +29,7 @@ import { Area } from "../../models/area.model";
 import { nextNumber } from "../../models/counter.model";
 import { Asset, AssetEvent, MaintenancePlan, WorkOrder } from "../../models/maintenance.models";
 import { Attachment } from "../../models/support.models";
+import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
 import { csvFile, csvRow, sendCsv } from "../tickets/ticket.csv";
@@ -61,7 +62,16 @@ const SORT_FIELDS: Record<AssetListQuery["sort"], string> = {
 async function listFilter(actor: Actor, query: AssetListQuery, withStatus = true) {
   const and: Record<string, unknown>[] = [assetScopeFilter(actor)];
   if (query.areaId) and.push({ areaId: oid(query.areaId) });
-  if (query.usedByAreaId) and.push({ usedByAreaId: oid(query.usedByAreaId) });
+  // Sin "área que lo usa", lo usa la responsable: el filtro tiene que encontrar
+  // esos equipos también, igual que la lista y la ficha los muestran.
+  if (query.usedByAreaId) {
+    and.push({
+      $or: [
+        { usedByAreaId: oid(query.usedByAreaId) },
+        { areaId: oid(query.usedByAreaId), usedByAreaId: null },
+      ],
+    });
+  }
   if (query.custodianId) and.push({ custodianId: oid(query.custodianId) });
   if (query.type) and.push({ type: { $in: query.type } });
   if (withStatus && query.status) and.push({ status: { $in: query.status } });
@@ -226,7 +236,7 @@ router.get("/assets/export", validateQuery(assetListQuery), async (_req, res) =>
       view.model,
       view.serial,
       view.area.name,
-      view.usedByArea?.name,
+      view.usedByArea?.name ?? view.area.name,
       view.custodian?.name,
       view.location,
       ASSET_STATUS_LABEL[view.status],
@@ -456,13 +466,19 @@ router.get("/assets/:id/events", async (req, res) => {
       if (typeof d[key] === "string") areaIds.add(d[key] as string);
     }
   }
-  const [h, orders] = await Promise.all([
+  const [h, orders, tickets] = await Promise.all([
     hydrateAssets([], [...userIds], [...areaIds]),
     WorkOrder.find({ _id: { $in: events.flatMap((event) => (event.workOrderId ? [event.workOrderId] : [])) } })
       .select("number")
       .lean(),
+    // El ticket del que nació la avería (plan A2): de la línea de tiempo se
+    // vuelve a la conversación con el solicitante.
+    Ticket.find({ _id: { $in: events.flatMap((event) => (event.ticketId ? [event.ticketId] : [])) } })
+      .select("number")
+      .lean(),
   ]);
   const orderNumber = new Map(orders.map((order) => [String(order._id), order.number]));
+  const ticketNumber = new Map(tickets.map((ticket) => [String(ticket._id), ticket.number]));
 
   const items: AssetEventView[] = events.map((event) => {
     const d = { ...data(event) };
@@ -477,12 +493,14 @@ router.get("/assets/:id/events", async (req, res) => {
     }
     const actorPerson = event.actorId ? h.people.get(String(event.actorId)) : undefined;
     const number = event.workOrderId ? orderNumber.get(String(event.workOrderId)) : undefined;
+    const fromTicket = event.ticketId ? ticketNumber.get(String(event.ticketId)) : undefined;
     return {
       id: String(event._id),
       kind: event.kind as AssetEventView["kind"],
       at: event.at.toISOString(),
       ...(actorPerson ? { actor: actorPerson } : {}),
       ...(event.workOrderId && number ? { workOrder: { id: String(event.workOrderId), number } } : {}),
+      ...(event.ticketId && fromTicket ? { ticket: { id: String(event.ticketId), number: fromTicket } } : {}),
       data: d,
     };
   });

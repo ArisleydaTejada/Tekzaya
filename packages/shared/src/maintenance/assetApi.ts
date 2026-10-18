@@ -131,6 +131,8 @@ export const assetEventView = z.object({
   at: isoDateTime,
   actor: assetPerson.optional(),
   workOrder: z.object({ id: objectId, number: z.number().int().positive() }).optional(),
+  /** El ticket del que nació la avería, si nació de uno (plan A2). */
+  ticket: z.object({ id: objectId, number: z.number().int().positive() }).optional(),
   data: z.record(z.string(), z.unknown()),
 });
 export type AssetEventView = z.infer<typeof assetEventView>;

@@ -4,7 +4,14 @@ import {
   assetListResponse,
   assetLocationsResponse,
   assetPeopleResponse,
+  assetPickerResponse,
+  ticketDetail,
   type AssetDetail,
+  type AssetPickerQuery,
+  type AssetPickerResponse,
+  type CreateWorkOrderFromTicketInput,
+  type LinkTicketAssetInput,
+  type TicketDetail,
   type AssetEventsResponse,
   type AssetListQuery,
   type AssetListResponse,
@@ -21,6 +28,7 @@ export const assetKeys = {
   events: (id: string) => [...assetKeys.all, id, "events"] as const,
   locations: () => [...assetKeys.all, "locations"] as const,
   people: (areaId: string) => [...assetKeys.all, "people", areaId] as const,
+  linkOptions: (query: Partial<AssetPickerQuery>) => [...assetKeys.all, "link-options", query] as const,
 };
 
 export function listAssets(query: Partial<AssetListQuery>): Promise<AssetListResponse> {
@@ -58,4 +66,21 @@ export async function listAssetPeople(areaId: string) {
 
 export function assetsCsvUrl(query: Record<string, unknown>): string {
   return `/api/v1/assets/export${queryString(query)}`;
+}
+
+// ── Ticket ↔ equipo (plan A2) ─────────────────────────────────
+
+export function listAssetLinkOptions(query: Partial<AssetPickerQuery>): Promise<AssetPickerResponse> {
+  return apiFetch(`/assets/link-options${queryString(query)}`, assetPickerResponse);
+}
+
+export function linkTicketAsset(ticketId: string, input: LinkTicketAssetInput): Promise<TicketDetail> {
+  return apiFetch(`/tickets/${ticketId}/asset`, ticketDetail, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function createWorkOrderFromTicket(
+  ticketId: string,
+  input: CreateWorkOrderFromTicketInput,
+): Promise<TicketDetail> {
+  return apiFetch(`/tickets/${ticketId}/work-order`, ticketDetail, { method: "POST", body: JSON.stringify(input) });
 }

@@ -4,6 +4,7 @@ import {
   canAssignWorkOrder,
   canCreateWorkOrder,
   canLinkAssetToTicket,
+  canLinkAssetsOnTicket,
   canManageAsset,
   canManageMaintenancePlans,
   canManageMaintenanceSettings,
@@ -133,6 +134,20 @@ describe("vincular un activo a un ticket", () => {
 
   it("el admin sí", () => {
     expect(canLinkAssetToTicket(admin, aireSala, ticketDeMant)).toBe(true);
+  });
+});
+
+describe("ofrecer el selector de equipos en un ticket", () => {
+  it("al solicitante, al área que lo atiende y al admin", () => {
+    expect(canLinkAssetsOnTicket(empleadoVentas, ticketDeDiego)).toBe(true);
+    expect(canLinkAssetsOnTicket(tecnicoIT, ticketDeOtro)).toBe(true);
+    expect(canLinkAssetsOnTicket(admin, ticketDeMant)).toBe(true);
+  });
+
+  it("no a otro empleado, ni a otra área, ni a RRHH", () => {
+    expect(canLinkAssetsOnTicket(empleadoVentas, ticketDeOtro)).toBe(false);
+    expect(canLinkAssetsOnTicket(tecnicoIT, ticketDeMant)).toBe(false);
+    expect(canLinkAssetsOnTicket(rrhh, ticketDeDiego)).toBe(false);
   });
 });
 

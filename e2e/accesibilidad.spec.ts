@@ -62,6 +62,33 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
       await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toBeVisible();
     },
   },
+  {
+    name: "nuevo ticket · selector de equipos",
+    path: "/tickets/nuevo",
+    role: "employee",
+    ready: async (page) => {
+      await page.getByRole("button", { name: "Vincular un equipo" }).click();
+      await expect(page.getByRole("region", { name: "A tu cargo" })).toBeVisible();
+    },
+  },
+  {
+    // La semilla no vincula equipos a tickets: el ticket se crea aquí, desde la
+    // ficha de la laptop, que es el camino del empleado.
+    name: "detalle de ticket · equipo afectado",
+    path: "/activos",
+    role: "employee",
+    ready: async (page) => {
+      await page.getByRole("textbox", { name: "Buscar activos" }).fill("Laptop de Diego");
+      await page.getByRole("link", { name: "Laptop de Diego Castillo" }).click();
+      await page.getByRole("link", { name: "Reportar una falla" }).click();
+      await page.getByLabel("Título / asunto").fill("La laptop se apaga sola");
+      await page.getByLabel("Descripción").fill("Se apaga a los diez minutos de encenderla.");
+      await page.getByRole("button", { name: "Enviar solicitud" }).click();
+      await page.getByRole("button", { name: "Ir al ticket" }).click();
+      await expect(page.getByRole("region", { name: "Equipo afectado" })).toBeVisible();
+      await expect(page.getByText("Cargando la conversación…")).toHaveCount(0);
+    },
+  },
 ];
 
 async function audit(page: Page) {

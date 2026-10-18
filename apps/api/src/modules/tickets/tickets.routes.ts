@@ -39,6 +39,7 @@ import { nextNumber } from "../../models/counter.model";
 import { Message } from "../../models/message.model";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
+import { loadLinkableAsset } from "../assets/asset.ticket";
 import { bindAttachments } from "../attachments/attachments.service";
 import { getCalendar, slaPolicyFor } from "../settings/settings.service";
 import {
@@ -240,6 +241,18 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
     requesterId = input.requesterId;
   }
 
+  // ── Equipo afectado (plan A2) ──
+  // Vincularlo no registra ninguna falla: la falla nace con la OT correctiva.
+  const asset = input.assetId
+    ? await loadLinkableAsset(input.assetId, actor, {
+        areaId: input.areaId,
+        requesterId,
+        createdById: actor.id,
+        assigneeIds: [],
+        status: "open",
+      })
+    : null;
+
   // Nace en "media" y la ajusta quien lo recibe. La IA puede proponer otra, pero
   // solo cuando alguien pulsa "Clasificar con IA": crear un ticket no gasta cuota.
   // El SLA se calcula igual, así que el ticket nace con plazo (spec §6.3).
@@ -261,6 +274,7 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
     createdById: actor.id,
     areaId: input.areaId,
     ...(category ? { categoryId: category._id } : {}),
+    ...(asset ? { assetId: asset._id } : {}),
     assigneeIds: [],
     status: "open",
     priority,
