@@ -19,6 +19,10 @@ import AdministracionPage from "./pages/AdministracionPage";
 import PerfilPage from "./pages/PerfilPage";
 import ActivosPage from "./pages/ActivosPage";
 import ActivoDetailPage from "./pages/ActivoDetailPage";
+import OrdenesPage from "./pages/OrdenesPage";
+import OrdenDetailPage from "./pages/OrdenDetailPage";
+import RepuestosPage from "./pages/RepuestosPage";
+import RepuestoDetailPage from "./pages/RepuestoDetailPage";
 import ReportesPage from "./pages/ReportesPage";
 import { RealtimeProvider } from "./realtime/RealtimeContext";
 import { ThemeProvider } from "./theme/ThemeContext";
@@ -54,6 +58,11 @@ export default function App() {
                     {/* Módulo 2. Todos entran: cada uno ve los equipos que le tocan. */}
                     <Route path="/activos" element={<ActivosPage />} />
                     <Route path="/activos/:number" element={<ActivoDetailPage />} />
+                    {/* Las ve el área que mantiene el equipo; al resto la API le da 404. */}
+                    <Route path="/ordenes" element={<OrdenesPage />} />
+                    <Route path="/ordenes/:number" element={<OrdenDetailPage />} />
+                    <Route path="/repuestos" element={<RepuestosPage />} />
+                    <Route path="/repuestos/:number" element={<RepuestoDetailPage />} />
                     {/* Usuarios y configuración los llevan el administrador y RRHH;
                         áreas, solo el administrador (spec §4.3). */}
                     <Route element={<RequireUserManager />}>

@@ -677,6 +677,7 @@ export default function TicketDetailPage() {
           onLink={() => setAssetPickerOpen(true)}
           onUnlink={() => linkAsset.mutate(null)}
           onConvert={() => setWorkOrderOpen(true)}
+          onResolve={() => setResolveOpen(true)}
         />
 
         {isAgentView && ticket.ai?.incident?.status === "detected" && (
@@ -1073,6 +1074,10 @@ function describeEvent(event: MessageView["systemEvent"]): string {
       return `Equipo desvinculado${event.from ? `: ${event.from}` : ""}`;
     case "work_order_created":
       return `Se abrió la orden de trabajo ${event.to} para el equipo`;
+    case "work_order_completed":
+      return `La orden de trabajo ${event.to} se completó`;
+    case "work_order_cancelled":
+      return `La orden de trabajo ${event.to} se canceló${event.reason ? ` · ${event.reason}` : ""}`;
     default:
       return "Actualización";
   }
@@ -1097,12 +1102,14 @@ function AssetCard({
   onLink,
   onUnlink,
   onConvert,
+  onResolve,
 }: {
   ticket: TicketDetail;
   busy: boolean;
   onLink: () => void;
   onUnlink: () => void;
   onConvert: () => void;
+  onResolve: () => void;
 }) {
   const { asset, workOrders = [], permissions } = ticket;
 
@@ -1122,6 +1129,10 @@ function AssetCard({
   }
 
   const openOrder = workOrders.some((order) => order.status !== "completed" && order.status !== "cancelled");
+  // La OT terminó y el ticket sigue abierto: se sugiere resolverlo, pero no se
+  // resuelve solo, porque resolver exige una nota para el solicitante (plan A2).
+  const finished = !openOrder ? workOrders.filter((order) => order.status === "completed").at(-1) : undefined;
+  const suggestResolve = Boolean(finished) && permissions.changeStatus && !isSettledStatus(ticket.status);
   // El área del ticket no es la que mantiene el equipo: la OT no la puede abrir
   // ella. Se dice qué hacer en vez de esconder el botón sin explicación.
   const otherArea =
@@ -1195,18 +1206,33 @@ function AssetCard({
           <ul className="space-y-1 text-xs">
             {workOrders.map((order) => (
               <li key={order.id} className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-[var(--content-ink)]">
+                <Link
+                  to={`/ordenes/${formatWorkOrderNumber(order.number)}`}
+                  className="min-w-0 truncate text-[var(--content-ink)] hover:underline"
+                >
                   <span className="font-display tabular text-[var(--content-ink-dim)]">
                     {formatWorkOrderNumber(order.number)}
                   </span>{" "}
                   {order.title}
-                </span>
+                </Link>
                 <span className="shrink-0 rounded-md border border-[var(--content-border)] px-1.5 py-0.5 text-[10px] text-[var(--content-ink-dim)]">
                   {WORK_ORDER_STATUS_LABEL[order.status]}
                 </span>
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {suggestResolve && finished && (
+        <div role="status" className="rounded-lg border border-green/40 bg-green/10 p-2.5 text-xs">
+          <p className="text-[var(--content-ink)]">
+            La orden {formatWorkOrderNumber(finished.number)} se completó. Si el problema quedó resuelto, resuelve el
+            ticket con una nota para el solicitante.
+          </p>
+          <button onClick={onResolve} className="mt-1.5 font-semibold text-accent-ink hover:underline">
+            Resolver el ticket
+          </button>
         </div>
       )}
 

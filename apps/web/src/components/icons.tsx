@@ -127,6 +127,26 @@ export function WrenchIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Repuestos: una caja del almacén. */
+export function BoxIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...props}>
+      <path d="m3.5 7.5 8.5-4.5 8.5 4.5v9L12 21l-8.5-4.5Z" />
+      <path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" />
+    </svg>
+  );
+}
+
+/** Orden de trabajo: una tablilla con su lista. */
+export function ClipboardIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...props}>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3" />
+    </svg>
+  );
+}
+
 export function SearchIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...props}>

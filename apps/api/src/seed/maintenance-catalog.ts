@@ -8,12 +8,6 @@ import type { AssetType, PartUnit, PlanMode, PlanUnit } from "@tekzaya/shared";
 export const IT_AREA = "IT y Sistemas";
 export const MAINT_AREA = "Mantenimiento";
 
-/** Tarifa por hora de mano de obra, en centavos, por área responsable. */
-export const LABOR_RATES: Record<string, number> = {
-  [IT_AREA]: 2500,
-  [MAINT_AREA]: 1800,
-};
-
 /** Dónde vive cada área en el edificio; la ubicación de sus equipos sale de aquí. */
 export const AREA_LOCATION: Record<string, string> = {
   "IT y Sistemas": "Piso 3 · IT y Sistemas",

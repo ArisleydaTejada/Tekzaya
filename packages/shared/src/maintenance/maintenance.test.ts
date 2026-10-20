@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, settings } from "../settings";
 import type { BusinessCalendar } from "../sla/businessTime";
-import { weightedAverageCost, workOrderCost } from "./cost";
+import { hourlyServiceAmount, weightedAverageCost, workOrderCost } from "./cost";
 import { downtimeMinutes } from "./downtime";
 import { amountInputFromCents, centsFromAmountInput, formatAmountInput, formatMoney, toCents } from "./money";
 import { formatAssetNumber, formatSparePartNumber, formatWorkOrderNumber } from "./numbers";
@@ -15,30 +15,28 @@ const calendar: BusinessCalendar = {
 const at = (iso: string) => new Date(`${iso}-04:00`);
 
 describe("costo de una orden de trabajo", () => {
-  it("cuadra a mano: horas × tarifa + repuestos + externos", () => {
+  it("cuadra a mano: repuestos + servicios externos", () => {
     const cost = workOrderCost({
-      timeEntries: [
-        { minutes: 90, rate: 2500 }, // 1,5 h a 25,00 = 37,50
-        { minutes: 30, rate: 2500 }, // 0,5 h a 25,00 = 12,50
-      ],
       partsUsed: [{ qty: 2, unitCost: 1899 }], // 37,98
-      externalCosts: [{ amount: 12000 }], // 120,00
+      externalCosts: [{ amount: 12000 }, { amount: 4000 }], // 120,00 + 40,00
     });
-    expect(cost).toEqual({ labor: 5000, parts: 3798, external: 12000, total: 20798 });
-  });
-
-  it("redondea una sola vez, no línea por línea", () => {
-    // 3 entradas de 1 min a 10 centavos/h = 0,5 centavos; por línea serían 0+0+0.
-    const cost = workOrderCost({
-      timeEntries: [1, 1, 1].map((minutes) => ({ minutes, rate: 10 })),
-      partsUsed: [],
-      externalCosts: [],
-    });
-    expect(cost.labor).toBe(1);
+    expect(cost).toEqual({ parts: 3798, external: 16000, total: 19798 });
   });
 
   it("una orden vacía cuesta cero", () => {
-    expect(workOrderCost({ timeEntries: [], partsUsed: [], externalCosts: [] }).total).toBe(0);
+    expect(workOrderCost({ partsUsed: [], externalCosts: [] }).total).toBe(0);
+  });
+});
+
+describe("servicio externo por hora", () => {
+  it("tarifa × horas: 1 h 20 min a 30,00/h son 40,00", () => {
+    expect(hourlyServiceAmount(3000, 80)).toBe(4000);
+  });
+
+  it("redondea una sola vez: 1 min a 0,25/h no llega a medio centavo → 0; 2 min, 1 centavo", () => {
+    expect(hourlyServiceAmount(25, 1)).toBe(0);
+    expect(hourlyServiceAmount(25, 2)).toBe(1);
+    expect(hourlyServiceAmount(150, 1)).toBe(3); // 2,5 → 3, hacia arriba
   });
 });
 

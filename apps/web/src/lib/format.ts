@@ -1,3 +1,5 @@
+import { PART_UNIT_LABEL, type PartUnit } from "@tekzaya/shared";
+
 /**
  * Las fechas llegan en ISO y UTC; se muestran en el reloj de quien mira. La
  * jornada laboral del SLA es única para toda la empresa, pero cada persona ve
@@ -87,4 +89,18 @@ export function warrantyCountdown(until: string): string {
   if (days === 0) return "Vence hoy";
   if (days > 0) return `Vence en ${days} ${days === 1 ? "día" : "días"}`;
   return `Venció hace ${-days} ${days === -1 ? "día" : "días"}`;
+}
+
+/** "135" → "2 h 15 min": las horas se registran en minutos y se leen en horas. */
+export function formatMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+}
+
+/** "3 unidades", "1 caja": una cantidad de repuesto con su unidad. */
+export function formatQuantity(qty: number, unit: PartUnit): string {
+  const label = PART_UNIT_LABEL[unit];
+  return `${qty} ${Math.abs(qty) === 1 ? label : `${label}s`}`;
 }

@@ -13,7 +13,7 @@ import {
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { assetKeys, getAsset, listAssetEvents, retireAsset } from "../api/assets";
 import { attachmentUrl } from "../api/tickets";
 import { AssetFormModal } from "../components/AssetFormModal";
@@ -22,6 +22,7 @@ import { Avatar } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
 import { AlertIcon, ArrowRightIcon, PencilIcon, PlusIcon, WrenchIcon, XIcon } from "../components/icons";
 import { Modal } from "../components/Modal";
+import { NewWorkOrderModal } from "../components/NewWorkOrderModal";
 import { Plate } from "../components/Plate";
 import { formatDateTime, formatDay, formatWhen, warrantyCountdown } from "../lib/format";
 
@@ -35,6 +36,8 @@ export default function ActivoDetailPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
+  const [ordering, setOrdering] = useState(false);
+  const navigate = useNavigate();
 
   const { data: asset, isLoading, isError, error } = useQuery({
     queryKey: assetKeys.detail(number),
@@ -85,8 +88,18 @@ export default function ActivoDetailPage() {
             </span>
           </div>
         </div>
-        {asset.permissions.manage && (
+        {(asset.permissions.manage || asset.permissions.createWorkOrder) && (
           <div className="flex flex-wrap gap-2">
+            {asset.permissions.createWorkOrder && (
+              <button
+                onClick={() => setOrdering(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim"
+              >
+                <PlusIcon className="h-3.5 w-3.5" /> Nueva orden de trabajo
+              </button>
+            )}
+            {asset.permissions.manage && (
+              <>
             <button
               onClick={() => setEditing(true)}
               className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
@@ -99,6 +112,8 @@ export default function ActivoDetailPage() {
             >
               <XIcon className="h-3.5 w-3.5" /> Dar de baja
             </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -154,7 +169,14 @@ export default function ActivoDetailPage() {
                 </Item>
               )}
               {asset.openWorkOrders !== undefined && (
-                <Item label="Órdenes de trabajo abiertas">{asset.openWorkOrders}</Item>
+                <Item label="Órdenes de trabajo abiertas">
+                  <Link
+                    to={`/ordenes?q=${formatAssetNumber(asset.number)}`}
+                    className="text-accent-ink hover:underline"
+                  >
+                    {asset.openWorkOrders} · ver órdenes
+                  </Link>
+                </Item>
               )}
             </dl>
           </Plate>
@@ -188,6 +210,16 @@ export default function ActivoDetailPage() {
         onSaved={async (saved) => {
           setEditing(false);
           await refresh(saved);
+        }}
+      />
+      <NewWorkOrderModal
+        open={ordering}
+        asset={asset}
+        onClose={() => setOrdering(false)}
+        onCreated={async (order) => {
+          setOrdering(false);
+          await refresh();
+          navigate(`/ordenes/${formatWorkOrderNumber(order.number)}`);
         }}
       />
       <RetireModal
@@ -335,9 +367,12 @@ function Timeline({ assetId }: { assetId: string }) {
                 <p className="text-sm font-medium text-[var(--content-ink)]">
                   {ASSET_EVENT_LABEL[event.kind]}
                   {event.workOrder && (
-                    <span className="ml-1.5 font-display text-xs font-normal tabular text-[var(--content-ink-dim)]">
+                    <Link
+                      to={`/ordenes/${formatWorkOrderNumber(event.workOrder.number)}`}
+                      className="ml-1.5 font-display text-xs font-normal tabular text-accent-ink hover:underline"
+                    >
                       {formatWorkOrderNumber(event.workOrder.number)}
-                    </span>
+                    </Link>
                   )}
                 </p>
                 <time dateTime={event.at} title={formatDateTime(event.at)} className="text-xs text-[var(--content-ink-dim)]">

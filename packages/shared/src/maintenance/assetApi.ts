@@ -84,6 +84,8 @@ export const assetPermissions = z.object({
   manage: z.boolean(),
   /** Historial, órdenes y costos. */
   viewDetails: z.boolean(),
+  /** Abrir una orden de trabajo sobre el equipo: el área que lo mantiene (plan A3). */
+  createWorkOrder: z.boolean().default(false),
 });
 export type AssetPermissions = z.infer<typeof assetPermissions>;
 

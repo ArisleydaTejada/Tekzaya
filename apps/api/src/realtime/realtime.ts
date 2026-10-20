@@ -5,6 +5,7 @@ import {
   type NotificationEvent,
   type TicketMessageEvent,
   type TicketUpdatedEvent,
+  type WorkOrderUpdatedEvent,
 } from "@tekzaya/shared";
 import type { Server as HttpServer } from "node:http";
 import { Server, type Socket } from "socket.io";
@@ -160,6 +161,15 @@ export function emitTicketMessage(payload: TicketMessageEvent, areaId: string): 
       ? [room.area(areaId)]
       : [room.ticket(payload.ticketId), room.area(areaId)];
   io?.to(rooms).emit(REALTIME_EVENTS.ticketMessage, payload);
+}
+
+/**
+ * Una OT cambió (plan A3). Va solo a la sala del área que la atiende: el
+ * solicitante del ticket de origen no ve las órdenes, y el ticket ya avisa por
+ * su propia sala cuando la orden se abre o se completa.
+ */
+export function emitWorkOrderUpdated(payload: WorkOrderUpdatedEvent): void {
+  io?.to(room.area(payload.areaId)).emit(REALTIME_EVENTS.workOrderUpdated, payload);
 }
 
 /** Para las pruebas y para el cierre ordenado del proceso. */

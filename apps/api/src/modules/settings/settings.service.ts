@@ -37,10 +37,7 @@ export async function getSettings(): Promise<SettingsShape> {
         reportLimits:
           (doc.reportLimits as SettingsShape["reportLimits"]) ?? DEFAULT_SETTINGS.reportLimits,
         // Bases sembradas antes del módulo 2 no tienen el bloque: valen los valores por defecto.
-        maintenance: {
-          ...DEFAULT_SETTINGS.maintenance,
-          ...(doc.maintenance as Partial<SettingsShape["maintenance"]> | undefined),
-        },
+        maintenance: maintenanceOf(doc.maintenance),
       }
     : // Sin semilla todavía: la API arranca igual con los valores del spec §5.3.
       {
@@ -50,6 +47,18 @@ export async function getSettings(): Promise<SettingsShape> {
 
   cached = { value, at: Date.now() };
   return value;
+}
+
+/**
+ * El bloque de mantenimiento guardado, sobre los valores por defecto. Las bases
+ * sembradas antes de quitar la tarifa interna (plan A3) aún traen `laborRates`:
+ * se descarta para que no vuelva a salir en la respuesta.
+ */
+function maintenanceOf(stored: unknown): SettingsShape["maintenance"] {
+  const { laborRates: _dropped, ...rest } = (stored ?? {}) as Partial<SettingsShape["maintenance"]> & {
+    laborRates?: unknown;
+  };
+  return { ...DEFAULT_SETTINGS.maintenance, ...rest };
 }
 
 /** La llama el administrador al guardar la configuración (F4). */

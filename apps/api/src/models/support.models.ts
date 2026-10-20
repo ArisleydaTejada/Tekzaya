@@ -11,6 +11,8 @@ const attachmentSchema = new Schema(
     messageId: { type: Schema.Types.ObjectId, ref: "Message" },
     /** Foto de un activo (módulo 2): la ve quien puede ver el equipo. */
     assetId: { type: Schema.Types.ObjectId, ref: "Asset" },
+    /** Factura de un costo externo de una OT (plan A3): la ve quien ve la orden. */
+    workOrderId: { type: Schema.Types.ObjectId, ref: "WorkOrder" },
     uploaderId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     fileName: { type: String, required: true },
     mimeType: { type: String, required: true },
@@ -34,6 +36,7 @@ const notificationSchema = new Schema(
     // Avisos del módulo 2: enlazan al equipo o a la orden en vez de a un ticket.
     assetId: { type: Schema.Types.ObjectId, ref: "Asset" },
     workOrderId: { type: Schema.Types.ObjectId, ref: "WorkOrder" },
+    sparePartId: { type: Schema.Types.ObjectId, ref: "SparePart" },
     title: { type: String, required: true },
     body: { type: String },
     readAt: { type: Date },

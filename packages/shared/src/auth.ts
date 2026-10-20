@@ -16,6 +16,11 @@ export type GoogleLoginInput = z.infer<typeof googleLoginInput>;
 /** `/me`: el perfil más lo que la interfaz necesita para pintar la cabecera. */
 export const meResponse = user.extend({
   areaName: z.string(),
+  /**
+   * Su área mantiene algún equipo (módulo 2): decide si la barra lateral ofrece
+   * "Órdenes de trabajo". Las OT son del área responsable del equipo.
+   */
+  maintainsAssets: z.boolean().default(false),
 });
 export type MeResponse = z.infer<typeof meResponse>;
 

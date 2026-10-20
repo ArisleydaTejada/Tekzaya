@@ -2,7 +2,10 @@ import {
   addBusinessMinutes,
   DEFAULT_MAINTENANCE_SETTINGS,
   formatAssetNumber,
+  formatSparePartNumber,
   formatWorkOrderNumber,
+  hourlyServiceAmount,
+  PART_UNIT_LABEL,
   wallClockIn,
   weightedAverageCost,
   workOrderCost,
@@ -12,6 +15,8 @@ import {
   type AssetType,
   type BusinessCalendar,
   type BusinessHours,
+  type ExternalPricing,
+  type PartUnit,
   type PlanUnit,
   type WorkOrderHoldReason,
   type WorkOrderStatus,
@@ -37,7 +42,6 @@ import {
   FAILURES,
   FIXED_ASSETS,
   IT_AREA,
-  LABOR_RATES,
   LAPTOP_MODELS,
   MAINT_AREA,
   OUT_OF_SERVICE_RATE,
@@ -145,9 +149,17 @@ interface SeedWorkOrder {
   scheduledFor?: string;
   outOfService: boolean;
   checklist: { label: string; done: boolean }[];
-  timeEntries: { _id: Types.ObjectId; userId: Types.ObjectId; minutes: number; rate: number; at: Date; note?: string }[];
   partsUsed: (PartUse & { _id: Types.ObjectId })[];
-  externalCosts: { _id: Types.ObjectId; vendor: string; description: string; amount: number; at: Date }[];
+  externalCosts: {
+    _id: Types.ObjectId;
+    vendor: string;
+    description: string;
+    pricing: ExternalPricing;
+    minutes?: number;
+    hourlyRate?: number;
+    amount: number;
+    at: Date;
+  }[];
   completionNotes?: string;
   createdById: Types.ObjectId;
   createdAt: Date;
@@ -216,15 +228,8 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
   await Counter.deleteMany({ _id: { $in: ["asset", "work_order", "spare_part"] } });
   await Notification.deleteMany({ type: { $in: MAINTENANCE_NOTIFICATIONS } });
 
-  const laborRates: Record<string, number> = {
-    [String(itId)]: LABOR_RATES[IT_AREA]!,
-    [String(maintId)]: LABOR_RATES[MAINT_AREA]!,
-  };
-  await Settings.updateOne(
-    { _id: SETTINGS_ID },
-    { $set: { maintenance: { ...DEFAULT_MAINTENANCE_SETTINGS, laborRates } } },
-  );
-  const rateOf = (areaId: Types.ObjectId) => laborRates[String(areaId)] ?? 0;
+  // Sin tarifa interna: las horas de los técnicos no tienen costo (plan A3).
+  await Settings.updateOne({ _id: SETTINGS_ID }, { $set: { maintenance: DEFAULT_MAINTENANCE_SETTINGS } });
 
   // ── Fechas en la zona de la empresa ──────────────────────────
   const dayKey = (instant: Date) => {
@@ -388,19 +393,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
   /** Hasta cuándo está ocupado cada activo: dos averías no se solapan. */
   const busyUntil = new Map<string, Date>();
 
-  function timeEntries(order: SeedWorkOrder, from: Date, to: Date, total: number) {
-    const crew = order.assigneeIds;
-    const chunks = total > 120 && chance(0.6) ? [Math.round(total * 0.6), total - Math.round(total * 0.6)] : [total];
-    order.timeEntries = chunks.map((minutes, index) => ({
-      _id: new Types.ObjectId(),
-      userId: crew[index % crew.length]!,
-      // Las horas se registran a mano, en bloques de 15 minutos (plan A3).
-      minutes: Math.max(15, Math.round(minutes / 15) * 15),
-      rate: rateOf(order.asset.areaId),
-      at: new Date(from.getTime() + ((to.getTime() - from.getTime()) * (index + 1)) / (chunks.length + 1)),
-    }));
-  }
-
   function usePart(order: SeedWorkOrder, name: string, qty: number, when: Date) {
     const part = partByName.get(name);
     if (!part) return;
@@ -432,7 +424,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       assigneeIds: state === "pending" ? [] : [assignee._id],
       outOfService,
       checklist: [],
-      timeEntries: [],
       partsUsed: [],
       externalCosts: [],
       createdById: opener._id,
@@ -476,7 +467,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
 
     if (state === "in_progress" || state === "on_hold") {
       const until = new Date(Math.min(now.getTime() - 3_600_000, worked(startedAt, 120).getTime()));
-      timeEntries(order, startedAt, until, randomInt(45, 150));
       if (state === "on_hold") {
         order.holdReason = "parts";
         order.statusHistory.push({ status: "on_hold", at: until, byId: assignee._id });
@@ -489,7 +479,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     order.completedAt = completedAt;
     order.completionNotes = template.notes;
     order.statusHistory.push({ status: "completed", at: completedAt, byId: assignee._id });
-    timeEntries(order, startedAt, completedAt, randomInt(30, 300));
 
     const fitting = parts.filter((part) => part.fits.includes(asset.type));
     if (fitting.length && chance(options.expensive ? 0.9 : 0.55)) {
@@ -498,13 +487,36 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     }
     const vendorRate = options.expensive ? 1 : asset.type === "vehicle" ? 0.6 : asset.type === "generator" ? 0.4 : 0.1;
     if (VENDORS[asset.type] && chance(vendorRate)) {
-      order.externalCosts.push({
-        _id: new Types.ObjectId(),
-        vendor: VENDORS[asset.type]!,
-        description: options.expensive ? "Reemplazo de unidad fusora y revisión general" : "Servicio técnico externo",
-        amount: options.expensive ? randomInt(150, 300) * 100 : randomInt(45, 380) * 100,
-        at: completedAt,
-      });
+      const service = { _id: new Types.ObjectId(), vendor: VENDORS[asset.type]!, at: completedAt };
+      if (options.expensive) {
+        // El reemplazo de la fusora se cotiza cerrado: es el caso de "¿reparar o reemplazar?".
+        order.externalCosts.push({
+          ...service,
+          description: "Reemplazo de unidad fusora y revisión general",
+          pricing: "total",
+          amount: randomInt(220, 320) * 100,
+        });
+      } else if (asset.type === "vehicle" || asset.type === "generator") {
+        // El mecánico cobra por hora; el total es tarifa × horas.
+        const hourlyRate = randomInt(25, 45) * 100;
+        const minutes = randomInt(2, 8) * 60;
+        order.externalCosts.push({
+          ...service,
+          description: "Mano de obra del taller",
+          pricing: "hourly",
+          hourlyRate,
+          minutes,
+          amount: hourlyServiceAmount(hourlyRate, minutes),
+        });
+      } else {
+        order.externalCosts.push({
+          ...service,
+          description: "Servicio técnico externo",
+          pricing: "total",
+          ...(chance(0.4) ? { minutes: randomInt(1, 4) * 60 } : {}),
+          amount: randomInt(45, 380) * 100,
+        });
+      }
     }
 
     events.push({
@@ -630,7 +642,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
           scheduledFor: due,
           outOfService: false,
           checklist: template.checklist.map((label) => ({ label, done: false })),
-          timeEntries: [],
           partsUsed: [],
           externalCosts: [],
           createdById: supervisor._id,
@@ -660,7 +671,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
           { status: "in_progress", at: startedAt, byId: assignee._id },
           { status: "completed", at: completedAt, byId: assignee._id },
         );
-        timeEntries(order, startedAt, completedAt, randomInt(30, 120));
         for (const part of template.parts ?? []) usePart(order, part.name, part.qty, startedAt);
         events.push({
           assetId: asset._id,
@@ -727,10 +737,18 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     let avg = 0;
     let price = part.cost;
     const lowAtEnd = part.finalStock < part.minStock;
+    /** Cuándo cruzó el mínimo por última vez: es cuando el supervisor recibió el aviso. */
+    let crossedAt: Date | undefined;
+    const track = (before: number, when: Date) => {
+      if (stock >= part.minStock) crossedAt = undefined;
+      else if (before >= part.minStock) crossedAt = when;
+    };
 
     const receive = (qty: number, when: Date) => {
       avg = weightedAverageCost(stock, avg, qty, price);
+      const before = stock;
       stock += qty;
+      track(before, when);
       movements.push({ partId: part._id, kind: "in", qty, unitCost: price, actorId: supervisor, at: when, reason: "Compra a proveedor" });
     };
 
@@ -754,7 +772,9 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
         receive(Math.max(part.minStock * 2, use.qty * 3), new Date(use.at.getTime() - DAY_MS));
       }
       use.unitCost = avg;
+      const before = stock;
       stock -= use.qty;
+      track(before, use.at);
       movements.push({
         partId: part._id,
         kind: "consume",
@@ -786,7 +806,9 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
         at: new Date(now.getTime() - 3 * DAY_MS),
         reason: difference < 0 ? "Conteo físico: faltante" : "Conteo físico: sobrante",
       });
+      const before = stock;
       stock = part.finalStock;
+      track(before, new Date(now.getTime() - 3 * DAY_MS));
     }
 
     partDocs.push({
@@ -798,6 +820,8 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       minStock: part.minStock,
       avgUnitCost: avg || price,
       isActive: true,
+      // Bajo mínimo al terminar: el aviso ya se mandó cuando cruzó (plan A4).
+      ...(crossedAt ? { lowStockNotifiedAt: crossedAt } : {}),
       createdAt: new Date(firstUse - 6 * DAY_MS),
       updatedAt: now,
     });
@@ -822,7 +846,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       ...(order.scheduledFor ? { scheduledFor: order.scheduledFor } : {}),
       outOfService: order.outOfService,
       checklist: order.checklist,
-      timeEntries: order.timeEntries,
       partsUsed: order.partsUsed,
       externalCosts: order.externalCosts,
       costTotal: cost.total,
@@ -884,6 +907,33 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
   await MaintenancePlan.insertMany(plans);
   await SparePart.insertMany(sparePartDocs);
   await StockMovement.insertMany(movements);
+  // El aviso de stock bajo que recibió el supervisor cuando cada pieza cruzó el mínimo.
+  await Notification.insertMany(
+    sparePartDocs.flatMap((doc) => {
+      const part = doc as typeof doc & {
+        _id: Types.ObjectId;
+        name: string;
+        areaId: Types.ObjectId;
+        unit: PartUnit;
+        stock: number;
+        minStock: number;
+        lowStockNotifiedAt?: Date;
+      };
+      if (!part.lowStockNotifiedAt) return [];
+      const unit = PART_UNIT_LABEL[part.unit];
+      return [
+        {
+          userId: supervisorOf(part.areaId)._id,
+          type: "low_stock",
+          title: `Stock bajo: ${part.name}`,
+          body: `${formatSparePartNumber(part.number)} · quedan ${part.stock} ${part.stock === 1 ? unit : `${unit}s`} de un mínimo de ${part.minStock}`,
+          sparePartId: part._id,
+          createdAt: part.lowStockNotifiedAt,
+          updatedAt: part.lowStockNotifiedAt,
+        },
+      ];
+    }),
+  );
   await Counter.insertMany([
     { _id: "asset", seq: assetDocs.length },
     { _id: "work_order", seq: workOrderDocs.length },

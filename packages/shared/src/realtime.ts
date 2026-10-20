@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isoDateTime, objectId } from "./common";
 import { messageType, ticketStatus } from "./enums";
+import { workOrderStatus } from "./maintenance/enums";
 import { notificationView } from "./notification";
 
 /**
@@ -15,6 +16,8 @@ export const REALTIME_EVENTS = {
   ticketUpdated: "ticket:updated",
   /** Mensaje nuevo en la conversación. */
   ticketMessage: "ticket:message",
+  /** Módulo 2: una orden de trabajo cambió; va a la sala del área que la atiende. */
+  workOrderUpdated: "work_order:updated",
 } as const;
 
 /** El detalle de un ticket pide entrar en su sala al abrirse y salir al cerrarse. */
@@ -49,3 +52,13 @@ export const ticketMessageEvent = z.object({
   createdAt: isoDateTime,
 });
 export type TicketMessageEvent = z.infer<typeof ticketMessageEvent>;
+
+/** Como el del ticket: solo avisa; la pantalla vuelve a pedir la OT por la API. */
+export const workOrderUpdatedEvent = z.object({
+  workOrderId: objectId,
+  number: z.number().int().positive(),
+  areaId: objectId,
+  status: workOrderStatus,
+  updatedAt: isoDateTime,
+});
+export type WorkOrderUpdatedEvent = z.infer<typeof workOrderUpdatedEvent>;

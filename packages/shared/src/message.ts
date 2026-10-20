@@ -30,6 +30,9 @@ export const systemEvent = z.object({
     "asset_linked",
     "asset_unlinked",
     "work_order_created",
+    /** Plan A3: la OT del ticket terminó; `reason` lleva las notas o el motivo. */
+    "work_order_completed",
+    "work_order_cancelled",
   ]),
   from: z.string().optional(),
   to: z.string().optional(),

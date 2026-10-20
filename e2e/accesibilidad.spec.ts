@@ -89,6 +89,42 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
       await expect(page.getByText("Cargando la conversación…")).toHaveCount(0);
     },
   },
+  {
+    name: "órdenes de trabajo · lista",
+    path: "/ordenes",
+    role: "supervisor",
+    ready: (page) => expect(page.getByLabel("Cargando órdenes")).toHaveCount(0),
+  },
+  {
+    // Una orden en curso, vista por su supervisor: con los tres formularios de
+    // carga (repuestos y servicios externos) a la vista.
+    name: "órdenes de trabajo · ficha",
+    path: "/ordenes",
+    role: "supervisor",
+    ready: async (page) => {
+      await page.getByLabel("Filtrar por estado").selectOption("in_progress");
+      await page.getByRole("cell").getByRole("link", { name: /^OT-\d{4}$/ }).first().click();
+      await expect(page.getByRole("heading", { name: "Costo de la orden" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Agregar servicio" })).toBeVisible();
+    },
+  },
+  {
+    name: "repuestos · lista",
+    path: "/repuestos",
+    role: "supervisor",
+    ready: (page) => expect(page.getByLabel("Cargando repuestos")).toHaveCount(0),
+  },
+  {
+    // Uno bajo mínimo de la semilla: con la marca, las acciones y el libro.
+    name: "repuestos · ficha",
+    path: "/repuestos",
+    role: "supervisor",
+    ready: async (page) => {
+      await page.getByRole("link", { name: "Tóner HP 58A" }).click();
+      await expect(page.getByText("Cargando movimientos…")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Movimientos" })).toBeVisible();
+    },
+  },
 ];
 
 async function audit(page: Page) {
@@ -141,7 +177,7 @@ for (const theme of ["light", "dark"] as const) {
 test.describe("360 px de ancho", () => {
   test.use({ viewport: { width: 360, height: 740 }, storageState: storageStateOf("supervisor") });
 
-  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos"]) {
+  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos", "/ordenes", "/repuestos"]) {
     test(`${path} no desborda horizontalmente`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");

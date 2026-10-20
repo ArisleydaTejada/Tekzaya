@@ -73,6 +73,12 @@ export const notificationView = z.object({
   ticketId: objectId.optional(),
   /** Número legible, resuelto al leer: la campana enlaza a `/tickets/TK-000123`. */
   ticketNumber: z.number().int().positive().optional(),
+  /** Avisos del módulo 2 que enlazan a una orden de trabajo (`/ordenes/OT-0012`). */
+  workOrderId: objectId.optional(),
+  workOrderNumber: z.number().int().positive().optional(),
+  /** El aviso de stock bajo lleva al repuesto (`/repuestos/REP-0003`). */
+  sparePartId: objectId.optional(),
+  sparePartNumber: z.number().int().positive().optional(),
   readAt: isoDateTime.optional(),
   createdAt: isoDateTime,
 });

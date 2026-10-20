@@ -5,6 +5,8 @@ import {
   notificationEvent,
   ticketMessageEvent,
   ticketUpdatedEvent,
+  workOrderUpdatedEvent,
+  formatWorkOrderNumber,
   type NotificationListResponse,
 } from "@tekzaya/shared";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,6 +16,8 @@ import { refreshSession } from "../api/client";
 import { notificationKeys } from "../api/notifications";
 import { statsKeys } from "../api/stats";
 import { ticketKeys } from "../api/tickets";
+import { assetKeys } from "../api/assets";
+import { workOrderKeys } from "../api/workOrders";
 import { useAuth } from "../auth/AuthContext";
 
 interface RealtimeValue {
@@ -103,6 +107,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       const parsed = ticketMessageEvent.safeParse(payload);
       if (!parsed.success) return;
       void queryClient.invalidateQueries({ queryKey: ticketKeys.messages(parsed.data.ticketId) });
+    });
+
+    // Una OT cambió en el área: listas, su ficha y los equipos (su estado pudo cambiar).
+    socket.on(REALTIME_EVENTS.workOrderUpdated, (payload: unknown) => {
+      const parsed = workOrderUpdatedEvent.safeParse(payload);
+      if (!parsed.success) return;
+      void queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: workOrderKeys.detail(formatWorkOrderNumber(parsed.data.number)),
+      });
+      void queryClient.invalidateQueries({ queryKey: assetKeys.all });
     });
 
     return () => {

@@ -9,6 +9,7 @@ import {
 import { Router } from "express";
 import { Types } from "mongoose";
 import { validateBody, validateQuery } from "../../middleware/validate";
+import { SparePart, WorkOrder } from "../../models/maintenance.models";
 import { Notification } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 
@@ -42,6 +43,21 @@ router.get("/notifications", validateQuery(paginationQuery), async (_req, res) =
         .lean()
     : [];
   const numbers = new Map(tickets.map((ticket) => [String(ticket._id), ticket.number!]));
+  // Lo mismo para los avisos del módulo 2 que llevan a una orden de trabajo.
+  const orderIds = [...new Set(items.filter((item) => item.workOrderId).map((item) => item.workOrderId))];
+  const orders = orderIds.length
+    ? await WorkOrder.find({ _id: { $in: orderIds } })
+        .select("number")
+        .lean()
+    : [];
+  const orderNumbers = new Map(orders.map((order) => [String(order._id), order.number]));
+  const partIds = [...new Set(items.filter((item) => item.sparePartId).map((item) => item.sparePartId))];
+  const parts = partIds.length
+    ? await SparePart.find({ _id: { $in: partIds } })
+        .select("number")
+        .lean()
+    : [];
+  const partNumbers = new Map(parts.map((part) => [String(part._id), part.number]));
 
   const response: NotificationListResponse = {
     items: items.map((item) => ({
@@ -52,6 +68,12 @@ router.get("/notifications", validateQuery(paginationQuery), async (_req, res) =
       ...(item.ticketId ? { ticketId: String(item.ticketId) } : {}),
       ...(item.ticketId && numbers.has(String(item.ticketId))
         ? { ticketNumber: numbers.get(String(item.ticketId))! }
+        : {}),
+      ...(item.workOrderId && orderNumbers.has(String(item.workOrderId))
+        ? { workOrderId: String(item.workOrderId), workOrderNumber: orderNumbers.get(String(item.workOrderId))! }
+        : {}),
+      ...(item.sparePartId && partNumbers.has(String(item.sparePartId))
+        ? { sparePartId: String(item.sparePartId), sparePartNumber: partNumbers.get(String(item.sparePartId))! }
         : {}),
       ...(item.readAt ? { readAt: item.readAt.toISOString() } : {}),
       createdAt: item.createdAt!.toISOString(),

@@ -4,6 +4,7 @@ import {
   assetEventKind,
   assetStatus,
   assetType,
+  externalPricing,
   partUnit,
   planMode,
   planUnit,
@@ -108,18 +109,6 @@ export type AssetEvent = z.infer<typeof assetEvent>;
 
 // ── Orden de trabajo ──────────────────────────────────────────
 
-/** Horas registradas a mano, en minutos, con la tarifa del área congelada al registrar. */
-export const timeEntry = z.object({
-  id: objectId,
-  userId: objectId,
-  minutes: z.number().int().positive().max(24 * 60),
-  /** Tarifa por hora del área, en centavos, en el momento del registro. */
-  rate: money,
-  at: isoDateTime,
-  note: z.string().optional(),
-});
-export type TimeEntry = z.infer<typeof timeEntry>;
-
 /** El costo unitario se congela al consumir: una compra posterior no cambia el pasado. */
 export const partUsage = z.object({
   id: objectId,
@@ -130,10 +119,19 @@ export const partUsage = z.object({
 });
 export type PartUsage = z.infer<typeof partUsage>;
 
+/**
+ * Un servicio de un proveedor externo: la única mano de obra que cuesta. Cobra
+ * un precio total (las horas, si se anotan, son informativas) o por hora, y
+ * entonces `amount` es `hourlyRate × minutes`, calculado al registrarlo.
+ */
 export const externalCost = z.object({
   id: objectId,
   vendor: z.string(),
   description: z.string().optional(),
+  pricing: externalPricing,
+  minutes: z.number().int().positive().optional(),
+  hourlyRate: money.optional(),
+  /** Total del servicio, en centavos, sea cual sea la forma de cobro. */
   amount: money,
   attachmentId: objectId.optional(),
   at: isoDateTime,
@@ -161,7 +159,6 @@ export const workOrder = z.object({
   /** ¿El equipo quedó fuera de servicio al abrirla? Decide si cuenta tiempo de parada. */
   outOfService: z.boolean(),
   checklist: z.array(checklistItem),
-  timeEntries: z.array(timeEntry),
   partsUsed: z.array(partUsage),
   externalCosts: z.array(externalCost),
   /** Suma en caché de `workOrderCost`; la verdad son las tres listas de arriba. */

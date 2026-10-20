@@ -1,6 +1,8 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
+  BoxIcon,
   ChartIcon,
+  ClipboardIcon,
   GaugeNavIcon,
   LogOutIcon,
   PanelIcon,
@@ -162,6 +164,9 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
   const managesUsers = Boolean(me && canManageUsers(me));
   const managesSettings = Boolean(me && canManageSettings(me));
   const myOpenCount = useMyOpenCount();
+  // Las OT son del área que mantiene el equipo (plan A3): quien no mantiene nada
+  // no ve la entrada, igual que Configuración.
+  const seesWorkOrders = Boolean(me && (isAdmin || me.hasGlobalReadAccess || me.maintainsAssets));
   const navigate = useNavigate();
 
   return (
@@ -215,6 +220,11 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
 
         {/* Módulo 2: todos entran; el empleado ve los equipos que usa su área o tiene a cargo. */}
         <NavItem to="/activos" label="Activos y mantenimiento" icon={WrenchIcon} collapsed={collapsed} />
+        {seesWorkOrders && (
+          <NavItem to="/ordenes" label="Órdenes de trabajo" icon={ClipboardIcon} collapsed={collapsed} />
+        )}
+        {/* El almacén es del área que mantiene equipos, igual que sus órdenes. */}
+        {seesWorkOrders && <NavItem to="/repuestos" label="Repuestos" icon={BoxIcon} collapsed={collapsed} />}
       </nav>
 
       {managesUsers && (

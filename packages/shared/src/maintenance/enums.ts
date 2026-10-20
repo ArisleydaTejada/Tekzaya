@@ -147,6 +147,16 @@ export const WORK_ORDER_HOLD_REASON_LABEL: Record<WorkOrderHoldReason, string> =
   other: "Otro motivo",
 };
 
+/** Cómo cobra un proveedor externo: un precio cerrado o por hora trabajada. */
+export const EXTERNAL_PRICINGS = ["total", "hourly"] as const;
+export const externalPricing = z.enum(EXTERNAL_PRICINGS);
+export type ExternalPricing = z.infer<typeof externalPricing>;
+
+export const EXTERNAL_PRICING_LABEL: Record<ExternalPricing, string> = {
+  total: "Precio total",
+  hourly: "Por hora",
+};
+
 // ── Plan preventivo ───────────────────────────────────────────
 
 export const PLAN_UNITS = ["day", "week", "month"] as const;

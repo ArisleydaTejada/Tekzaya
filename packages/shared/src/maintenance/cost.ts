@@ -1,31 +1,35 @@
 /**
- * Costo de una orden de trabajo = repuestos + mano de obra + costos externos
- * (plan A3). Todo en centavos enteros; es una función pura para poder cuadrarla
- * a mano en las pruebas, igual que el motor de SLA del módulo 1.
+ * Costo de una orden de trabajo = repuestos + servicios externos. El trabajo de
+ * los técnicos de la empresa no se cobra: su sueldo no es un costo de la
+ * reparación. Lo que sí cuesta es el proveedor de fuera, que cobra un precio
+ * total o por hora. Todo en centavos enteros; es una función pura para
+ * poder cuadrarla a mano en las pruebas, igual que el motor de SLA del módulo 1.
  */
 export interface WorkOrderCostInput {
-  /** `rate` es la tarifa por hora del área, en centavos, congelada al registrar. */
-  timeEntries: readonly { minutes: number; rate: number }[];
   /** `unitCost` es el costo promedio de la pieza en el momento de consumirla. */
   partsUsed: readonly { qty: number; unitCost: number }[];
+  /** `amount` ya es el total del servicio, aunque se haya cobrado por hora. */
   externalCosts: readonly { amount: number }[];
 }
 
 export interface WorkOrderCost {
-  labor: number;
   parts: number;
   external: number;
   total: number;
 }
 
 export function workOrderCost(input: WorkOrderCostInput): WorkOrderCost {
-  // Se suma en "centavos × minutos" y se redondea UNA vez: redondear cada
-  // entrada por separado acumula hasta medio centavo de error por línea.
-  const laborCentMinutes = input.timeEntries.reduce((sum, entry) => sum + entry.minutes * entry.rate, 0);
-  const labor = Math.round(laborCentMinutes / 60);
   const parts = input.partsUsed.reduce((sum, part) => sum + part.qty * part.unitCost, 0);
   const external = input.externalCosts.reduce((sum, cost) => sum + cost.amount, 0);
-  return { labor, parts, external, total: labor + parts + external };
+  return { parts, external, total: parts + external };
+}
+
+/**
+ * Lo que cobra un proveedor por hora: tarifa × horas, redondeado una sola vez
+ * ("centavos × minutos" ÷ 60). 1 h 20 min a 30,00/h son 40,00.
+ */
+export function hourlyServiceAmount(hourlyRate: number, minutes: number): number {
+  return Math.round((hourlyRate * minutes) / 60);
 }
 
 /**

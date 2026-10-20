@@ -22,14 +22,14 @@ import { Types } from "mongoose";
 import { AppError } from "../../middleware/errors";
 import { validateBody, validateQuery } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
-import { nextNumber } from "../../models/counter.model";
-import { Asset, AssetEvent, WorkOrder } from "../../models/maintenance.models";
+import { Asset, WorkOrder } from "../../models/maintenance.models";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { idOf, loadVisibleTicket, refOf, routeParam, type LeanTicket, type TicketDoc } from "../tickets/ticket.access";
 import { recordSystemEvent } from "../tickets/ticket.lifecycle";
 import { broadcastTicket } from "../tickets/ticket.notify";
 import { hydrate, toDetail } from "../tickets/ticket.view";
+import { broadcastWorkOrder, openWorkOrder } from "../workOrders/workOrder.lifecycle";
 import { assetRefOf, type LeanAsset } from "./asset.access";
 import { assetLabel, loadLinkableAsset, openOrdersOf } from "./asset.ticket";
 
@@ -249,57 +249,21 @@ router.post("/tickets/:id/work-order", validateBody(createWorkOrderFromTicketInp
     throw new AppError(409, "work_order_open", "Este ticket ya tiene una orden de trabajo abierta");
   }
 
-  const number = await nextNumber("work_order");
   const title = input.title ?? String(plain["title"]);
-  await WorkOrder.create({
-    _id: orderId,
-    number,
-    type: "corrective",
-    title,
-    description: input.description || String(plain["description"]),
-    assetId: asset._id,
-    areaId: asset.areaId,
-    ticketId: idOf(ticket),
-    status: "pending",
-    assigneeIds: [],
-    outOfService: input.outOfService,
-    createdById: actor.id,
-    statusHistory: [{ status: "pending", at, byId: actor.id }],
-    createdAt: at,
-    updatedAt: at,
-  });
-
-  // Si el equipo ya estaba en reparación por otra orden, la parada ya corre: no
-  // se escribe un segundo "fuera de servicio". La condición en la propia
-  // actualización evita que dos órdenes a la vez lo dejen escrito dos veces.
-  const stopped = input.outOfService
-    ? (await Asset.updateOne({ _id: asset._id, status: "operational" }, { $set: { status: "in_repair" } }))
-        .modifiedCount > 0
-    : false;
-  await AssetEvent.insertMany([
+  const { number } = await openWorkOrder(
     {
-      assetId: asset._id,
-      kind: "failure",
-      at,
-      actorId: actor.id,
-      workOrderId: orderId,
+      _id: orderId,
+      type: "corrective",
+      title,
+      description: input.description || String(plain["description"]),
+      asset,
       ticketId: idOf(ticket),
-      data: { title },
+      outOfService: input.outOfService,
     },
-    ...(stopped
-      ? [
-          {
-            assetId: asset._id,
-            kind: "status_changed",
-            at,
-            actorId: actor.id,
-            workOrderId: orderId,
-            ticketId: idOf(ticket),
-            data: { from: "operational", to: "in_repair" },
-          },
-        ]
-      : []),
-  ]);
+    actor,
+    at,
+  );
+  await broadcastWorkOrder(orderId);
 
   await recordSystemEvent(idOf(ticket), { kind: "work_order_created", to: formatWorkOrderNumber(number) }, at);
   const updated = (await Ticket.findById(idOf(ticket))) as TicketDoc;

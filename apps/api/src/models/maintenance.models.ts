@@ -2,6 +2,7 @@ import {
   ASSET_EVENT_KINDS,
   ASSET_STATUSES,
   ASSET_TYPES,
+  EXTERNAL_PRICINGS,
   PART_UNITS,
   PLAN_MODES,
   PLAN_UNITS,
@@ -87,15 +88,6 @@ const workOrderSchema = new Schema(
     scheduledFor: { type: String },
     outOfService: { type: Boolean, default: false },
     checklist: [{ _id: false, label: { type: String, required: true }, done: { type: Boolean, default: false } }],
-    timeEntries: [
-      {
-        userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-        minutes: { type: Number, required: true },
-        rate: { type: Number, required: true },
-        at: { type: Date, required: true },
-        note: { type: String },
-      },
-    ],
     partsUsed: [
       {
         partId: { type: Schema.Types.ObjectId, ref: "SparePart", required: true },
@@ -108,6 +100,10 @@ const workOrderSchema = new Schema(
       {
         vendor: { type: String, required: true },
         description: { type: String },
+        /** Precio total o por hora; `amount` es siempre el total del servicio. */
+        pricing: { type: String, enum: EXTERNAL_PRICINGS, default: "total" },
+        minutes: { type: Number },
+        hourlyRate: { type: Number },
         amount: { type: Number, required: true },
         attachmentId: { type: Schema.Types.ObjectId, ref: "Attachment" },
         at: { type: Date, required: true },
@@ -125,6 +121,8 @@ const workOrderSchema = new Schema(
         status: { type: String, enum: WORK_ORDER_STATUSES },
         at: { type: Date },
         byId: { type: Schema.Types.ObjectId, ref: "User" },
+        /** Motivo de una cancelación. */
+        reason: { type: String },
       },
     ],
   },

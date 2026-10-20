@@ -1,5 +1,7 @@
 import {
   formatTicketNumber,
+  formatSparePartNumber,
+  formatWorkOrderNumber,
   NOTIFICATION_TONE,
   type NotificationView,
 } from "@tekzaya/shared";
@@ -143,6 +145,8 @@ function NotificationRow({
         )}
         <p className="text-xs text-[var(--content-ink-dim)]">
           {item.ticketNumber ? `${formatTicketNumber(item.ticketNumber)} · ` : ""}
+          {item.workOrderNumber ? `${formatWorkOrderNumber(item.workOrderNumber)} · ` : ""}
+          {item.sparePartNumber ? `${formatSparePartNumber(item.sparePartNumber)} · ` : ""}
           {formatWhen(item.createdAt)}
         </p>
       </div>
@@ -151,12 +155,19 @@ function NotificationRow({
 
   // Un aviso sin ticket (alguien se marcó ausente, por ejemplo) no lleva a ningún
   // sitio: se queda como texto en vez de fingir un enlace que no abre nada.
-  if (!item.ticketNumber) return <li>{content}</li>;
+  const to = item.ticketNumber
+    ? `/tickets/${formatTicketNumber(item.ticketNumber)}`
+    : item.workOrderNumber
+      ? `/ordenes/${formatWorkOrderNumber(item.workOrderNumber)}`
+      : item.sparePartNumber
+        ? `/repuestos/${formatSparePartNumber(item.sparePartNumber)}`
+        : null;
+  if (!to) return <li>{content}</li>;
 
   return (
     <li>
       <Link
-        to={`/tickets/${formatTicketNumber(item.ticketNumber)}`}
+        to={to}
         onClick={onNavigate}
         className="block hover:opacity-80"
       >

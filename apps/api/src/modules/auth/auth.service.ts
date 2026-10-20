@@ -1,5 +1,6 @@
 import { initialsOf, type MeResponse } from "@tekzaya/shared";
 import { Area } from "../../models/area.model";
+import { Asset } from "../../models/maintenance.models";
 import { User } from "../../models/user.model";
 import { AppError } from "../../middleware/errors";
 
@@ -11,7 +12,10 @@ export async function buildMeResponse(userId: string): Promise<MeResponse> {
   const user = await User.findById(userId).lean();
   if (!user) throw new AppError(401, "unauthenticated", "Tu cuenta ya no existe");
 
-  const area = await Area.findById(user.areaId).lean();
+  const [area, maintained] = await Promise.all([
+    Area.findById(user.areaId).lean(),
+    Asset.exists({ areaId: user.areaId }),
+  ]);
 
   return {
     id: String(user._id),
@@ -19,6 +23,7 @@ export async function buildMeResponse(userId: string): Promise<MeResponse> {
     email: user.email,
     areaId: String(user.areaId),
     areaName: area?.name ?? "Sin área",
+    maintainsAssets: Boolean(maintained),
     role: user.role ?? "employee",
     isAreaSupervisor: user.isAreaSupervisor ?? false,
     hasGlobalReadAccess: user.hasGlobalReadAccess ?? false,

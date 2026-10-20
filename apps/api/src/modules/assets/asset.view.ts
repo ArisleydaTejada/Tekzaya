@@ -1,4 +1,5 @@
 import {
+  canCreateWorkOrder,
   canManageAsset,
   canViewAssetDetails,
   wallClockIn,
@@ -114,6 +115,7 @@ export function toAssetView(asset: LeanAsset, h: AssetHydration, actor: Actor): 
     permissions: {
       manage: canManageAsset(actor, ref) && asset.status !== "retired",
       viewDetails,
+      createWorkOrder: canCreateWorkOrder(actor, ref) && asset.status !== "retired",
     },
   };
 }

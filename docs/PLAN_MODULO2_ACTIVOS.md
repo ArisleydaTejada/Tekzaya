@@ -9,7 +9,7 @@
 | Decisión | Elegido | Por qué |
 |---|---|---|
 | Quién mantiene los activos | **Cada activo tiene un área responsable** (TI mantiene laptops e impresoras, Mantenimiento el aire acondicionado y el mobiliario) | Reutiliza el modelo de áreas, supervisores y permisos del módulo 1 sin inventar roles nuevos |
-| Orden de trabajo vs. ticket | **Entidad aparte (`OT-0001`), vinculada al ticket** | La orden tiene su propio ciclo (horas, repuestos, costo) y puede nacer de un preventivo sin ningún ticket |
+| Orden de trabajo vs. ticket | **Entidad aparte (`OT-0001`), vinculada al ticket** | La orden tiene su propio ciclo (repuestos, servicios, costo) y puede nacer de un preventivo sin ningún ticket |
 | Moneda | **Configurable por el admin, dólares (`USD`) por defecto** | Una sola moneda para todo el sistema; los montos no se convierten |
 
 ---
@@ -49,7 +49,7 @@ Lo que ya está hecho y este módulo **no** vuelve a construir:
 |---|---|---|
 | `assets` | La ficha de cada equipo | `number` (ACT-0001), `name`, `type`, `brand`, `model`, `serial`, `areaId` (**área responsable**, quien lo mantiene), `usedByAreaId` (área que lo usa), `custodianId` (persona a cargo, opcional), `location`, `purchaseDate`, `purchaseCost`, `warrantyUntil`, `status` (`operational` · `in_repair` · `retired`), `photoId` |
 | `asset_events` | Historial **solo de inserción** de cada activo | `assetId`, `kind` (`created`, `status_changed`, `failure`, `repair`, `preventive`, `moved`, `custodian_changed`, `retired`), `at`, `actorId`, `workOrderId?`, `ticketId?`, `data` |
-| `work_orders` | Órdenes de trabajo | `number` (OT-0001), `type` (`corrective` · `preventive`), `assetId`, `areaId`, `ticketId?`, `planId?`, `status`, `assigneeIds`, `scheduledFor?`, `timeEntries[]`, `partsUsed[]`, `externalCosts[]`, `costTotal`, `completionNotes` |
+| `work_orders` | Órdenes de trabajo | `number` (OT-0001), `type` (`corrective` · `preventive`), `assetId`, `areaId`, `ticketId?`, `planId?`, `status`, `assigneeIds`, `scheduledFor?`, `partsUsed[]`, `externalCosts[]`, `costTotal`, `completionNotes` |
 | `maintenance_plans` | Planes preventivos recurrentes | `assetId` (o `assetType` + `areaId` para un plan por tipo), `title`, `checklist[]`, `every` + `unit` (días/semanas/meses), `mode` (`fixed` · `from_last`), `nextDueAt`, `leadDays`, `isActive` |
 | `spare_parts` | Catálogo de repuestos por área | `number` (REP-0001), `name`, `areaId`, `unit`, `stock`, `minStock`, `avgUnitCost` |
 | `stock_movements` | Libro de movimientos de repuestos | `partId`, `kind` (`in` · `consume` · `return` · `adjust`), `qty`, `unitCost`, `workOrderId?`, `actorId`, `at`, `reason` |
@@ -57,7 +57,7 @@ Lo que ya está hecho y este módulo **no** vuelve a construir:
 ### 2.2 Cambios en lo existente
 
 - **`tickets`**: campo opcional `assetId` y `workOrderIds[]`.
-- **`settings`**: bloque `maintenance` → `currency` (código ISO 4217, por defecto `"USD"`), `laborRates` (tarifa por hora **por área**), `warrantyAlertDays` (30), `repeatedFailure` (`{ count: 3, windowDays: 90 }`), `preventiveLeadDays` (7).
+- **`settings`**: bloque `maintenance` → `currency` (código ISO 4217, por defecto `"USD"`), `warrantyAlertDays` (30), `repeatedFailure` (`{ count: 3, windowDays: 90 }`), `preventiveLeadDays` (7).
 - **`counters`**: `nextTicketNumber()` pasa a ser `nextNumber("ticket" | "asset" | "work_order" | "spare_part")`.
 - **`notifications`**: tipos nuevos `work_order_assigned`, `preventive_due`, `preventive_overdue`, `low_stock`, `warranty_expiring`, `repeated_failures`.
 
@@ -87,7 +87,7 @@ Se extiende la matriz de `shared/permissions` con la misma lógica de "área res
 | Asignar OT a otros | — | — | ✓ | — | ✓ |
 | Gestionar planes preventivos | — | — | ✓ | — | ✓ |
 | Entradas y ajustes de stock | — | — | ✓ | — | ✓ |
-| Tarifas, moneda y umbrales | — | — | — | — | ✓ |
+| Moneda y umbrales | — | — | — | — | ✓ |
 
 **El empleado nunca ve costos.** Ve "su" laptop y su estado para poder reportar una falla; el precio de compra y las reparaciones son información del área.
 
@@ -112,11 +112,11 @@ Igual que en el módulo 1: **cada fila tiene su prueba**, y el alcance de cualqu
 **Decisiones tomadas al ejecutar A0** (2026-10-17):
 
 - **Índice único de preventivos: `{planId, assetId, scheduledFor}`**, no `{planId, scheduledFor}`. Un plan por tipo ("todas las impresoras de TI") genera una OT por equipo en la misma fecha; con el índice original, la segunda impresora chocaba con la primera. Sigue impidiendo dos OT del mismo plan, equipo y fecha.
-- **"Tomar una OT" y "registrar horas y repuestos" son dos permisos.** Cualquier técnico del área la toma (`canTakeWorkOrder`); cargarle horas, repuestos y costos es de quien la atiende o de su supervisor (`canWorkOnWorkOrder`), igual que cambiar el estado de un ticket.
+- **"Tomar una OT" y "cargarle repuestos y servicios" son dos permisos.** Cualquier técnico del área la toma (`canTakeWorkOrder`); cargarle repuestos y costos es de quien la atiende o de su supervisor (`canWorkOnWorkOrder`), igual que cambiar el estado de un ticket.
 - **Vincular un equipo a un ticket** exige que el ticket sea propio o del área del técnico: un técnico de IT no vincula equipos en tickets de Mantenimiento.
-- **La tarifa se congela en cada registro de horas** (`timeEntries[].rate`), igual que el costo del repuesto al consumirlo. Cambiar la tarifa del área no reescribe lo que costaron órdenes pasadas.
+- ~~**La tarifa se congela en cada registro de horas**~~ — sustituida en A3: el trabajo interno no se registra ni se cobra (ver las decisiones de A3).
 - **El tipo de activo es una lista cerrada** (`ASSET_TYPES`), no texto libre: es dimensión de los reportes y criterio de los planes por tipo.
-- **Los montos se redondean una sola vez**: la mano de obra se suma en "centavos × minutos" y se divide al final.
+- **Los montos se redondean una sola vez**: un servicio externo por hora se calcula en "centavos × minutos" y se divide al final.
 - **La semilla del módulo 2 es aparte** (`apps/api/src/seed/maintenance.ts`), con su propio generador aleatorio, y corre al final de `npm run seed`: los tickets salen idénticos con o sin ella. `npm run seed:maintenance --workspace @tekzaya/api` la vuelve a sembrar sobre una base en uso sin tocar áreas, personas ni tickets. `seed:refresh` también adelanta sus fechas, incluidas las de calendario (garantías, fechas programadas).
 - **La semilla se valida con una prueba** (`seed/maintenance.test.ts`): contrato Zod, stock igual a la suma de movimientos y nunca negativo, costo de cada OT, nada en el futuro, estado del activo igual a su historial, y el módulo 1 intacto. Encontró dos errores de la propia semilla antes de que llegaran a la demo.
 - Resultado: 58 activos (2 de baja), ~170 OT, 25 repuestos (2 bajo mínimo), 8 planes (1 vencido), y la multifuncional de Ventas con 3 correctivas en 90 días y reparaciones por encima de su precio de compra.
@@ -189,22 +189,42 @@ Decisiones:
 
 Estados: `Pendiente → Asignada → En progreso → En espera (repuesto/proveedor) → Completada`, más `Cancelada`. Transiciones validadas en el servidor (409 si no se permiten), como en los tickets.
 
-`GET /work-orders` (lista, grupos y kanban por estado), `POST /work-orders`, `GET|PATCH /work-orders/:id`, `PUT /assignees`, `POST /take`, `POST /time-entries`, `POST|DELETE /parts`, `POST /external-costs`, `POST /complete`.
+`GET /work-orders` (lista, grupos y kanban por estado), `POST /work-orders`, `GET|PATCH /work-orders/:id`, `PUT /assignees`, `POST /take`, `POST|DELETE /parts`, `POST|DELETE /external-costs`, `POST /complete`.
 
-- **Costo de la OT = repuestos + mano de obra + costos externos.**
+- **Costo de la OT = repuestos + servicios externos.** *(Cambiado al ejecutar A3: antes sumaba también horas internas × tarifa del área.)*
   - Repuestos: cantidad × costo congelado al consumir.
-  - Mano de obra: horas registradas × **tarifa por hora del área**.
-  - Externos: proveedor, factura adjunta, monto.
+  - El trabajo de los técnicos de la empresa **no se registra ni se cobra**.
+  - Servicios externos: proveedor, factura adjunta y **precio total** (horas opcionales) **o por hora** (tarifa × horas).
 - **Estado del activo:** al abrir una OT correctiva se pregunta *"¿El equipo queda fuera de servicio?"*. Si la respuesta es sí, el activo pasa a *En reparación* y empieza a contar el tiempo de parada. Al completar la OT vuelve a *Operativo* (o pasa a *De baja* si la reparación no tiene arreglo).
 - Completar exige **notas del trabajo realizado**.
 - Tiempo real: eventos `work_order:updated` a la sala del área.
 
 Decisiones:
-- **La tarifa es por área, no por persona.** Una tarifa por técnico expondría salarios a cualquiera que vea el costo de una OT.
-- **Las horas se registran a mano** (minutos por entrada), no con cronómetro. Un cronómetro que alguien olvida apagar produce costos falsos más dañinos que una estimación honesta.
+- ~~**La tarifa es por área, no por persona.**~~ Sustituida al ejecutar A3: el trabajo interno no se cobra (ver abajo).
+- ~~**Las horas se registran a mano**~~ — sustituida al ejecutar A3: ya no se registran horas internas (ver abajo). Las de un proveedor se escriben a mano en su servicio.
 - **Las OT no tienen SLA propio.** El plazo lo lleva el ticket que la originó (lo que espera el solicitante); los preventivos tienen fecha programada y se marcan *vencidos* si la pasan.
 
-**DoD:** un técnico toma una OT, registra 2 h, consume un repuesto y la completa; el costo total cuadra a mano (`horas × tarifa + repuesto + externo`); el activo estuvo *En reparación* exactamente entre la apertura y el cierre.
+**DoD:** un técnico toma una OT, consume un repuesto, carga un servicio externo y la completa; el costo total cuadra a mano (`repuesto + externo`); el activo estuvo *En reparación* exactamente entre la apertura y el cierre.
+
+**Decisiones tomadas al ejecutar A3** (2026-10-20):
+
+- **Pendiente ↔ Asignada la decide la asignación, no un desplegable.** Tomar o asignar a alguien pasa la OT a *Asignada*; quitar a todos la devuelve a *Pendiente*. `PATCH /work-orders/:id` solo mueve a *En progreso*, *En espera* (con motivo obligatorio: repuesto, proveedor u otro) y *Cancelada*; completar va por `POST /complete` porque exige notas. Una orden en curso no se queda sin responsables (409).
+- **Cada carga comprueba que la orden siga abierta dentro de la propia actualización**, no antes: una orden que se completa en paralelo no recibe cargos después de cerrada. El cambio de estado va condicionado al estado leído; si otro lo movió entre medias, 409 "recarga".
+- **El trabajo de los técnicos de la empresa ni se cobra ni se registra** (decisión de producto al revisar A3): un empleado no cobra por arreglar algo, su sueldo no es un gasto de la reparación, y anotar sus horas sin costo no servía para nada. Se quitaron `settings.maintenance.laborRates` (las bases viejas que lo traen lo descartan al leer), `work_orders.timeEntries` y `POST|DELETE /time-entries`. Si A6 necesita el tiempo de reparación, sale de las fechas de la OT y del historial del equipo, no de horas anotadas.
+- **La mano de obra que cuesta es la de fuera, y no siempre se cobra por hora.** Cada servicio externo lleva `pricing`: `total` (precio cerrado; las horas son un dato opcional que no multiplica nada) u `hourly` (tarifa + horas obligatorias). Por hora, el monto lo calcula el servidor (`hourlyServiceAmount`, redondeado una vez) aunque el cliente mande otro: nunca hay un total que no cuadre con su tarifa. La semilla cobra por hora los talleres de la planta eléctrica y los vehículos, y con precio cerrado el resto.
+- **`costTotal` se recalcula en la base con una sola actualización atómica** (pipeline de agregación), no en JavaScript: dos técnicos que cargan repuestos a la vez escribían cada uno el total que había visto. Una prueba comprueba que cuadra con `workOrderCost`, incluido el redondeo de medio centavo de un servicio por hora.
+- **El repuesto se consume en A3** con el `$inc` condicionado de §2.3: sin stock suficiente, 409 con lo que queda ("Solo queda 1 unidad…") y la sugerencia de poner la orden en espera de repuesto. Quitarlo de la OT o cancelarla lo devuelve con un movimiento `return` al costo congelado; el promedio ponderado no cambia (lo revisa A4). El aviso de stock bajo, el catálogo y las entradas siguen siendo A4. La prueba de concurrencia del último repuesto ya está aquí.
+- **Los servicios externos se pueden quitar mientras la orden está abierta**: un "1200" que debía ser "120" sin forma de corregirlo era peor que permitirlo. La factura es un adjunto normal enlazado a la orden (`attachments.workOrderId`), que ve quien ve la OT.
+- **Abrir la OT se escribe en un solo sitio** (`openWorkOrder`), que usan tanto `POST /work-orders` como la conversión del ticket de A2: la correctiva es la falla, el preventivo no cuenta como falla y cualquiera de los dos puede dejar el equipo fuera de servicio.
+- **Completar o cancelar devuelve el equipo a *Operativo* solo si ninguna otra orden abierta lo tiene parado** (el pendiente de A2). La última en cerrarse es la que lo devuelve, así la parada mide el tramo real.
+- **"No tiene arreglo"** es una casilla al completar, solo para quien gestiona el equipo (el supervisor), y exige que no queden otras órdenes abiertas, igual que la baja de A1. Las notas quedan como motivo de la baja y los planes del equipo se pausan.
+- **Cancelar no borra la falla** de la historia del equipo; deja el motivo en el historial de la OT y avisa al ticket. Qué hacer con las correctivas canceladas en MTBF lo decide A6.
+- **El ticket recibe `work_order_completed` y `work_order_cancelled`** como mensajes de sistema, sin las notas técnicas. Su tarjeta del equipo sugiere "Resolver el ticket" a quien puede cambiar su estado; no se resuelve solo.
+- **"Órdenes de trabajo" aparece en la barra lateral solo si el área de la persona mantiene algún equipo** (`me.maintainsAssets`), además de admin y RRHH. Al resto, la API le responde 404, como un ticket ajeno.
+- **El kanban no arrastra**: cada cambio de estado de una OT pide algo (qué falta para seguir, las notas del trabajo), así que se mueve desde la ficha. Muestra las 100 más recientes y remite a la lista para las anteriores.
+- **Tiempo real**: `work_order:updated` va solo a la sala del área (el solicitante no ve OT); la pantalla invalida listas, ficha y equipos. Aviso `work_order_assigned` a los responsables nuevos, que la campana enlaza a `/ordenes/OT-…`.
+- **El plan de un preventivo (`planId`) no se actualiza al completarlo**: correr la siguiente fecha es de A5.
+- Pruebas: 16 de API (`workOrders.test.ts`: DoD con costo a mano y parada exacta, servicio externo total y por hora, redondeo, transiciones, permisos por rol, stock y concurrencia, dos órdenes que paran el mismo equipo, baja sin arreglo, aviso al ticket, lista), el recorrido E2E `09-ordenes.spec.ts` y la lista y la ficha de órdenes en la auditoría de accesibilidad (ambos temas y 360 px).
 
 ---
 
@@ -220,6 +240,19 @@ Decisiones:
 - Alerta `low_stock` al supervisor la primera vez que se cruza el mínimo (con marca para no repetirla, como el aviso de SLA).
 
 **DoD:** dos consumos simultáneos del último repuesto → uno pasa y el otro recibe 409 (prueba de concurrencia); el stock siempre es igual a la suma de sus movimientos.
+
+**Decisiones tomadas al ejecutar A4** (2026-10-20):
+
+- **Todo cambio de existencias pasa por `spareParts/stock.ts`** y es una sola actualización atómica: `takeStock` saca solo si alcanza (condición dentro del `$inc`), y `receiveStock` suma y recalcula el promedio ponderado en el mismo pipeline, con el stock tal como está en la base. El promedio redondea con `floor(x + 0,5)`, igual que `weightedAverageCost`.
+- **Una devolución desde la OT entra en el promedio al costo con el que salió**, como una compra a ese costo (lo que A3 dejó pendiente). Así el valor del almacén cuadra: 2 a 20,00 más 2 devueltas a 10,00 son 4 a 15,00 (hay prueba).
+- **Entrada y ajuste son dos cosas.** La entrada trae su costo y mueve el promedio; el ajuste (conteo físico, merma) corrige la cantidad al costo actual, no mueve el promedio, exige motivo y, a la baja, nunca deja el stock en negativo (409). Consumos y devoluciones no se registran a mano: solo salen de una OT.
+- **Bajo mínimo es `stock < minStock`**: estar justo en el mínimo todavía no avisa. El aviso `low_stock` va a los supervisores del área (sin quien lo provocó) la primera vez que se cruza; la marca `lowStockNotifiedAt` se pone y se quita con actualizaciones condicionadas, así dos consumos a la vez no mandan dos avisos. Reponer por encima del mínimo rearma el aviso, y subir el mínimo por encima del stock también avisa.
+- **El libro muestra el saldo que dejó cada movimiento**, deducido hacia atrás desde el stock actual (que es la suma del libro), también al paginar.
+- **El área de un repuesto no cambia**: su libro es de ese almacén. Desactivarlo lo saca del selector de las OT y de la lista por defecto, y bloquea entradas y ajustes hasta reactivarlo; nada se borra.
+- **Al dar de alta se pueden registrar existencias iniciales**, que entran al libro como una entrada ("Existencias iniciales"): el libro empieza cuadrado.
+- **"Repuestos" aparece en la barra lateral con el mismo criterio que las órdenes** (el área mantiene equipos, admin o RRHH). RRHH lee el almacén de todas las áreas sin gestionar nada; el técnico ve el de su área y no lo ajusta.
+- **La semilla deja enviados los avisos de las piezas que terminan bajo mínimo**, con la fecha en que cruzaron: si no, el primer consumo de la demo repetiría un aviso que en la realidad ya habría llegado.
+- Pruebas: 7 de API (`spareParts.test.ts`: libro y saldo con alta, entrada, consumo, devolución y ajuste; ajuste sin negativo y con motivo; devolución en el promedio; aviso una sola vez y rearmado; mínimo subido; permisos por rol; filtros, desactivado y CSV), el recorrido E2E `10-repuestos.spec.ts` (el recorrido 3 de la defensa) y la lista y la ficha de repuestos en la auditoría de accesibilidad (ambos temas y 360 px).
 
 ---
 
@@ -319,7 +352,7 @@ Decisión: **la IA no inventa cifras.** Un modelo de lenguaje que "estima" 120 U
 
 Los que cubren los E2E de A7 y conviene ensayar:
 
-1. **De la queja al equipo reparado:** un empleado reporta "la impresora no imprime" vinculando el equipo → el técnico de TI convierte el ticket en OT, registra horas y un repuesto → completa → el ticket recibe el aviso y se resuelve → la línea de tiempo del activo muestra todo.
+1. **De la queja al equipo reparado:** un empleado reporta "la impresora no imprime" vinculando el equipo → el técnico de TI convierte el ticket en OT, carga un repuesto → completa → el ticket recibe el aviso y se resuelve → la línea de tiempo del activo muestra todo.
 2. **Preventivo automático:** el plan del aire acondicionado genera su OT y su aviso; el técnico la completa con la lista de verificación.
 3. **Stock bajo:** consumir un repuesto lo deja bajo mínimo y el supervisor recibe la alerta.
 4. **¿Reparar o reemplazar?:** el activo con fallas repetidas muestra la sugerencia de la IA con sus números.
@@ -337,7 +370,7 @@ Recortar **en este orden**, de arriba hacia abajo. Cada línea cae sin romper lo
 4. Medidas de mantenimiento en el constructor — se quedan **plantillas fijas** (A6)
 5. Planes por tipo de activo — se quedan los planes por activo (A5)
 6. Modo `fixed` de recurrencia — se queda `from_last` (A5)
-7. Costos externos de proveedor — se quedan repuestos y mano de obra (A3)
+7. Servicios externos de proveedor — se quedan los repuestos (A3)
 
 **Nunca se recorta:** inventario con historial, permisos por área responsable, vínculo ticket → activo → OT, costo de la OT, stock sin negativos y preventivos que generan OT. Es lo que justifica que los dos módulos estén en una sola herramienta.
 
@@ -351,7 +384,7 @@ Recortar **en este orden**, de arriba hacia abajo. Cada línea cae sin romper lo
 | El empleado no ve costos ni activos ajenos | Supertest | A1 |
 | Ticket → OT → historial del activo | Supertest | A2 |
 | Transiciones de OT inválidas | Supertest: 409 | A3 |
-| Costo de la OT | Vitest: cálculo puro en centavos, con tarifa, repuesto y externo | A3 |
+| Costo de la OT | Vitest: cálculo puro en centavos, repuesto y externo (total y por hora) | A3 |
 | Tiempo de parada del activo | Vitest con la hora inyectada | A3 |
 | Stock nunca negativo, consumo concurrente | Supertest con dos peticiones en paralelo | A4 |
 | Stock = suma de movimientos | Supertest tras consumir, devolver y ajustar | A4 |

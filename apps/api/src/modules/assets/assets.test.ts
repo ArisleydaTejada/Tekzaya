@@ -46,7 +46,7 @@ describe("recorrido del supervisor (DoD de A1)", () => {
     expect(created.body.number).toBe(1);
     expect(created.body.status).toBe("operational");
     expect(created.body.custodian.name).toBe("Vito Ventas");
-    expect(created.body.permissions).toEqual({ manage: true, viewDetails: true });
+    expect(created.body.permissions).toEqual({ manage: true, viewDetails: true, createWorkOrder: true });
     const id = created.body.id as string;
 
     const moved = await supervisor.patch(`/api/v1/assets/${id}`).send({ location: "Piso 3 · Finanzas" });

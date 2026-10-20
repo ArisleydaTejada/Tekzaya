@@ -21,6 +21,8 @@ import settingsRoutes from "./modules/settings/settings.routes";
 import statsRoutes from "./modules/stats/stats.routes";
 import ticketActionsRoutes from "./modules/tickets/ticketActions.routes";
 import ticketsRoutes from "./modules/tickets/tickets.routes";
+import sparePartsRoutes from "./modules/spareParts/spareParts.routes";
+import workOrdersRoutes from "./modules/workOrders/workOrders.routes";
 
 export function createApp() {
   const app = express();
@@ -51,6 +53,8 @@ export function createApp() {
   // Antes que `/assets/:id`, que si no leería "link-options" como un número.
   app.use("/api/v1", requireAuth, ticketLinkRoutes);
   app.use("/api/v1", requireAuth, assetsRoutes);
+  app.use("/api/v1", requireAuth, workOrdersRoutes);
+  app.use("/api/v1", requireAuth, sparePartsRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

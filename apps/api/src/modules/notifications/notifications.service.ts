@@ -18,6 +18,11 @@ export interface NotificationInput {
   ticketId?: Types.ObjectId;
   /** Número del ticket, si quien avisa ya lo tiene a mano; si no, se consulta. */
   ticketNumber?: number;
+  /** Avisos del módulo 2 que llevan a una orden de trabajo. */
+  workOrderId?: Types.ObjectId;
+  workOrderNumber?: number;
+  sparePartId?: Types.ObjectId;
+  sparePartNumber?: number;
 }
 
 function viewOf(
@@ -32,6 +37,10 @@ function viewOf(
     ...(input.body ? { body: input.body } : {}),
     ...(input.ticketId ? { ticketId: String(input.ticketId) } : {}),
     ...(ticketNumber ? { ticketNumber } : {}),
+    ...(input.workOrderId ? { workOrderId: String(input.workOrderId) } : {}),
+    ...(input.workOrderNumber ? { workOrderNumber: input.workOrderNumber } : {}),
+    ...(input.sparePartId ? { sparePartId: String(input.sparePartId) } : {}),
+    ...(input.sparePartNumber ? { sparePartNumber: input.sparePartNumber } : {}),
     createdAt: (doc.createdAt ?? new Date()).toISOString(),
   };
 }
@@ -50,6 +59,8 @@ export async function notify(
       title: input.title,
       ...(input.body ? { body: input.body } : {}),
       ...(input.ticketId ? { ticketId: input.ticketId } : {}),
+      ...(input.workOrderId ? { workOrderId: input.workOrderId } : {}),
+      ...(input.sparePartId ? { sparePartId: input.sparePartId } : {}),
     })),
   );
 
