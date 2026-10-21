@@ -45,7 +45,7 @@ export function AssetStatusBadge({ status }: { status: AssetStatus }) {
 const WARRANTY_TONE: Record<WarrantyState, string> = {
   active: "text-green",
   expiring: "text-amber",
-  expired: "text-[var(--content-ink-dim)]",
+  expired: "text-red",
   none: "text-[var(--content-ink-dim)]",
 };
 

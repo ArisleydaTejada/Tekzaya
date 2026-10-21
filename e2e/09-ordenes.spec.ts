@@ -57,7 +57,7 @@ test("abrir, tomar, cargar repuesto y externo, completar: el costo cuadra", asyn
   const rollers = await partPicker.locator("option", { hasText: "Kit de rodillos de alimentación" }).getAttribute("value");
   await partPicker.selectOption(rollers!);
   await page.getByRole("button", { name: "Agregar", exact: true }).click();
-  await expect(page.getByText("Kit de rodillos de alimentación").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Devolver Kit de rodillos de alimentación al almacén" })).toBeVisible();
 
   // El técnico de fuera cobra por hora: 1 h 30 min a 30,00 son 45,00.
   await page.getByLabel("Proveedor", { exact: true }).fill("Etiquetas del Caribe");
@@ -90,6 +90,8 @@ test("abrir, tomar, cargar repuesto y externo, completar: el costo cuadra", asyn
   // ── El equipo vuelve a estar operativo y la reparación queda en su historia ──
   await page.getByRole("link", { name: PRINTER }).click();
   await expect(page.getByRole("heading", { level: 1, name: PRINTER })).toBeVisible();
+  await page.getByRole("tab", { name: "Historial" }).click();
+  await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toBeVisible();
   const repair = page.getByRole("listitem").filter({ hasText: "Se cambiaron los rodillos" });
   await expect(repair).toContainText("Vuelve a estar operativo");
   await repair.getByRole("link", { name: /^OT-\d{4}$/ }).click();

@@ -96,6 +96,16 @@ const workOrderSchema = new Schema(
         at: { type: Date, required: true },
       },
     ],
+    /**
+     * Lo que hará falta para el trabajo. Es una previsión: no toca el almacén
+     * hasta que la pieza se consume en `partsUsed`.
+     */
+    requiredParts: [
+      {
+        partId: { type: Schema.Types.ObjectId, ref: "SparePart", required: true },
+        qty: { type: Number, required: true },
+      },
+    ],
     externalCosts: [
       {
         vendor: { type: String, required: true },
@@ -115,6 +125,8 @@ const workOrderSchema = new Schema(
     startedAt: { type: Date },
     completedAt: { type: Date },
     cancelledAt: { type: Date },
+    /** Marca del aviso de preventivo vencido: el trabajo diario no lo repite (plan A5). */
+    overdueNotifiedAt: { type: Date },
     statusHistory: [
       {
         _id: false,
@@ -184,6 +196,8 @@ const sparePartSchema = new Schema(
     minStock: { type: Number, default: 0, min: 0 },
     avgUnitCost: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
+    /** Equipos del área en los que se usa: la ficha del activo los lista con su existencia. */
+    assetIds: [{ type: Schema.Types.ObjectId, ref: "Asset" }],
     /** Marca del aviso de stock bajo; se borra al volver a superar el mínimo. */
     lowStockNotifiedAt: { type: Date },
   },
@@ -191,6 +205,7 @@ const sparePartSchema = new Schema(
 );
 sparePartSchema.index({ areaId: 1, isActive: 1 });
 
+sparePartSchema.index({ assetIds: 1 });
 export const SparePart = model("SparePart", sparePartSchema, "spare_parts");
 
 // ── stock_movements ───────────────────────────────────────────

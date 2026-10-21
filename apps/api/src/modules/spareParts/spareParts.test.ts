@@ -232,3 +232,45 @@ describe("permisos y lista", () => {
     expect(csv.text).toContain("Desactivado");
   });
 });
+
+describe("equipos en los que se usa", () => {
+  it("se vinculan al darlo de alta, filtran la lista y solo valen los equipos del área", async () => {
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    const printer = await Asset.create({
+      name: "Impresora de Ventas",
+      type: "printer",
+      location: "Piso 2",
+      status: "operational",
+      areaId: fixture.areas.it,
+      number: await nextNumber("asset"),
+    });
+    const foreign = await Asset.create({
+      name: "Montacargas",
+      type: "vehicle",
+      location: "Bodega",
+      status: "operational",
+      areaId: fixture.areas.ventas,
+      number: await nextNumber("asset"),
+    });
+
+    const rejected = await supervisor.post("/api/v1/spare-parts").send({
+      name: "Batería",
+      areaId: String(fixture.areas.it),
+      unit: "unit",
+      minStock: 0,
+      assetIds: [String(foreign._id)],
+    });
+    expect(rejected.status).toBe(422);
+
+    const part = await createPart(supervisor, { assetIds: [String(printer._id)] });
+    const detail = await supervisor.get(`/api/v1/spare-parts/${part.id}`);
+    expect(detail.body.assets).toEqual([expect.objectContaining({ name: "Impresora de Ventas", status: "operational" })]);
+
+    await createPart(supervisor, { name: "Cable de red" });
+    const forPrinter = await supervisor.get(`/api/v1/spare-parts?assetId=${String(printer._id)}`);
+    expect(forPrinter.body.items.map((item: { name: string }) => item.name)).toEqual(["Tóner HP 58A"]);
+
+    const unlinked = await supervisor.patch(`/api/v1/spare-parts/${part.id}`).send({ assetIds: [] });
+    expect(unlinked.body.assets).toEqual([]);
+  });
+});

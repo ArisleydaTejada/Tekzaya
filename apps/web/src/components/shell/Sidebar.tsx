@@ -8,6 +8,7 @@ import {
   PanelIcon,
   PlusIcon,
   SearchIcon,
+  ShieldIcon,
   SlidersIcon,
   TicketIcon,
   UserIcon,
@@ -225,6 +226,8 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
         )}
         {/* El almacén es del área que mantiene equipos, igual que sus órdenes. */}
         {seesWorkOrders && <NavItem to="/repuestos" label="Repuestos" icon={BoxIcon} collapsed={collapsed} />}
+        {/* Los planes preventivos también son del área que mantiene equipos (plan A5). */}
+        {seesWorkOrders && <NavItem to="/preventivos" label="Preventivos" icon={ShieldIcon} collapsed={collapsed} />}
       </nav>
 
       {managesUsers && (

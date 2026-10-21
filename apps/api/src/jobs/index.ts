@@ -1,7 +1,10 @@
 import cron from "node-cron";
+import { wallClockIn } from "@tekzaya/shared";
 import { env } from "../config/env";
+import { getSettings } from "../modules/settings/settings.service";
 import { runAvailabilityReturn } from "./availability.job";
 import { runLifecycleJobs } from "./lifecycle.job";
+import { PREVENTIVE_HOUR, runPreventiveJob } from "./preventive.job";
 import { runSlaWatch } from "./sla.job";
 
 /**
@@ -33,7 +36,21 @@ export function startJobs(): void {
 
   cron.schedule("13 * * * *", () => void safely("disponibilidad", () => runAvailabilityReturn()));
 
-  console.log("Trabajos programados activos: SLA (10 min), ciclo de vida y disponibilidad (cada hora)");
+  // Preventivos: desde las 06:00 de la empresa (plan A5). Se mira cada hora y no
+  // una vez al día porque el trabajo es idempotente: si el servidor estaba
+  // apagado a las 06:00, la pasada siguiente genera lo que faltó. La hora se lee
+  // de Configuración, que el admin puede cambiar sin reiniciar.
+  cron.schedule(
+    "21 * * * *",
+    () =>
+      void safely("preventivos", async () => {
+        const zone = (await getSettings()).businessHours.timezone;
+        if (wallClockIn(new Date(), zone).hour < PREVENTIVE_HOUR) return "antes de las 06:00";
+        return runPreventiveJob();
+      }),
+  );
+
+  console.log("Trabajos programados activos: SLA (10 min), ciclo de vida, disponibilidad y preventivos (cada hora)");
 }
 
-export { runAvailabilityReturn, runLifecycleJobs, runSlaWatch };
+export { runAvailabilityReturn, runLifecycleJobs, runPreventiveJob, runSlaWatch };

@@ -21,6 +21,8 @@ export interface LeanSparePart {
   minStock: number;
   avgUnitCost: number;
   isActive: boolean;
+  /** Ausente en los repuestos anteriores al vínculo con equipos. */
+  assetIds?: Types.ObjectId[] | null;
   lowStockNotifiedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;

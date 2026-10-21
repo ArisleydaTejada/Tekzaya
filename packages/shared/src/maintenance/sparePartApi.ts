@@ -2,7 +2,7 @@ import { z } from "zod";
 import { areaRef } from "../area";
 import { isoDateTime, objectId, paginated, paginationQuery } from "../common";
 import { assetPerson } from "./assetApi";
-import { partUnit, stockMovementKind } from "./enums";
+import { assetStatus, partUnit, stockMovementKind } from "./enums";
 import { currencyCode, money } from "./money";
 import { sparePart } from "./schemas";
 
@@ -31,6 +31,8 @@ export const sparePartListQuery = paginationQuery.extend({
   /** Número (`REP-0003` o `3`) o nombre. */
   q: z.string().trim().max(120).optional(),
   areaId: objectId.optional(),
+  /** Los que se usan en ese equipo. */
+  assetId: objectId.optional(),
   /** Solo los que están bajo mínimo. */
   low: z
     .enum(["true", "false"])
@@ -45,8 +47,19 @@ export type ParsedSparePartListQuery = z.output<typeof sparePartListQuery>;
 
 // ── Vistas ────────────────────────────────────────────────────
 
+/** Un equipo en el que se usa el repuesto, lo justo para enlazarlo. */
+export const sparePartAssetRef = z.object({
+  id: objectId,
+  number: z.number().int().positive(),
+  name: z.string(),
+  status: assetStatus,
+});
+export type SparePartAssetRef = z.infer<typeof sparePartAssetRef>;
+
 export const sparePartView = sparePart.extend({
   area: areaRef,
+  /** Equipos en los que se usa. */
+  assets: z.array(sparePartAssetRef),
   low: z.boolean(),
   /** Stock × costo promedio: lo que vale lo que hay en el almacén. */
   stockValue: money,
@@ -94,6 +107,8 @@ export type StockMovementsResponse = z.infer<typeof stockMovementsResponse>;
 
 // ── Entradas ──────────────────────────────────────────────────
 
+export const MAX_PART_ASSETS = 100;
+
 /** Unidades de un movimiento: enteras, y con un techo que atrapa un cero de más. */
 const units = z.number().int().max(100_000, "Demasiadas unidades para un solo movimiento");
 
@@ -102,6 +117,8 @@ export const createSparePartInput = z.object({
   areaId: objectId,
   unit: partUnit,
   minStock: z.number().int().min(0).max(100_000),
+  /** Equipos del área en los que se usa. */
+  assetIds: z.array(objectId).max(MAX_PART_ASSETS).default([]),
   /** Existencias con las que llega al almacén; se registran como una entrada. */
   initialStock: z
     .object({ qty: units.min(1), unitCost: money })
@@ -118,6 +135,7 @@ export const updateSparePartInput = z.object({
   unit: partUnit.optional(),
   minStock: z.number().int().min(0).max(100_000).optional(),
   isActive: z.boolean().optional(),
+  assetIds: z.array(objectId).max(MAX_PART_ASSETS).optional(),
 });
 export type UpdateSparePartInput = z.infer<typeof updateSparePartInput>;
 

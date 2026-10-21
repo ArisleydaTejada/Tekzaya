@@ -7,6 +7,7 @@ import {
   type AddWorkOrderPartInput,
   type CompleteWorkOrderInput,
   type CreateWorkOrderInput,
+  type SetRequiredPartInput,
   type UpdateWorkOrderInput,
   type WorkOrderDetail,
   type WorkOrderListQuery,
@@ -42,6 +43,10 @@ export const setWorkOrderAssignees = (id: string, assigneeIds: string[]) =>
 export const takeWorkOrder = (id: string) => send(`/work-orders/${id}/take`, "POST");
 export const addWorkOrderPart = (id: string, input: AddWorkOrderPartInput) => send(`/work-orders/${id}/parts`, "POST", input);
 export const removeWorkOrderPart = (id: string, usageId: string) => send(`/work-orders/${id}/parts/${usageId}`, "DELETE");
+export const setRequiredPart = (id: string, input: SetRequiredPartInput) =>
+  send(`/work-orders/${id}/required-parts`, "PUT", input);
+export const removeRequiredPart = (id: string, itemId: string) =>
+  send(`/work-orders/${id}/required-parts/${itemId}`, "DELETE");
 export const addExternalCost = (id: string, input: AddExternalCostInput) =>
   send(`/work-orders/${id}/external-costs`, "POST", input);
 export const removeExternalCost = (id: string, costId: string) =>

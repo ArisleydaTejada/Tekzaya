@@ -58,6 +58,9 @@ test.describe("supervisor de IT", () => {
     await expect(retire).toBeHidden();
 
     await expect(page.getByText("Dado de baja", { exact: true })).toBeVisible();
+    // La historia completa vive en su pestaña; el resumen solo trae lo último.
+    await page.getByRole("tab", { name: "Historial" }).click();
+    await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toBeVisible();
     const timeline = page.getByRole("list").filter({ hasText: "Alta en el inventario" });
     await expect(timeline.getByRole("listitem")).toHaveCount(4);
     await expect(timeline).toContainText("Baja");
@@ -87,5 +90,6 @@ test.describe("empleado de Ventas", () => {
     await expect(page.getByRole("link", { name: "Reportar una falla" })).toBeVisible();
     await expect(page.getByText("Costo de compra")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Historial" })).toHaveCount(0);
   });
 });

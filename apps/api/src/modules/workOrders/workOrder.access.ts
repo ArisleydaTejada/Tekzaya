@@ -29,6 +29,8 @@ export interface LeanWorkOrder {
   outOfService: boolean;
   checklist: { label: string; done: boolean }[];
   partsUsed: { _id: Types.ObjectId; partId: Types.ObjectId; qty: number; unitCost: number; at: Date }[];
+  /** Ausente en las órdenes anteriores a los repuestos requeridos. */
+  requiredParts?: { _id: Types.ObjectId; partId: Types.ObjectId; qty: number }[] | null;
   externalCosts: {
     _id: Types.ObjectId;
     vendor: string;

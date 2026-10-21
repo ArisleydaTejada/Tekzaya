@@ -23,6 +23,7 @@ import OrdenesPage from "./pages/OrdenesPage";
 import OrdenDetailPage from "./pages/OrdenDetailPage";
 import RepuestosPage from "./pages/RepuestosPage";
 import RepuestoDetailPage from "./pages/RepuestoDetailPage";
+import PreventivosPage from "./pages/PreventivosPage";
 import ReportesPage from "./pages/ReportesPage";
 import { RealtimeProvider } from "./realtime/RealtimeContext";
 import { ThemeProvider } from "./theme/ThemeContext";
@@ -63,6 +64,7 @@ export default function App() {
                     <Route path="/ordenes/:number" element={<OrdenDetailPage />} />
                     <Route path="/repuestos" element={<RepuestosPage />} />
                     <Route path="/repuestos/:number" element={<RepuestoDetailPage />} />
+                    <Route path="/preventivos" element={<PreventivosPage />} />
                     {/* Usuarios y configuración los llevan el administrador y RRHH;
                         áreas, solo el administrador (spec §4.3). */}
                     <Route element={<RequireUserManager />}>

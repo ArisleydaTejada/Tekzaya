@@ -12,6 +12,7 @@ import {
   canTakeWorkOrder,
   canViewAsset,
   canViewAssetDetails,
+  canViewMaintenancePlans,
   canViewSpareParts,
   canViewWorkOrder,
   canWorkOnWorkOrder,
@@ -203,6 +204,17 @@ describe("gestionar planes preventivos", () => {
     expect(canManageMaintenancePlans(supervisorIT, MANT)).toBe(false);
     expect(canManageMaintenancePlans(tecnicoIT, IT)).toBe(false);
     expect(canManageMaintenancePlans(rrhh, MANT)).toBe(false);
+  });
+});
+
+describe("ver planes y calendario de preventivos", () => {
+  it("el área que mantiene los equipos, RRHH y el admin", () => {
+    expect(canViewMaintenancePlans(tecnicoIT, IT)).toBe(true);
+    expect(canViewMaintenancePlans(rrhh, MANT)).toBe(true);
+    expect(canViewMaintenancePlans(admin, MANT)).toBe(true);
+    expect(canViewMaintenancePlans(tecnicoIT, MANT)).toBe(false);
+    expect(canViewMaintenancePlans(supervisorMant, IT)).toBe(false);
+    expect(canViewMaintenancePlans(empleadoVentas, IT)).toBe(false);
   });
 });
 

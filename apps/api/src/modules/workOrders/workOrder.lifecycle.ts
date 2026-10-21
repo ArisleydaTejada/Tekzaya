@@ -21,6 +21,8 @@ export interface OpenWorkOrderInput {
   description?: string | undefined;
   asset: LeanAsset;
   ticketId?: Types.ObjectId | undefined;
+  /** El plan preventivo que la genera (plan A5). */
+  planId?: Types.ObjectId | undefined;
   outOfService: boolean;
   scheduledFor?: string | undefined;
   checklist?: readonly string[] | undefined;
@@ -34,7 +36,8 @@ export interface OpenWorkOrderInput {
  */
 export async function openWorkOrder(
   input: OpenWorkOrderInput,
-  actor: Actor,
+  /** `null` cuando la abre el trabajo diario de preventivos: no la firma nadie. */
+  actor: Actor | null,
   at: Date,
 ): Promise<{ id: Types.ObjectId; number: number }> {
   const _id = input._id ?? new Types.ObjectId();
@@ -49,13 +52,14 @@ export async function openWorkOrder(
     assetId: asset._id,
     areaId: asset.areaId,
     ...(input.ticketId ? { ticketId: input.ticketId } : {}),
+    ...(input.planId ? { planId: input.planId } : {}),
     status: "pending",
     assigneeIds: [],
     ...(input.scheduledFor ? { scheduledFor: input.scheduledFor } : {}),
     outOfService: input.outOfService,
     checklist: (input.checklist ?? []).map((label) => ({ label, done: false })),
-    createdById: actor.id,
-    statusHistory: [{ status: "pending", at, byId: actor.id }],
+    ...(actor ? { createdById: actor.id } : {}),
+    statusHistory: [{ status: "pending", at, ...(actor ? { byId: actor.id } : {}) }],
     createdAt: at,
     updatedAt: at,
   });
@@ -67,7 +71,11 @@ export async function openWorkOrder(
     ? (await Asset.updateOne({ _id: asset._id, status: "operational" }, { $set: { status: "in_repair" } }))
         .modifiedCount > 0
     : false;
-  const trace = { actorId: actor.id, workOrderId: _id, ...(input.ticketId ? { ticketId: input.ticketId } : {}) };
+  const trace = {
+    ...(actor ? { actorId: actor.id } : {}),
+    workOrderId: _id,
+    ...(input.ticketId ? { ticketId: input.ticketId } : {}),
+  };
   await AssetEvent.insertMany([
     ...(input.type === "corrective"
       ? [{ assetId: asset._id, kind: "failure", at, ...trace, data: { title: input.title } }]

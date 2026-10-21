@@ -120,6 +120,12 @@ export function canAssignWorkOrder(actor: Actor, order: Pick<WorkOrderRef, "area
 
 // ── Planes preventivos y repuestos ────────────────────────────
 
+/** Ver los planes y el calendario de preventivos: el área que mantiene los equipos, RRHH (lectura) y el admin. */
+export function canViewMaintenancePlans(actor: Actor, areaId: string): boolean {
+  if (hasGlobalRead(actor)) return true;
+  return isAreaMember(actor, areaId);
+}
+
 export function canManageMaintenancePlans(actor: Actor, areaId: string): boolean {
   return isSupervisorOf(actor, areaId);
 }

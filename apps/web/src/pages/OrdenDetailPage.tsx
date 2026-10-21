@@ -15,6 +15,7 @@ import {
   WORK_ORDER_STATUS_LABEL,
   type ExternalPricing,
   type WorkOrderDetail,
+  type WorkOrderPartOption,
   type WorkOrderHoldReason,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +31,9 @@ import {
   listWorkOrderAssigneeOptions,
   listWorkOrderPartOptions,
   removeExternalCost,
+  removeRequiredPart,
   removeWorkOrderPart,
+  setRequiredPart,
   setWorkOrderAssignees,
   takeWorkOrder,
   updateWorkOrder,
@@ -43,7 +46,7 @@ import { CheckIcon, PaperclipIcon, PlusIcon, XIcon } from "../components/icons";
 import { Modal } from "../components/Modal";
 import { MoneyInput } from "../components/MoneyInput";
 import { Plate } from "../components/Plate";
-import { OverdueTag, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
+import { OverdueTag, RequiredPartStatus, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
 import { formatDateTime, formatDay, formatMinutes, formatWhen } from "../lib/format";
 import { useOnOpen } from "../lib/useOnOpen";
 
@@ -210,6 +213,7 @@ export default function OrdenDetailPage() {
             </Plate>
           )}
 
+          <RequiredPartsSection order={order} editable={permissions.work && open} onSaved={saved} />
           <PartsSection order={order} editable={permissions.work && open} onSaved={saved} />
           <ExternalSection order={order} editable={permissions.work && open} onSaved={saved} />
         </div>
@@ -247,6 +251,18 @@ export default function OrdenDetailPage() {
               </Link>
               <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
                 El solicitante sigue la conversación en el ticket; al completar la orden se le avisa ahí.
+              </p>
+            </Plate>
+          )}
+
+          {order.plan && (
+            <Plate className="p-4 text-sm">
+              <h2 className="mb-1 font-display text-sm font-semibold text-[var(--content-ink)]">Plan preventivo</h2>
+              <Link to="/preventivos" className="text-accent-ink hover:underline">
+                {order.plan.title}
+              </Link>
+              <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
+                Generada por el plan{order.scheduledFor ? ` para el ${formatDay(order.scheduledFor)}` : ""}.
               </p>
             </Plate>
           )}
@@ -408,6 +424,24 @@ interface SectionProps {
   onSaved: (order: WorkOrderDetail) => Promise<void>;
 }
 
+/** Las piezas vinculadas al equipo de la orden van en su propio grupo, arriba. */
+function PartOptionGroups({
+  options,
+  render,
+}: {
+  options: readonly WorkOrderPartOption[];
+  render: (option: WorkOrderPartOption) => ReactNode;
+}) {
+  const mine = options.filter((option) => option.forAsset);
+  if (mine.length === 0) return <>{options.map(render)}</>;
+  return (
+    <>
+      <optgroup label="De este equipo">{mine.map(render)}</optgroup>
+      <optgroup label="Resto del almacén">{options.filter((option) => !option.forAsset).map(render)}</optgroup>
+    </>
+  );
+}
+
 /** El costo de la pieza se congela al consumirla; quitarla la devuelve al almacén. */
 function PartsSection({ order, editable, onSaved }: SectionProps) {
   const [partId, setPartId] = useState("");
@@ -480,11 +514,14 @@ function PartsSection({ order, editable, onSaved }: SectionProps) {
             <span className={labelClass}>Repuesto del almacén de {order.area.name}</span>
             <select value={partId} onChange={(event) => setPartId(event.target.value)} className={inputClass}>
               <option value="">Elige un repuesto…</option>
-              {options.map((option) => (
-                <option key={option.id} value={option.id} disabled={option.stock === 0}>
-                  {option.name} · quedan {option.stock} · {formatMoney(option.avgUnitCost, order.currency)}
-                </option>
-              ))}
+              <PartOptionGroups
+                options={options}
+                render={(option) => (
+                  <option key={option.id} value={option.id} disabled={option.stock === 0}>
+                    {option.name} · quedan {option.stock} · {formatMoney(option.avgUnitCost, order.currency)}
+                  </option>
+                )}
+              />
             </select>
           </label>
           <label>
@@ -493,6 +530,120 @@ function PartsSection({ order, editable, onSaved }: SectionProps) {
           </label>
           <button type="submit" disabled={!partId || mutation.isPending} className={`${primaryButton} col-span-2 justify-center sm:col-span-1`}>
             <PlusIcon className="h-3.5 w-3.5" /> Agregar
+          </button>
+        </form>
+      )}
+      <FormError message={mutation.error?.message ?? null} />
+    </Section>
+  );
+}
+
+/**
+ * Lo que el trabajo va a necesitar, con lo que hay hoy en el almacén. Prever no
+ * descuenta nada; "Cargar" consume lo que falta (o lo que quede) como un repuesto más.
+ */
+function RequiredPartsSection({ order, editable, onSaved }: SectionProps) {
+  const [partId, setPartId] = useState("");
+  const [qty, setQty] = useState("1");
+  const { data: options = [] } = useQuery({
+    queryKey: workOrderKeys.partOptions(order.id),
+    queryFn: () => listWorkOrderPartOptions(order.id),
+    enabled: editable,
+  });
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (run: () => Promise<WorkOrderDetail>) => run(),
+    onSuccess: async (next) => {
+      setPartId("");
+      setQty("1");
+      await queryClient.invalidateQueries({ queryKey: workOrderKeys.partOptions(order.id) });
+      await onSaved(next);
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: workOrderKeys.partOptions(order.id) }),
+  });
+
+  if (!editable && order.requiredParts.length === 0) return null;
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const amount = Number(qty);
+    if (!partId || !Number.isInteger(amount) || amount < 1) return;
+    mutation.mutate(() => setRequiredPart(order.id, { partId, qty: amount }));
+  }
+
+  return (
+    <Section title="Repuestos requeridos">
+      {order.requiredParts.length === 0 ? (
+        <p className="text-sm text-[var(--content-ink-dim)]">
+          Ninguno previsto. Anota aquí lo que hará falta para saber antes de ir si hay en el almacén.
+        </p>
+      ) : (
+        <ul className="divide-y divide-[var(--content-border)] text-sm">
+          {order.requiredParts.map((item) => {
+            const missing = item.qty - item.used;
+            const loadable = Math.min(missing, item.stock);
+            return (
+              <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[var(--content-ink)]">
+                    <Link
+                      to={`/repuestos/${formatSparePartNumber(item.part.number)}`}
+                      className="font-display text-xs tabular text-accent-ink hover:underline"
+                    >
+                      {formatSparePartNumber(item.part.number)}
+                    </Link>{" "}
+                    {item.part.name}
+                  </p>
+                  <p className="text-xs text-[var(--content-ink-dim)]">
+                    Previstos {item.qty} · cargados {item.used}
+                  </p>
+                </div>
+                <RequiredPartStatus item={item} />
+                {editable && missing > 0 && loadable > 0 && (
+                  <button
+                    type="button"
+                    disabled={mutation.isPending}
+                    onClick={() => mutation.mutate(() => addWorkOrderPart(order.id, { partId: item.part.id, qty: loadable }))}
+                    className={secondaryButton}
+                  >
+                    Cargar {loadable}
+                  </button>
+                )}
+                {editable && (
+                  <RemoveButton
+                    label={`Quitar ${item.part.name} de los requeridos`}
+                    disabled={mutation.isPending}
+                    onClick={() => mutation.mutate(() => removeRequiredPart(order.id, item.id))}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {editable && (
+        <form onSubmit={submit} className="mt-3 grid grid-cols-[minmax(0,1fr)_80px] gap-2 border-t border-[var(--content-border)] pt-3 sm:grid-cols-[minmax(0,1fr)_80px_auto] sm:items-end">
+          <label>
+            <span className={labelClass}>Repuesto que hará falta</span>
+            <select value={partId} onChange={(event) => setPartId(event.target.value)} className={inputClass}>
+              <option value="">Elige un repuesto…</option>
+              <PartOptionGroups
+                options={options}
+                render={(option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} · {option.stock === 0 ? "sin existencias" : `quedan ${option.stock}`}
+                  </option>
+                )}
+              />
+            </select>
+          </label>
+          <label>
+            <span className={labelClass}>Unidades previstas</span>
+            <input type="number" min={1} max={1000} inputMode="numeric" value={qty} onChange={(event) => setQty(event.target.value)} className={inputClass} />
+          </label>
+          <button type="submit" disabled={!partId || mutation.isPending} className={`${secondaryButton} col-span-2 justify-center sm:col-span-1`}>
+            <PlusIcon className="h-3.5 w-3.5" /> Prever
           </button>
         </form>
       )}

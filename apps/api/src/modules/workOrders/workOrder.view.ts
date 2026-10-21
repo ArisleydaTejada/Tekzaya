@@ -16,7 +16,7 @@ import {
 } from "@tekzaya/shared";
 import type { Types } from "mongoose";
 import { Area } from "../../models/area.model";
-import { Asset, SparePart } from "../../models/maintenance.models";
+import { Asset, MaintenancePlan, SparePart } from "../../models/maintenance.models";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
@@ -30,6 +30,9 @@ export interface WorkOrderHydration {
   people: Map<string, AssetPerson>;
   tickets: Map<string, { id: string; number: number; title: string }>;
   parts: Map<string, { id: string; number: number; name: string; unit: PartUnit }>;
+  /** Existencias de hoy de los repuestos requeridos: si alcanza o no se decide al mirar. */
+  stock: Map<string, number>;
+  plans: Map<string, { id: string; title: string }>;
   today: string;
   currency: string;
 }
@@ -49,7 +52,7 @@ export async function hydrateWorkOrders(
         ]
       : []),
   ]);
-  const [assets, areas, people, tickets, parts, settings] = await Promise.all([
+  const [assets, areas, people, tickets, parts, plans, settings] = await Promise.all([
     Asset.find({ _id: { $in: ids(orders.map((order) => order.assetId)) } })
       .select("number name type status location areaId usedByAreaId custodianId")
       .lean(),
@@ -57,9 +60,21 @@ export async function hydrateWorkOrders(
     User.find({ _id: { $in: ids(userIds) } }).select("name avatarUrl areaId").lean(),
     Ticket.find({ _id: { $in: ids(orders.map((order) => order.ticketId)) } }).select("number title").lean(),
     full
-      ? SparePart.find({ _id: { $in: ids(orders.flatMap((order) => order.partsUsed.map((use) => use.partId))) } })
-          .select("number name unit")
+      ? SparePart.find({
+          _id: {
+            $in: ids(
+              orders.flatMap((order) => [
+                ...order.partsUsed.map((use) => use.partId),
+                ...(order.requiredParts ?? []).map((item) => item.partId),
+              ]),
+            ),
+          },
+        })
+          .select("number name unit stock")
           .lean()
+      : [],
+    full
+      ? MaintenancePlan.find({ _id: { $in: ids(orders.map((order) => order.planId)) } }).select("title").lean()
       : [],
     getSettings(),
   ]);
@@ -100,6 +115,13 @@ export async function hydrateWorkOrders(
       (parts as { _id: Types.ObjectId; number: number; name: string; unit: string }[]).map((part) => [
         String(part._id),
         { id: String(part._id), number: part.number, name: part.name, unit: part.unit as PartUnit },
+      ]),
+    ),
+    stock: new Map((parts as { _id: Types.ObjectId; stock: number }[]).map((part) => [String(part._id), part.stock])),
+    plans: new Map(
+      (plans as { _id: Types.ObjectId; title: string }[]).map((plan) => [
+        String(plan._id),
+        { id: String(plan._id), title: plan.title },
       ]),
     ),
     today: todayKey(settings.businessHours.timezone),
@@ -151,7 +173,10 @@ export function toWorkOrderDetail(order: LeanWorkOrder, h: WorkOrderHydration, a
   const person = (id: unknown) => h.people.get(String(id)) ?? unknownPerson(id);
   const asset = h.assets.get(String(order.assetId));
   const ticket = order.ticketId ? h.tickets.get(String(order.ticketId)) : undefined;
+  const plan = order.planId ? h.plans.get(String(order.planId)) : undefined;
   const cost = workOrderCost(order);
+  const partRef = (id: Types.ObjectId) =>
+    h.parts.get(String(id)) ?? { id: String(id), number: 1, name: "Repuesto eliminado", unit: "unit" as const };
 
   return {
     id: String(order._id),
@@ -166,6 +191,7 @@ export function toWorkOrderDetail(order: LeanWorkOrder, h: WorkOrderHydration, a
     ...(order.ticketId ? { ticketId: String(order.ticketId) } : {}),
     ...(ticket ? { ticket } : {}),
     ...(order.planId ? { planId: String(order.planId) } : {}),
+    ...(plan ? { plan } : {}),
     status: order.status,
     ...(order.holdReason ? { holdReason: order.holdReason } : {}),
     assignees: order.assigneeIds.map(person),
@@ -174,10 +200,19 @@ export function toWorkOrderDetail(order: LeanWorkOrder, h: WorkOrderHydration, a
     checklist: order.checklist.map((item) => ({ label: item.label, done: item.done })),
     partsUsed: order.partsUsed.map((use) => ({
       id: String(use._id),
-      part: h.parts.get(String(use.partId)) ?? { id: String(use.partId), number: 1, name: "Repuesto eliminado", unit: "unit" },
+      part: partRef(use.partId),
       qty: use.qty,
       unitCost: use.unitCost,
       at: use.at.toISOString(),
+    })),
+    requiredParts: (order.requiredParts ?? []).map((item) => ({
+      id: String(item._id),
+      part: partRef(item.partId),
+      qty: item.qty,
+      stock: h.stock.get(String(item.partId)) ?? 0,
+      used: order.partsUsed
+        .filter((use) => String(use.partId) === String(item.partId))
+        .reduce((sum, use) => sum + use.qty, 0),
     })),
     externalCosts: order.externalCosts.map((item) => ({
       id: String(item._id),

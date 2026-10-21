@@ -303,6 +303,40 @@ describe("permisos", () => {
 });
 
 describe("repuestos", () => {
+  it("los requeridos no tocan el almacén y dicen cuánto falta cargar", async () => {
+    const fuser = await seedPart(1, 1999);
+    const agent = await loginAs(fixture.users.agentIt.email);
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    const order = await openOrder(agent, (await seedAsset())._id);
+    const url = `/api/v1/work-orders/${order.id}/required-parts`;
+
+    // El supervisor la prevé antes de asignarla; el técnico aún no puede tocarla.
+    expect((await agent.put(url).send({ partId: String(fuser._id), qty: 3 })).status).toBe(403);
+    const planned = await supervisor.put(url).send({ partId: String(fuser._id), qty: 3 });
+    expect(planned.status).toBe(200);
+    expect(planned.body.requiredParts).toEqual([
+      expect.objectContaining({ qty: 3, stock: 1, used: 0, part: expect.objectContaining({ name: "Unidad fusora" }) }),
+    ]);
+    expect(await stockMatchesLedger(fuser._id)).toEqual({ stock: 1, ledger: 1 });
+
+    // Prever la misma pieza otra vez cambia la cantidad, no la repite.
+    const again = await supervisor.put(url).send({ partId: String(fuser._id), qty: 1 });
+    expect(again.body.requiredParts).toHaveLength(1);
+    expect(again.body.requiredParts[0].qty).toBe(1);
+
+    await start(agent, order.id);
+    const used = await agent.post(`/api/v1/work-orders/${order.id}/parts`).send({ partId: String(fuser._id), qty: 1 });
+    expect(used.body.requiredParts[0]).toMatchObject({ used: 1, stock: 0 });
+
+    const itemId = used.body.requiredParts[0].id as string;
+    const removed = await agent.delete(`${url}/${itemId}`);
+    expect(removed.body.requiredParts).toEqual([]);
+    expect((await agent.delete(`${url}/${itemId}`)).status).toBe(404);
+
+    const outsider = await loginAs(fixture.users.supVentas.email);
+    expect((await outsider.put(url).send({ partId: String(fuser._id), qty: 1 })).status).toBeGreaterThanOrEqual(403);
+  });
+
   it("sin stock suficiente responde 409; quitarlo de la orden lo devuelve al almacén", async () => {
     const fuser = await seedPart(1, 1999);
     const agent = await loginAs(fixture.users.agentIt.email);

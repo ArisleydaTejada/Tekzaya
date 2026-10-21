@@ -132,6 +132,30 @@ export const workOrderCostBreakdown = z.object({
 });
 export type WorkOrderCostBreakdown = z.infer<typeof workOrderCostBreakdown>;
 
+/**
+ * Un repuesto que el trabajo va a necesitar. Es una previsión: no sale del
+ * almacén hasta que se consume (`partsUsed`). `used` es lo que ya se cargó de esa
+ * pieza a la orden, así se sabe cuánto falta todavía.
+ */
+export const workOrderRequiredPart = z.object({
+  id: objectId,
+  part: z.object({ id: objectId, number: z.number().int().positive(), name: z.string(), unit: partUnit }),
+  qty: z.number().int().positive(),
+  stock: z.number().int().min(0),
+  used: z.number().int().min(0),
+});
+export type WorkOrderRequiredPart = z.infer<typeof workOrderRequiredPart>;
+
+/** Disponibilidad de un repuesto requerido, de lo resuelto a lo que bloquea. */
+export type RequiredPartAvailability = "loaded" | "in_stock" | "short" | "out";
+
+export function requiredPartAvailability(item: Pick<WorkOrderRequiredPart, "qty" | "stock" | "used">): RequiredPartAvailability {
+  const missing = item.qty - item.used;
+  if (missing <= 0) return "loaded";
+  if (item.stock >= missing) return "in_stock";
+  return item.stock > 0 ? "short" : "out";
+}
+
 export const workOrderDetail = workOrder
   .omit({ partsUsed: true, assigneeIds: true })
   .extend({
@@ -139,6 +163,8 @@ export const workOrderDetail = workOrder
     area: areaRef,
     assignees: z.array(assetPerson),
     ticket: z.object({ id: objectId, number: z.number().int().positive(), title: z.string() }).optional(),
+    /** El plan preventivo que la generó. */
+    plan: z.object({ id: objectId, title: z.string() }).optional(),
     partsUsed: z.array(
       z.object({
         id: objectId,
@@ -148,6 +174,8 @@ export const workOrderDetail = workOrder
         at: isoDateTime,
       }),
     ),
+    /** Lo que hará falta, con las existencias de hoy y lo que ya se cargó de cada pieza. */
+    requiredParts: z.array(workOrderRequiredPart),
     cost: workOrderCostBreakdown,
     currency: currencyCode,
     overdue: z.boolean(),
@@ -165,6 +193,8 @@ export const workOrderPartOption = z.object({
   unit: partUnit,
   stock: z.number().int().min(0),
   avgUnitCost: money,
+  /** Vinculado al equipo de la orden: se ofrece primero. */
+  forAsset: z.boolean().default(false),
 });
 export type WorkOrderPartOption = z.infer<typeof workOrderPartOption>;
 
@@ -224,6 +254,15 @@ export const addWorkOrderPartInput = z.object({
   qty: z.number().int().min(1).max(1000),
 });
 export type AddWorkOrderPartInput = z.infer<typeof addWorkOrderPartInput>;
+
+/** Prever un repuesto; si ya estaba en la lista, se cambia su cantidad. */
+export const setRequiredPartInput = z.object({
+  partId: objectId,
+  qty: z.number().int().min(1).max(1000),
+});
+export type SetRequiredPartInput = z.infer<typeof setRequiredPartInput>;
+
+export const MAX_REQUIRED_PARTS = 30;
 
 const externalCostBase = {
   vendor: text(120),

@@ -39,7 +39,7 @@ test("consumir deja el repuesto bajo mínimo, avisa al supervisor y una entrada 
   await picker.selectOption(rollers!);
   await admin.page.getByLabel("Cantidad").fill("2");
   await admin.page.getByRole("button", { name: "Agregar", exact: true }).click();
-  await expect(admin.page.getByText(PART).first()).toBeVisible();
+  await expect(admin.page.getByRole("button", { name: `Devolver ${PART} al almacén` })).toBeVisible();
 
   // ── Al supervisor le llega el aviso y lo lleva al repuesto ──
   await supervisor.page.goto("/tablero");

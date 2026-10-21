@@ -59,7 +59,8 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
       await page.getByRole("textbox", { name: "Buscar activos" }).fill("multifuncional");
       await page.getByRole("link", { name: "Impresora multifuncional de Ventas" }).click();
       await expect(page.getByText("Cargando historial…")).toHaveCount(0);
-      await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Orden activa" })).toBeVisible();
+      await expect(page.getByText("Cargando…")).toHaveCount(0);
     },
   },
   {
@@ -125,6 +126,21 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
       await expect(page.getByRole("heading", { name: "Movimientos" })).toBeVisible();
     },
   },
+  {
+    name: "preventivos · calendario",
+    path: "/preventivos",
+    role: "supervisor",
+    ready: (page) => expect(page.getByLabel("Cargando calendario")).toHaveCount(0),
+  },
+  {
+    name: "preventivos · planes",
+    path: "/preventivos",
+    role: "supervisor",
+    ready: async (page) => {
+      await page.getByRole("tab", { name: "Planes" }).click();
+      await expect(page.getByLabel("Cargando planes")).toHaveCount(0);
+    },
+  },
 ];
 
 async function audit(page: Page) {
@@ -177,7 +193,7 @@ for (const theme of ["light", "dark"] as const) {
 test.describe("360 px de ancho", () => {
   test.use({ viewport: { width: 360, height: 740 }, storageState: storageStateOf("supervisor") });
 
-  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos", "/ordenes", "/repuestos"]) {
+  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos", "/ordenes", "/repuestos", "/preventivos"]) {
     test(`${path} no desborda horizontalmente`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");

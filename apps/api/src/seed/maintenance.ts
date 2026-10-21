@@ -1,10 +1,12 @@
 import {
   addBusinessMinutes,
+  addPeriod,
   DEFAULT_MAINTENANCE_SETTINGS,
   formatAssetNumber,
   formatSparePartNumber,
   formatWorkOrderNumber,
   hourlyServiceAmount,
+  nextFixedDue,
   PART_UNIT_LABEL,
   wallClockIn,
   weightedAverageCost,
@@ -17,7 +19,6 @@ import {
   type BusinessHours,
   type ExternalPricing,
   type PartUnit,
-  type PlanUnit,
   type WorkOrderHoldReason,
   type WorkOrderStatus,
   type WorkOrderType,
@@ -150,6 +151,7 @@ interface SeedWorkOrder {
   outOfService: boolean;
   checklist: { label: string; done: boolean }[];
   partsUsed: (PartUse & { _id: Types.ObjectId })[];
+  requiredParts?: { _id: Types.ObjectId; partId: Types.ObjectId; qty: number }[];
   externalCosts: {
     _id: Types.ObjectId;
     vendor: string;
@@ -252,8 +254,6 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     target.setUTCDate(Math.min(day, lastDay));
     return target.toISOString().slice(0, 10);
   };
-  const addPeriod = (key: string, every: number, unit: PlanUnit) =>
-    unit === "month" ? addMonths(key, every) : addDays(key, unit === "week" ? every * 7 : every);
   const at = (key: string, hour: number, minute = 0) => zonedTimeToUtc(parseKey(key), hour, minute, zone);
   /** Un instante laborable: `minutes` de jornada después de `from`. */
   const worked = (from: Date, minutes: number) => addBusinessMinutes(from, minutes, calendar);
@@ -450,6 +450,17 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       });
     }
 
+    // Las abiertas ya prevén sus piezas; la que espera repuesto pide más de lo que
+    // suele haber. Sin azar: no mueve el resto de la semilla.
+    if (state !== "completed" && state !== "cancelled") {
+      const fitting = parts.filter((part) => part.fits.includes(asset.type));
+      order.requiredParts = fitting.slice(0, state === "on_hold" ? 2 : 1).map((part, index) => ({
+        _id: new Types.ObjectId(),
+        partId: part._id,
+        qty: part.unit === "liter" ? 4 : state === "on_hold" && index === 1 ? 6 : 1,
+      }));
+    }
+
     if (state === "pending") return order;
     // Lo que está en curso hoy no puede tener pasos en el futuro.
     const ceiling = state === "completed" ? Number.POSITIVE_INFINITY : now.getTime() - 30 * 60_000;
@@ -611,6 +622,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       ? addDays(addMonths(today, -12), -9)
       : addDays(addMonths(today, -13), (index * 9) % 28);
 
+    const recurrence = { startsOn, every: template.every, unit: template.unit };
     let due = startsOn;
     let nextDueAt = startsOn;
     let lastCompletedAt: Date | undefined;
@@ -683,21 +695,20 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
         if (!latestCompletion || completedAt > latestCompletion) latestCompletion = completedAt;
       }
 
-      if (isOverdue) {
-        nextDueAt = due;
-        overduePlans.push(template.title);
-        break;
-      }
-      if (!isPast) {
-        nextDueAt = due;
+      // La ronda ya se generó: `fixed` pasó a la siguiente de su calendario al
+      // generarla, y `from_last` la espera hasta que se complete (plan A5).
+      if (isOverdue || !isPast) {
+        nextDueAt = template.mode === "fixed" ? nextFixedDue(recurrence, due, today) : due;
+        if (isOverdue) overduePlans.push(template.title);
         break;
       }
       if (latestCompletion) lastCompletedAt = latestCompletion;
       // `fixed` sigue el calendario; `from_last` cuenta desde el último completado.
+      // contando desde `startsOn` para que el día 31 no derive a 28.
       due =
-        template.mode === "from_last" && latestCompletion
-          ? addPeriod(dayKey(latestCompletion), template.every, template.unit)
-          : addPeriod(due, template.every, template.unit);
+        template.mode === "fixed"
+          ? nextFixedDue(recurrence, due, due)
+          : addPeriod(latestCompletion ? dayKey(latestCompletion) : due, template.every, template.unit);
     }
 
     plans.push({
@@ -829,8 +840,28 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
 
   // ── Numeración, costos y estado final ────────────────────────
   orders.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  // El preventivo que sigue abierto después de su fecha ya recibió su aviso de
+  // vencido, a las 06:00 del día siguiente: el primer trabajo de la demo no lo repite.
+  const overdueNotices: Record<string, unknown>[] = [];
   const workOrderDocs = orders.map((order, index) => {
     const cost = workOrderCost(order);
+    const overdueNotifiedAt =
+      order.type === "preventive" && order.scheduledFor && order.scheduledFor < today && !order.completedAt
+        ? at(addDays(order.scheduledFor, 1), 6)
+        : undefined;
+    if (overdueNotifiedAt) {
+      for (const userId of [...order.assigneeIds, supervisorOf(order.asset.areaId)._id]) {
+        overdueNotices.push({
+          userId,
+          type: "preventive_overdue",
+          title: "Preventivo vencido",
+          body: `${formatWorkOrderNumber(index + 1)} · ${order.title} · era para el ${order.scheduledFor}`,
+          workOrderId: order._id,
+          createdAt: overdueNotifiedAt,
+          updatedAt: overdueNotifiedAt,
+        });
+      }
+    }
     return {
       _id: order._id,
       number: index + 1,
@@ -847,12 +878,14 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       outOfService: order.outOfService,
       checklist: order.checklist,
       partsUsed: order.partsUsed,
+      ...(order.requiredParts ? { requiredParts: order.requiredParts } : {}),
       externalCosts: order.externalCosts,
       costTotal: cost.total,
       ...(order.completionNotes ? { completionNotes: order.completionNotes } : {}),
       createdById: order.createdById,
       ...(order.startedAt ? { startedAt: order.startedAt } : {}),
       ...(order.completedAt ? { completedAt: order.completedAt } : {}),
+      ...(overdueNotifiedAt ? { overdueNotifiedAt } : {}),
       statusHistory: order.statusHistory,
       createdAt: order.createdAt,
       updatedAt: order.completedAt ?? order.statusHistory.at(-1)!.at,
@@ -899,7 +932,20 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     updatedAt: now,
   }));
 
-  const sparePartDocs = partDocs.map((part, index) => ({ ...part, number: index + 1 }));
+  // Cada pieza se vincula a los equipos de su tipo que mantiene su área (los de baja no).
+  const sparePartDocs = partDocs.map((part, index) => {
+    const template = partByName.get(part.name as string)!;
+    return {
+      ...part,
+      number: index + 1,
+      assetIds: assets
+        .filter(
+          (asset) =>
+            !asset.retiredAt && String(asset.areaId) === String(template.areaId) && template.fits.includes(asset.type),
+        )
+        .map((asset) => asset._id),
+    };
+  });
 
   await Asset.insertMany(assetDocs);
   await AssetEvent.insertMany(events.sort((a, b) => a.at.getTime() - b.at.getTime()));
@@ -934,6 +980,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       ];
     }),
   );
+  await Notification.insertMany(overdueNotices);
   await Counter.insertMany([
     { _id: "asset", seq: assetDocs.length },
     { _id: "work_order", seq: workOrderDocs.length },

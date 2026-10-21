@@ -17,6 +17,7 @@ import {
   type PaginationQuery,
   type ParsedSparePartListQuery,
   type PartUnit,
+  type SparePartAssetRef,
   type SparePartView,
   type StockMovementView,
   type UpdateSparePartInput,
@@ -27,7 +28,7 @@ import { AppError } from "../../middleware/errors";
 import { validateBody, validateQuery } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
 import { nextNumber } from "../../models/counter.model";
-import { SparePart, StockMovement, WorkOrder } from "../../models/maintenance.models";
+import { Asset, SparePart, StockMovement, WorkOrder } from "../../models/maintenance.models";
 import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
 import { routeParam } from "../tickets/ticket.access";
@@ -70,7 +71,39 @@ async function areaMap(parts: readonly LeanSparePart[]): Promise<Map<string, Are
   return new Map(areas.map((area) => [String(area._id), { id: String(area._id), name: area.name!, color: area.color! }]));
 }
 
-function toView(part: LeanSparePart, areas: Map<string, AreaRef>, actor: Actor): SparePartView {
+async function assetMap(parts: readonly LeanSparePart[]): Promise<Map<string, SparePartAssetRef>> {
+  const assets = await Asset.find({ _id: { $in: [...new Set(parts.flatMap((part) => (part.assetIds ?? []).map(String)))] } })
+    .select("number name status")
+    .lean();
+  return new Map(
+    assets.map((asset) => [
+      String(asset._id),
+      { id: String(asset._id), number: asset.number, name: asset.name, status: asset.status as SparePartAssetRef["status"] },
+    ]),
+  );
+}
+
+/**
+ * Los equipos en los que se usa una pieza son del área que la guarda: la pieza
+ * sale de ese almacén hacia una OT de ese mismo área.
+ */
+async function assertAreaAssets(assetIds: readonly string[], areaId: string): Promise<Types.ObjectId[]> {
+  const unique = [...new Set(assetIds)];
+  if (!unique.length) return [];
+  const found = await Asset.countDocuments({ _id: { $in: unique.map(oid) }, areaId: oid(areaId) });
+  if (found !== unique.length) {
+    throw new AppError(422, "validation_error", "Solo se pueden vincular equipos que mantiene el área del repuesto");
+  }
+  return unique.map(oid);
+}
+
+function toView(
+  part: LeanSparePart,
+  areas: Map<string, AreaRef>,
+  assets: Map<string, SparePartAssetRef>,
+  actor: Actor,
+): SparePartView {
+  const linked = (part.assetIds ?? []).flatMap((id) => assets.get(String(id)) ?? []);
   return {
     id: String(part._id),
     number: part.number,
@@ -82,6 +115,8 @@ function toView(part: LeanSparePart, areas: Map<string, AreaRef>, actor: Actor):
     minStock: part.minStock,
     avgUnitCost: part.avgUnitCost,
     isActive: part.isActive,
+    assetIds: linked.map((asset) => asset.id),
+    assets: linked.sort((a, b) => a.number - b.number),
     low: isLowStock(part),
     stockValue: part.stock * part.avgUnitCost,
     createdAt: part.createdAt.toISOString(),
@@ -92,8 +127,8 @@ function toView(part: LeanSparePart, areas: Map<string, AreaRef>, actor: Actor):
 
 async function sendDetail(res: Response, partId: Types.ObjectId, actor: Actor, status = 200): Promise<void> {
   const part = (await SparePart.findById(partId).lean()) as LeanSparePart;
-  const [areas, settings] = await Promise.all([areaMap([part]), getSettings()]);
-  res.status(status).json({ ...toView(part, areas, actor), currency: settings.maintenance.currency });
+  const [areas, assets, settings] = await Promise.all([areaMap([part]), assetMap([part]), getSettings()]);
+  res.status(status).json({ ...toView(part, areas, assets, actor), currency: settings.maintenance.currency });
 }
 
 function assertCanManage(part: LeanSparePart, actor: Actor): void {
@@ -108,6 +143,7 @@ function assertCanManage(part: LeanSparePart, actor: Actor): void {
 function listFilter(actor: Actor, query: ParsedSparePartListQuery, withLow = true) {
   const and: Record<string, unknown>[] = [scopeFilter(actor)];
   if (query.areaId) and.push({ areaId: oid(query.areaId) });
+  if (query.assetId) and.push({ assetIds: oid(query.assetId) });
   if (query.state !== "all") and.push({ isActive: query.state === "active" });
   if (withLow && query.low) and.push({ $expr: { $lt: ["$stock", "$minStock"] } });
   if (query.q) {
@@ -166,10 +202,10 @@ router.get("/spare-parts", validateQuery(sparePartListQuery), async (_req, res) 
     getSettings(),
     manageableAreas(actor),
   ]);
-  const areas = await areaMap(items);
+  const [areas, assets] = await Promise.all([areaMap(items), assetMap(items)]);
 
   res.json({
-    items: items.map((part) => toView(part, areas, actor)),
+    items: items.map((part) => toView(part, areas, assets, actor)),
     total,
     page: query.page,
     limit: query.limit,
@@ -230,6 +266,7 @@ router.post("/spare-parts", validateBody(createSparePartInput), async (req, res)
   }
   const area = await Area.findById(input.areaId).select("isActive").lean();
   if (!area || area.isActive === false) throw new AppError(422, "validation_error", "Esa área no existe o está desactivada");
+  const assetIds = await assertAreaAssets(input.assetIds, input.areaId);
 
   const _id = new Types.ObjectId();
   await SparePart.create({
@@ -242,6 +279,7 @@ router.post("/spare-parts", validateBody(createSparePartInput), async (req, res)
     minStock: input.minStock,
     avgUnitCost: input.initialStock?.unitCost ?? 0,
     isActive: true,
+    assetIds,
   });
   // Las existencias iniciales son una entrada más: el libro empieza cuadrado.
   if (input.initialStock) {
@@ -266,14 +304,16 @@ router.get("/spare-parts/:id", async (req, res) => {
   await sendDetail(res, part._id, actor);
 });
 
-/** Nombre, unidad, mínimo y activo. Cambiar el mínimo puede armar o desarmar el aviso. */
+/** Nombre, unidad, mínimo, activo y equipos. Cambiar el mínimo puede armar o desarmar el aviso. */
 router.patch("/spare-parts/:id", validateBody(updateSparePartInput), async (req, res) => {
   const actor = res.locals.actor;
   const input = req.body as UpdateSparePartInput;
   const part = await loadVisiblePart(routeParam(req.params["id"]), actor);
   assertCanManage(part, actor);
 
-  const $set = Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+  const { assetIds, ...fields } = input;
+  const $set: Record<string, unknown> = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+  if (assetIds) $set["assetIds"] = await assertAreaAssets(assetIds, String(part.areaId));
   if (Object.keys($set).length) await SparePart.updateOne({ _id: part._id }, { $set });
   await checkLowStock(part._id, actor.id);
   await sendDetail(res, part._id, actor);

@@ -178,30 +178,30 @@ export type WorkOrder = z.infer<typeof workOrder>;
  * Un plan cubre **un activo** o **un tipo de activo en un área** ("todas las
  * impresoras de TI cada 6 meses"): exactamente uno de los dos.
  */
-export const maintenancePlan = z
-  .object({
-    id: objectId,
-    title: z.string(),
-    assetId: objectId.optional(),
-    assetType: assetType.optional(),
-    areaId: objectId,
-    checklist: z.array(z.string()),
-    every: z.number().int().positive(),
-    unit: planUnit,
-    mode: planMode,
-    startsOn: isoDate,
-    nextDueAt: isoDate,
-    lastCompletedAt: isoDateTime.optional(),
-    /** Días de antelación con los que se genera la OT antes de la fecha. */
-    leadDays: z.number().int().min(0).max(60),
-    isActive: z.boolean(),
-    createdAt: isoDateTime,
-    updatedAt: isoDateTime,
-  })
-  .refine((plan) => (plan.assetId === undefined) !== (plan.assetType === undefined), {
-    message: "Un plan es de un activo o de un tipo de activo, no de ambos",
-    path: ["assetId"],
-  });
+export const maintenancePlanFields = z.object({
+  id: objectId,
+  title: z.string(),
+  assetId: objectId.optional(),
+  assetType: assetType.optional(),
+  areaId: objectId,
+  checklist: z.array(z.string()),
+  every: z.number().int().positive(),
+  unit: planUnit,
+  mode: planMode,
+  startsOn: isoDate,
+  nextDueAt: isoDate,
+  lastCompletedAt: isoDateTime.optional(),
+  /** Días de antelación con los que se genera la OT antes de la fecha. */
+  leadDays: z.number().int().min(0).max(60),
+  isActive: z.boolean(),
+  createdAt: isoDateTime,
+  updatedAt: isoDateTime,
+});
+
+export const maintenancePlan = maintenancePlanFields.refine(
+  (plan) => (plan.assetId === undefined) !== (plan.assetType === undefined),
+  { message: "Un plan es de un activo o de un tipo de activo, no de ambos", path: ["assetId"] },
+);
 export type MaintenancePlan = z.infer<typeof maintenancePlan>;
 
 // ── Repuestos ─────────────────────────────────────────────────
@@ -218,6 +218,7 @@ export const sparePart = z.object({
   /** Promedio ponderado de las entradas, en centavos. */
   avgUnitCost: money,
   isActive: z.boolean(),
+  assetIds: z.array(objectId),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });

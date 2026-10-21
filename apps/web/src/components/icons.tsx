@@ -447,3 +447,13 @@ export function KeyIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+/** Calendario: el selector de mes de los preventivos. */
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
+    </svg>
+  );
+}

@@ -17,6 +17,7 @@ import { notificationKeys } from "../api/notifications";
 import { statsKeys } from "../api/stats";
 import { ticketKeys } from "../api/tickets";
 import { assetKeys } from "../api/assets";
+import { planKeys } from "../api/plans";
 import { workOrderKeys } from "../api/workOrders";
 import { useAuth } from "../auth/AuthContext";
 
@@ -118,6 +119,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         queryKey: workOrderKeys.detail(formatWorkOrderNumber(parsed.data.number)),
       });
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      // Completar un preventivo puede mover la fecha de su plan y cambia el calendario.
+      void queryClient.invalidateQueries({ queryKey: planKeys.all });
     });
 
     return () => {

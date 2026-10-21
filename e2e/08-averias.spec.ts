@@ -68,6 +68,8 @@ test("crear ticket con equipo → convertir en OT → la falla queda en la histo
   // ── En la ficha del equipo, la falla enlaza de vuelta al ticket ──
   await supervisor.page.getByRole("link", { name: PRINTER }).click();
   await expect(supervisor.page.getByRole("heading", { level: 1, name: PRINTER })).toBeVisible();
+  await supervisor.page.getByRole("tab", { name: "Historial" }).click();
+  await expect(supervisor.page.getByRole("heading", { name: "Línea de tiempo" })).toBeVisible();
   const failure = supervisor.page.getByRole("listitem").filter({ hasText: `Falla: ${TITLE}` });
   await expect(failure).toContainText("Quedó fuera de servicio");
   await failure.getByRole("link", { name: number }).click();

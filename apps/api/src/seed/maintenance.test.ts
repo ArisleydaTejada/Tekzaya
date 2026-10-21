@@ -21,10 +21,11 @@ import {
   StockMovement,
   WorkOrder,
 } from "../models/maintenance.models";
-import { Settings, SETTINGS_ID } from "../models/support.models";
+import { Notification, Settings, SETTINGS_ID } from "../models/support.models";
 import { Ticket } from "../models/ticket.model";
 import { User } from "../models/user.model";
 import { connect, disconnect, resetDatabase, seedTicket, type Fixture } from "../test/fixtures";
+import { runPreventiveJob } from "../jobs/preventive.job";
 import { seedMaintenance, type MaintenanceSeedSummary } from "./maintenance";
 
 /**
@@ -165,6 +166,17 @@ describe("semilla del módulo 2", () => {
     const calendar = { hours: DEFAULT_SETTINGS.businessHours, holidays: [] };
     const year = new Date(now.getTime() - 365 * 86_400_000);
     expect(downtimeMinutes(changes, year, now, calendar)).toBeGreaterThan(0);
+  });
+
+  it("el primer trabajo de preventivos no repite avisos ni rondas de la semilla", async () => {
+    const vencidos = await WorkOrder.countDocuments({ type: "preventive", overdueNotifiedAt: { $exists: true } });
+    expect(vencidos).toBeGreaterThan(0);
+    expect(await Notification.countDocuments({ type: "preventive_overdue" })).toBeGreaterThanOrEqual(vencidos);
+
+    const first = await runPreventiveJob(now);
+    expect(first.overdue).toBe(0);
+    // Lo que la primera pasada tuviera pendiente, la segunda ya no lo repite.
+    expect(await runPreventiveJob(now)).toEqual({ generated: 0, advanced: 0, overdue: 0 });
   });
 
   it("se puede repetir: vuelve a dejar el mismo módulo 2", async () => {

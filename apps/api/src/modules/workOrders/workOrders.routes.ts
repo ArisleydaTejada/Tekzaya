@@ -14,6 +14,8 @@ import {
   formatWorkOrderNumber,
   hourlyServiceAmount,
   isFinalWorkOrderStatus,
+  MAX_REQUIRED_PARTS,
+  setRequiredPartInput,
   setWorkOrderAssigneesInput,
   updateWorkOrderInput,
   workOrderListQuery,
@@ -23,6 +25,7 @@ import {
   type CompleteWorkOrderInput,
   type CreateWorkOrderInput,
   type PartUnit,
+  type SetRequiredPartInput,
   type SetWorkOrderAssigneesInput,
   type SystemEvent,
   type UpdateWorkOrderInput,
@@ -57,6 +60,7 @@ import {
   releaseAsset,
   returnParts,
 } from "./workOrder.lifecycle";
+import { closeRound } from "../plans/plan.rounds";
 import { checkLowStock, shortageMessage, takeStock } from "../spareParts/stock";
 import { hydrateWorkOrders, toWorkOrderDetail, toWorkOrderListItem } from "./workOrder.view";
 
@@ -286,6 +290,7 @@ router.patch("/work-orders/:id", validateBody(updateWorkOrderInput), async (req,
   if (next === "cancelled") {
     await returnParts(updated, updated.partsUsed, actor, at, `Cancelación de ${formatWorkOrderNumber(order.number)}`);
     await releaseAsset(updated, actor, at);
+    await closeRound(updated, at);
     await tellTicket(
       order,
       { kind: "work_order_cancelled", to: formatWorkOrderNumber(order.number), ...(input.reason ? { reason: input.reason } : {}) },
@@ -411,17 +416,21 @@ router.post("/work-orders/:id/take", async (req, res) => {
 
 // ── Repuestos ─────────────────────────────────────────────────
 
-/** El almacén del área que mantiene el equipo: es de donde sale la pieza. */
+/** El almacén del área que mantiene el equipo, con las piezas de ese equipo primero. */
 router.get("/work-orders/:id/part-options", async (req, res) => {
   const actor = res.locals.actor;
   const order = await loadVisibleWorkOrder(routeParam(req.params["id"]), actor);
   assertCanWork(order, actor);
   const parts = await SparePart.find({ areaId: order.areaId, isActive: true })
-    .select("number name unit stock avgUnitCost")
+    .select("number name unit stock avgUnitCost assetIds")
     .sort({ name: 1 })
     .lean();
+  const fits = (part: (typeof parts)[number]) => (part.assetIds ?? []).some((id) => String(id) === String(order.assetId));
+  // Las del equipo de la orden primero; el resto, por nombre.
+  parts.sort((a, b) => Number(fits(b)) - Number(fits(a)));
   res.json({
     items: parts.map((part) => ({
+      forAsset: fits(part),
       id: String(part._id),
       number: part.number,
       name: part.name,
@@ -499,6 +508,59 @@ router.delete("/work-orders/:id/parts/:usageId", async (req, res) => {
   if (pulled.modifiedCount === 0) throw raced();
   await returnParts(order, [usage], actor, new Date(), `Retirado de ${formatWorkOrderNumber(order.number)}`);
   await refreshCost(order._id);
+  await broadcastWorkOrder(order._id);
+  await sendDetail(res, order._id, actor);
+});
+
+// ── Repuestos requeridos ──────────────────────────────────────
+
+/**
+ * Prever una pieza para el trabajo. No toca el almacén: sirve para ver, antes
+ * de ir a hacerlo, si hay lo que hace falta. Volver a prever la misma pieza
+ * cambia su cantidad en vez de repetirla.
+ */
+router.put("/work-orders/:id/required-parts", validateBody(setRequiredPartInput), async (req, res) => {
+  const actor = res.locals.actor;
+  const input = req.body as SetRequiredPartInput;
+  const order = await loadVisibleWorkOrder(routeParam(req.params["id"]), actor);
+  assertCanWork(order, actor);
+  assertOpen(order);
+
+  const part = await SparePart.findOne({ _id: input.partId, areaId: order.areaId, isActive: true }).select("_id").lean();
+  if (!part) throw new AppError(422, "validation_error", "Ese repuesto no está en el almacén del área");
+
+  const existing = (order.requiredParts ?? []).find((item) => String(item.partId) === String(part._id));
+  if (!existing && (order.requiredParts ?? []).length >= MAX_REQUIRED_PARTS) {
+    throw new AppError(422, "validation_error", `Una orden prevé como mucho ${MAX_REQUIRED_PARTS} repuestos`);
+  }
+  const saved = existing
+    ? await WorkOrder.updateOne(
+        { _id: order._id, status: OPEN_STATUS, "requiredParts._id": existing._id },
+        { $set: { "requiredParts.$.qty": input.qty } },
+      )
+    : await WorkOrder.updateOne(
+        { _id: order._id, status: OPEN_STATUS, "requiredParts.partId": { $ne: part._id } },
+        { $push: { requiredParts: { _id: new Types.ObjectId(), partId: part._id, qty: input.qty } } },
+      );
+  if (saved.matchedCount === 0) throw raced();
+  await broadcastWorkOrder(order._id);
+  await sendDetail(res, order._id, actor);
+});
+
+router.delete("/work-orders/:id/required-parts/:itemId", async (req, res) => {
+  const actor = res.locals.actor;
+  const order = await loadVisibleWorkOrder(routeParam(req.params["id"]), actor);
+  assertCanWork(order, actor);
+  assertOpen(order);
+  const itemId = routeParam(req.params["itemId"]);
+  const item = (order.requiredParts ?? []).find((entry) => String(entry._id) === itemId);
+  if (!item) throw new AppError(404, "not_found", "Ese repuesto no está previsto en la orden");
+
+  const pulled = await WorkOrder.updateOne(
+    { _id: order._id, status: OPEN_STATUS },
+    { $pull: { requiredParts: { _id: item._id } } },
+  );
+  if (pulled.matchedCount === 0) throw raced();
   await broadcastWorkOrder(order._id);
   await sendDetail(res, order._id, actor);
 });
@@ -648,6 +710,7 @@ router.post("/work-orders/:id/complete", validateBody(completeWorkOrderInput), a
   } else {
     await releaseAsset(completed, actor, at);
   }
+  await closeRound(completed, at);
 
   await tellTicket(order, { kind: "work_order_completed", to: formatWorkOrderNumber(order.number) }, at);
   await broadcastWorkOrder(order._id);

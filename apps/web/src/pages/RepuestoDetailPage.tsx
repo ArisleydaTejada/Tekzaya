@@ -1,4 +1,5 @@
 import {
+  formatAssetNumber,
   formatMoney,
   formatSparePartNumber,
   formatWorkOrderNumber,
@@ -11,6 +12,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getSparePart, listStockMovements, sparePartKeys, updateSparePart } from "../api/spareParts";
 import { workOrderKeys } from "../api/workOrders";
+import { AssetStatusBadge } from "../components/assets";
 import { AreaTag } from "../components/badges";
 import { PencilIcon, PlusIcon, SlidersIcon } from "../components/icons";
 import { Plate } from "../components/Plate";
@@ -141,6 +143,35 @@ export default function RepuestoDetailPage() {
         </Figure>
         <Figure label="Valor en el almacén">{formatMoney(part.stockValue, part.currency)}</Figure>
       </div>
+
+      <Plate className="mb-4 p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">Equipos en los que se usa</h2>
+          {manage && part.isActive && (
+            <button onClick={() => setDialog("edit")} className="text-xs font-medium text-accent-ink hover:underline">
+              Cambiar
+            </button>
+          )}
+        </div>
+        {part.assets.length === 0 ? (
+          <p className="text-sm text-[var(--content-ink-dim)]">Sin equipos vinculados: no aparece en la ficha de ningún equipo.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {part.assets.map((asset) => (
+              <li key={asset.id}>
+                <Link
+                  to={`/activos/${formatAssetNumber(asset.number)}`}
+                  className="flex items-center gap-2 rounded-lg border border-[var(--content-border)] px-2.5 py-1.5 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                >
+                  <span className="font-display text-[11px] tabular text-[var(--content-ink-dim)]">{formatAssetNumber(asset.number)}</span>
+                  {asset.name}
+                  {asset.status !== "operational" && <AssetStatusBadge status={asset.status} />}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Plate>
 
       <Ledger part={part} page={page} onPage={setPage} />
 

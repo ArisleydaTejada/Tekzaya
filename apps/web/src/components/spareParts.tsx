@@ -1,19 +1,22 @@
 import {
   amountInputFromCents,
   centsFromAmountInput,
+  formatAssetNumber,
   PART_UNIT_LABEL,
   PART_UNITS,
   type AreaRef,
   type PartUnit,
+  type SparePartAssetRef,
   type SparePartDetail,
   type SparePartView,
 } from "@tekzaya/shared";
-import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { useDeferredValue, useState } from "react";
+import { assetKeys, listAssets } from "../api/assets";
 import { createSparePart, createStockMovement, updateSparePart } from "../api/spareParts";
 import { formatQuantity } from "../lib/format";
 import { useOnOpen } from "../lib/useOnOpen";
-import { AlertIcon } from "./icons";
+import { AlertIcon, SearchIcon, XIcon } from "./icons";
 import { Modal } from "./Modal";
 import { MoneyInput } from "./MoneyInput";
 
@@ -94,8 +97,10 @@ export function SparePartFormModal({
   const [minStock, setMinStock] = useState("0");
   const [initialQty, setInitialQty] = useState("");
   const [initialCost, setInitialCost] = useState("");
+  const [linked, setLinked] = useState<SparePartAssetRef[]>([]);
 
   useOnOpen(open, () => {
+    setLinked(part?.assets ?? []);
     setName(part?.name ?? "");
     setAreaId(part?.areaId ?? areas[0]?.id ?? "");
     setUnit(part?.unit ?? "unit");
@@ -117,12 +122,13 @@ export function SparePartFormModal({
   const save = useMutation({
     mutationFn: () =>
       part
-        ? updateSparePart(part.id, { name: name.trim(), unit, minStock: min })
+        ? updateSparePart(part.id, { name: name.trim(), unit, minStock: min, assetIds: linked.map((asset) => asset.id) })
         : createSparePart({
             name: name.trim(),
             areaId,
             unit,
             minStock: min,
+            assetIds: linked.map((asset) => asset.id),
             ...(qty > 0 && cost !== null ? { initialStock: { qty, unitCost: cost } } : {}),
           }),
     onSuccess: onSaved,
@@ -144,7 +150,15 @@ export function SparePartFormModal({
         {!part && areas.length > 1 && (
           <label className="block">
             <span className={labelClass}>Almacén del área</span>
-            <select value={areaId} onChange={(event) => setAreaId(event.target.value)} className={inputClass}>
+            <select
+              value={areaId}
+              onChange={(event) => {
+                // Los equipos son del área: cambiar de almacén deja la lista vacía.
+                setAreaId(event.target.value);
+                setLinked([]);
+              }}
+              className={inputClass}
+            >
               {areas.map((area) => (
                 <option key={area.id} value={area.id}>
                   {area.name}
@@ -169,6 +183,9 @@ export function SparePartFormModal({
             <input type="number" min={0} inputMode="numeric" value={minStock} onChange={(event) => setMinStock(event.target.value)} className={inputClass} />
           </label>
         </div>
+        {(part?.areaId ?? areaId) && (
+          <AssetChecklist areaId={part?.areaId ?? areaId} value={linked} onChange={setLinked} enabled={open} />
+        )}
         {!part && (
           <fieldset className="rounded-lg border border-[var(--content-border)] p-3">
             <legend className="px-1 text-xs font-medium text-[var(--content-ink-dim)]">Existencias iniciales (opcional)</legend>
@@ -188,6 +205,100 @@ export function SparePartFormModal({
         )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * "¿En qué equipos se usa?": los del área que guarda la pieza, con buscador. Lo
+ * elegido queda arriba como fichas, aunque la búsqueda ya no lo muestre.
+ */
+function AssetChecklist({
+  areaId,
+  value,
+  onChange,
+  enabled,
+}: {
+  areaId: string;
+  value: readonly SparePartAssetRef[];
+  onChange: (assets: SparePartAssetRef[]) => void;
+  enabled: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const q = useDeferredValue(search.trim());
+  const query = { areaId, status: ["operational", "in_repair"] as ("operational" | "in_repair")[], sort: "name", limit: 100, ...(q ? { q } : {}) } as const;
+  const { data, isLoading } = useQuery({
+    queryKey: assetKeys.list(query),
+    queryFn: () => listAssets(query),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+  const chosen = new Set(value.map((asset) => asset.id));
+  const toggle = (asset: SparePartAssetRef) =>
+    onChange(chosen.has(asset.id) ? value.filter((other) => other.id !== asset.id) : [...value, asset]);
+
+  return (
+    <fieldset className="rounded-lg border border-[var(--content-border)] p-3">
+      <legend className="px-1 text-xs font-medium text-[var(--content-ink-dim)]">Equipos en los que se usa (opcional)</legend>
+      {value.length > 0 && (
+        <ul className="mb-2 flex flex-wrap gap-1.5" aria-label="Equipos elegidos">
+          {value.map((asset) => (
+            <li key={asset.id}>
+              <button
+                type="button"
+                onClick={() => toggle(asset)}
+                aria-label={`Quitar ${asset.name}`}
+                className="flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-xs text-[var(--content-ink)] hover:bg-accent/20"
+              >
+                {asset.name}
+                <XIcon className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="relative mb-2">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--content-ink-dim)]" />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por nombre, número o modelo"
+          aria-label="Buscar equipos"
+          className={`${inputClass} pl-8`}
+        />
+      </div>
+      <div className="max-h-44 overflow-y-auto rounded-lg border border-[var(--content-border)]">
+        {isLoading ? (
+          <p className="px-3 py-2 text-xs text-[var(--content-ink-dim)]">Cargando equipos…</p>
+        ) : !data?.items.length ? (
+          <p className="px-3 py-2 text-xs text-[var(--content-ink-dim)]">Ningún equipo coincide.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--content-border)]">
+            {data.items.map((asset) => {
+              const ref = { id: asset.id, number: asset.number, name: asset.name, status: asset.status };
+              return (
+                <li key={asset.id}>
+                  <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]">
+                    <input
+                      type="checkbox"
+                      checked={chosen.has(asset.id)}
+                      onChange={() => toggle(ref)}
+                      className="h-4 w-4 accent-[var(--accent)]"
+                    />
+                    <span className="min-w-0 flex-1 truncate">{asset.name}</span>
+                    <span className="font-display text-[11px] tabular text-[var(--content-ink-dim)]">
+                      {formatAssetNumber(asset.number)}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
+        Aparecerá en la ficha de esos equipos con sus existencias, y primero al cargar repuestos en sus órdenes.
+      </p>
+    </fieldset>
   );
 }
 
