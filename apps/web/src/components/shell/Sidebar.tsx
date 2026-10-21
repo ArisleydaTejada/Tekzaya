@@ -221,6 +221,10 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
 
         {/* Módulo 2: todos entran; el empleado ve los equipos que usa su área o tiene a cargo. */}
         <NavItem to="/activos" label="Activos y mantenimiento" icon={WrenchIcon} collapsed={collapsed} />
+        {/* El panel del módulo (plan A6), con el mismo criterio que las órdenes. */}
+        {seesWorkOrders && (
+          <NavItem to="/mantenimiento" label="Panel de mantenimiento" icon={ChartIcon} collapsed={collapsed} />
+        )}
         {seesWorkOrders && (
           <NavItem to="/ordenes" label="Órdenes de trabajo" icon={ClipboardIcon} collapsed={collapsed} />
         )}

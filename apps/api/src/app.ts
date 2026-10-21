@@ -23,6 +23,7 @@ import ticketActionsRoutes from "./modules/tickets/ticketActions.routes";
 import ticketsRoutes from "./modules/tickets/tickets.routes";
 import sparePartsRoutes from "./modules/spareParts/spareParts.routes";
 import plansRoutes from "./modules/plans/plans.routes";
+import maintenanceRoutes from "./modules/maintenance/maintenance.routes";
 import workOrdersRoutes from "./modules/workOrders/workOrders.routes";
 
 export function createApp() {
@@ -57,6 +58,7 @@ export function createApp() {
   app.use("/api/v1", requireAuth, workOrdersRoutes);
   app.use("/api/v1", requireAuth, sparePartsRoutes);
   app.use("/api/v1", requireAuth, plansRoutes);
+  app.use("/api/v1", requireAuth, maintenanceRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

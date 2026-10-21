@@ -1,5 +1,9 @@
 import {
+  ASSET_TYPE_LABEL,
   AVAILABILITY_STATE_LABEL,
+  WORK_ORDER_TYPE_LABEL,
+  type AssetType,
+  type WorkOrderType,
   PRIORITY_LABEL,
   SLA_STATE_LABEL,
   TICKET_STATUS_LABEL,
@@ -11,6 +15,7 @@ import {
 } from "@tekzaya/shared";
 import { Types, type PipelineStage } from "mongoose";
 import { Area } from "../../models/area.model";
+import { Asset, SparePart } from "../../models/maintenance.models";
 import { User } from "../../models/user.model";
 
 /**
@@ -35,7 +40,11 @@ export type LabelKind =
   | "on_behalf"
   | "ai_result"
   | "csat"
-  | "availability";
+  | "availability"
+  | "asset"
+  | "asset_type"
+  | "work_order_type"
+  | "spare_part";
 
 export interface DimensionPlan {
   expr: unknown;
@@ -125,6 +134,21 @@ export function planFor(key: DimensionKey, ctx: DimensionContext): DimensionPlan
         joinMember: true,
         labels: "availability",
       };
+
+    // Las de mantenimiento no se agrupan en Mongo (ver `reports.maintenance`): aquí
+    // solo se declara cómo se leen sus claves.
+    case "asset":
+      return { expr: null, labels: "asset" };
+    case "asset_type":
+      return { expr: null, labels: "asset_type" };
+    case "location":
+      return { expr: null, labels: "literal" };
+    case "technician":
+      return { expr: null, labels: "user" };
+    case "work_order_type":
+      return { expr: null, labels: "work_order_type" };
+    case "spare_part":
+      return { expr: null, labels: "spare_part" };
   }
 }
 
@@ -240,15 +264,19 @@ export async function labelResolver(
 ): Promise<LabelResolver> {
   const userIds = new Set<string>();
   const areaIds = new Set<string>();
+  const assetIds = new Set<string>();
+  const partIds = new Set<string>();
   let needsCategories = false;
 
   for (const entry of needed) {
     if (entry.kind === "user") for (const key of entry.keys) if (key) userIds.add(key);
     if (entry.kind === "area") for (const key of entry.keys) if (key) areaIds.add(key);
     if (entry.kind === "category") needsCategories = true;
+    if (entry.kind === "asset") for (const key of entry.keys) if (key) assetIds.add(key);
+    if (entry.kind === "spare_part") for (const key of entry.keys) if (key) partIds.add(key);
   }
 
-  const [users, areas, categoryAreas] = await Promise.all([
+  const [users, areas, categoryAreas, assets, parts] = await Promise.all([
     userIds.size
       ? User.find({ _id: { $in: [...userIds].filter(isObjectId).map(oid) } })
           .select("name")
@@ -260,7 +288,19 @@ export async function labelResolver(
           .lean()
       : [],
     needsCategories ? Area.find({}).select("categories").lean() : [],
+    assetIds.size
+      ? Asset.find({ _id: { $in: [...assetIds].filter(isObjectId).map(oid) } })
+          .select("name")
+          .lean()
+      : [],
+    partIds.size
+      ? SparePart.find({ _id: { $in: [...partIds].filter(isObjectId).map(oid) } })
+          .select("name")
+          .lean()
+      : [],
   ]);
+  const assetNames = new Map(assets.map((asset) => [String(asset._id), asset.name]));
+  const partNames = new Map(parts.map((part) => [String(part._id), part.name]));
 
   const userNames = new Map(users.map((user) => [String(user._id), user.name ?? "Usuario"]));
   const areaNames = new Map(areas.map((area) => [String(area._id), area.name ?? "Área"]));
@@ -299,6 +339,14 @@ export async function labelResolver(
       }
       case "time":
         return formatBucket(key, bucket);
+      case "asset":
+        return key ? (assetNames.get(key) ?? "Equipo eliminado") : "Sin equipo";
+      case "asset_type":
+        return ASSET_TYPE_LABEL[key as AssetType] ?? key;
+      case "work_order_type":
+        return WORK_ORDER_TYPE_LABEL[key as WorkOrderType] ?? key;
+      case "spare_part":
+        return key ? (partNames.get(key) ?? "Repuesto eliminado") : "Sin repuesto";
       case "literal":
         return key || "Sin valor";
     }

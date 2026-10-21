@@ -83,7 +83,7 @@ export function ReportChart({
         cursor={cursor}
         formatter={(value, name) => {
           const index = result.measures.findIndex((measure) => measure.label === name);
-          return [formatValue(Number(value ?? 0), units[index === -1 ? 0 : index]!), String(name)];
+          return [formatValue(Number(value ?? 0), units[index === -1 ? 0 : index]!, result.currency), String(name)];
         }}
       />
     ),
@@ -188,7 +188,7 @@ export function ReportChart({
             // La semidona existe para destacar el total en el centro (spec §7.8.6).
             <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-6 text-center">
               <p className="font-display text-2xl font-semibold tabular text-[var(--content-ink)]">
-                {formatValue(result.totals[0] ?? null, unit)}
+                {formatValue(result.totals[0] ?? null, unit, result.currency)}
               </p>
               <p className="text-xs text-[var(--content-ink-dim)]">Total</p>
             </div>
@@ -439,7 +439,7 @@ function Kpi({ widget, result }: { widget: ReportWidget; result: ReportQueryResu
   return (
     <StatTile
       label={widget.title}
-      value={formatValue(value, measure.unit)}
+      value={formatValue(value, measure.unit, result.currency)}
       icon={<ChartIcon className="h-4 w-4" />}
       {...(trend ? { trend: { ...trend, goodWhenUp: measure.higherIsBetter } } : {})}
       {...(MEASURE_META[measure.key].hint ? { caption: MEASURE_META[measure.key].hint } : {})}
@@ -473,7 +473,7 @@ function Table({ result }: { result: ReportQueryResult }) {
               {hasSplit && <td className="px-2 py-2 text-[var(--content-ink-dim)]">{row.split ?? "—"}</td>}
               {row.values.map((value, position) => (
                 <td key={position} className="px-2 py-2 text-right tabular text-[var(--content-ink)]">
-                  {formatValue(value, result.measures[position]!.unit)}
+                  {formatValue(value, result.measures[position]!.unit, result.currency)}
                 </td>
               ))}
             </tr>
@@ -486,7 +486,7 @@ function Table({ result }: { result: ReportQueryResult }) {
               {hasSplit && <td />}
               {result.totals.map((value, position) => (
                 <td key={position} className="px-2 py-2 text-right tabular text-[var(--content-ink)]">
-                  {formatValue(value, result.measures[position]!.unit)}
+                  {formatValue(value, result.measures[position]!.unit, result.currency)}
                 </td>
               ))}
             </tr>
@@ -537,7 +537,7 @@ function Segmented({
             <span className="flex-1 truncate text-[var(--content-ink)]">{row.label}</span>
             {showValues && (
               <span className="tabular text-[var(--content-ink-dim)]">
-                {formatValue(row.values[0], result.measures[0]!.unit)} ·{" "}
+                {formatValue(row.values[0], result.measures[0]!.unit, result.currency)} ·{" "}
                 {Math.round(((row.values[0] ?? 0) / total) * 100)} %
               </span>
             )}

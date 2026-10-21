@@ -4,6 +4,7 @@ import { env } from "../config/env";
 import { getSettings } from "../modules/settings/settings.service";
 import { runAvailabilityReturn } from "./availability.job";
 import { runLifecycleJobs } from "./lifecycle.job";
+import { runMaintenanceAlerts } from "./maintenanceAlerts.job";
 import { PREVENTIVE_HOUR, runPreventiveJob } from "./preventive.job";
 import { runSlaWatch } from "./sla.job";
 
@@ -50,7 +51,21 @@ export function startJobs(): void {
       }),
   );
 
-  console.log("Trabajos programados activos: SLA (10 min), ciclo de vida, disponibilidad y preventivos (cada hora)");
+  // Garantías por vencer y fallas repetidas (plan A6), con el mismo horario que los
+  // preventivos: idempotente, así que una pasada perdida se recupera en la siguiente.
+  cron.schedule(
+    "27 * * * *",
+    () =>
+      void safely("alertas-de-equipos", async () => {
+        const zone = (await getSettings()).businessHours.timezone;
+        if (wallClockIn(new Date(), zone).hour < PREVENTIVE_HOUR) return "antes de las 06:00";
+        return runMaintenanceAlerts();
+      }),
+  );
+
+  console.log(
+    "Trabajos programados activos: SLA (10 min), ciclo de vida, disponibilidad, preventivos y alertas de equipos (cada hora)",
+  );
 }
 
-export { runAvailabilityReturn, runLifecycleJobs, runPreventiveJob, runSlaWatch };
+export { runAvailabilityReturn, runLifecycleJobs, runMaintenanceAlerts, runPreventiveJob, runSlaWatch };

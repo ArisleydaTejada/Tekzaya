@@ -947,6 +947,56 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     };
   });
 
+  // Las alertas de equipo (plan A6), como si el trabajo diario ya hubiera corrido:
+  // si no, la primera pasada de la demo mandaría de golpe avisos que en la realidad
+  // habrían llegado cuando cada equipo cruzó su umbral.
+  const rules = DEFAULT_MAINTENANCE_SETTINGS;
+  const equipmentNotices: Record<string, unknown>[] = [];
+  const windowStart = new Date(now.getTime() - rules.repeatedFailure.windowDays * DAY_MS);
+  for (const doc of assetDocs) {
+    if (doc.retiredAt) continue;
+    const notice = (fields: Record<string, unknown>, sentAt: Date) =>
+      equipmentNotices.push({ userId: supervisorOf(doc.areaId)._id, assetId: doc._id, createdAt: sentAt, updatedAt: sentAt, ...fields });
+
+    if (doc.warrantyUntil && doc.warrantyUntil >= today && doc.warrantyUntil <= addDays(today, rules.warrantyAlertDays)) {
+      const due = addDays(doc.warrantyUntil, -rules.warrantyAlertDays);
+      const sentAt = new Date(Math.min(at(due > dayKey(doc.createdAt) ? due : dayKey(doc.createdAt), 6).getTime(), now.getTime()));
+      Object.assign(doc, { warrantyNotifiedAt: sentAt });
+      notice(
+        {
+          type: "warranty_expiring",
+          title: "Garantía por vencer",
+          body: `${formatAssetNumber(doc.number)} · ${doc.name} · vence el ${doc.warrantyUntil}`,
+        },
+        sentAt,
+      );
+    }
+
+    const failures = orders
+      .filter(
+        (order) =>
+          order.asset._id.equals(doc._id) &&
+          order.type === "corrective" &&
+          order.status !== "cancelled" &&
+          order.createdAt >= windowStart,
+      )
+      .map((order) => order.createdAt)
+      .sort((a, b) => a.getTime() - b.getTime());
+    if (failures.length >= rules.repeatedFailure.count) {
+      // El aviso salió con la falla que alcanzó el umbral dentro de la ventana.
+      const sentAt = failures[rules.repeatedFailure.count - 1]!;
+      Object.assign(doc, { repeatedFailuresNotifiedAt: sentAt });
+      notice(
+        {
+          type: "repeated_failures",
+          title: "Fallas repetidas",
+          body: `${formatAssetNumber(doc.number)} · ${doc.name} · ${rules.repeatedFailure.count} fallas en ${rules.repeatedFailure.windowDays} días`,
+        },
+        sentAt,
+      );
+    }
+  }
+
   await Asset.insertMany(assetDocs);
   await AssetEvent.insertMany(events.sort((a, b) => a.at.getTime() - b.at.getTime()));
   await WorkOrder.insertMany(workOrderDocs);
@@ -981,6 +1031,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     }),
   );
   await Notification.insertMany(overdueNotices);
+  await Notification.insertMany(equipmentNotices);
   await Counter.insertMany([
     { _id: "asset", seq: assetDocs.length },
     { _id: "work_order", seq: workOrderDocs.length },

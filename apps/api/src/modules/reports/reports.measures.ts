@@ -5,7 +5,7 @@ import {
   MEASURE_META,
   type Aggregation,
   type BusinessCalendar,
-  type MeasureKey,
+  type TicketMeasureKey,
   type StatsRange,
   type TicketStatus,
 } from "@tekzaya/shared";
@@ -151,7 +151,7 @@ const RESPONDER = "sla.firstResponderId";
 
 const HAS_ASSIGNEE: Filter = { assigneeIds: { $not: { $size: 0 } } };
 
-export const MEASURE_SPEC: Record<MeasureKey, MeasureSpec> = {
+export const MEASURE_SPEC: Record<TicketMeasureKey, MeasureSpec> = {
   created: { anchor: "createdAt", formula: { kind: "count" } },
   resolved: { anchor: "resolvedAt", formula: { kind: "count" }, personField: RESOLVED_BY },
   closed: { anchor: "closedAt", formula: { kind: "count" } },
@@ -279,7 +279,7 @@ export const MEASURE_SPEC: Record<MeasureKey, MeasureSpec> = {
 };
 
 /** Campo de personas que usa la dimensión "responsable" para esta medida. */
-export function personFieldOf(key: MeasureKey): string {
+export function personFieldOf(key: TicketMeasureKey): string {
   return MEASURE_SPEC[key].personField ?? "assigneeIds";
 }
 
@@ -356,7 +356,7 @@ function rowKey(row: { _id: unknown }, ctx: MeasureContext): string {
 }
 
 export async function evaluate(
-  key: MeasureKey,
+  key: TicketMeasureKey,
   aggregationChoice: Aggregation | undefined,
   ctx: MeasureContext,
 ): Promise<MeasureValues> {
@@ -579,6 +579,6 @@ function round(value: number | null | undefined, decimals = 1): number | null {
   return Math.round(value * factor) / factor;
 }
 
-export const measureLabel = (key: MeasureKey): string => MEASURE_META[key].label;
+export const measureLabel = (key: TicketMeasureKey): string => MEASURE_META[key].label;
 
 export const asObjectId = (value: string): Types.ObjectId => new Types.ObjectId(value);

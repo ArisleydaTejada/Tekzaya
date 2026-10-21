@@ -935,6 +935,7 @@ function blankWidget(position: number): ReportWidget {
   return {
     id: `w${position}-${widgetCounter}`,
     title: "Nueva gráfica",
+    source: "tickets",
     chart: "bar",
     measures: [{ key: "created" }],
     groupBy: "category",

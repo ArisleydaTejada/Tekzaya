@@ -133,6 +133,12 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
     ready: (page) => expect(page.getByLabel("Cargando calendario")).toHaveCount(0),
   },
   {
+    name: "panel de mantenimiento",
+    path: "/mantenimiento",
+    role: "supervisor",
+    ready: (page) => expect(page.getByLabel("Cargando panel")).toHaveCount(0),
+  },
+  {
     name: "preventivos · planes",
     path: "/preventivos",
     role: "supervisor",
@@ -193,7 +199,7 @@ for (const theme of ["light", "dark"] as const) {
 test.describe("360 px de ancho", () => {
   test.use({ viewport: { width: 360, height: 740 }, storageState: storageStateOf("supervisor") });
 
-  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos", "/ordenes", "/repuestos", "/preventivos"]) {
+  for (const path of ["/tablero", "/tickets", "/tickets/nuevo", "/reportes", "/activos", "/ordenes", "/repuestos", "/preventivos", "/mantenimiento"]) {
     test(`${path} no desborda horizontalmente`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");

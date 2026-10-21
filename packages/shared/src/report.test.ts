@@ -9,6 +9,7 @@ import {
   type ChartType,
   type DimensionKey,
   type MeasureKey,
+  reportWidget,
   type ReportWidget,
 } from "./report";
 
@@ -21,6 +22,7 @@ function widget(partial: Partial<ReportWidget> = {}): ReportWidget {
   return {
     id: "w1",
     title: "Prueba",
+    source: "tickets",
     chart: "kpi",
     measures: [{ key: "created" }],
     filters: {},
@@ -199,5 +201,41 @@ describe("catálogo por alcance", () => {
       expect(meta.perspectives.length, key).toBeGreaterThan(0);
       expect(meta.label.length, key).toBeGreaterThan(2);
     }
+  });
+});
+
+describe("fuente de mantenimiento (plan A6)", () => {
+  const maintenance = (partial: Partial<ReportWidget> = {}) =>
+    widget({ source: "maintenance", measures: [{ key: "availability" }], ...partial });
+
+  it("un widget guardado sin fuente es de tickets", () => {
+    const { source: _source, ...old } = widget();
+    expect(reportWidget.parse(old).source).toBe("tickets");
+  });
+
+  it("no mezcla medidas ni dimensiones de las dos fuentes", () => {
+    expect(validateWidget(maintenance())).toBeNull();
+    expect(validateWidget(maintenance({ measures: [{ key: "created" }] }))).toMatch(/es de tickets/);
+    expect(validateWidget(widget({ measures: [{ key: "mtbf" }] }))).toMatch(/es de mantenimiento/);
+    expect(validateWidget(maintenance({ chart: "bar", groupBy: "category" }))).toMatch(/no existe en mantenimiento/);
+    expect(validateWidget(widget({ chart: "bar", groupBy: "asset" }))).toMatch(/no existe en tickets/);
+    // Tiempo y área son de las dos.
+    expect(validateWidget(maintenance({ chart: "line", groupBy: "time" }))).toBeNull();
+  });
+
+  it("cada medida se agrupa solo por lo que sabe", () => {
+    expect(validateWidget(maintenance({ chart: "bar", groupBy: "technician" }))).toMatch(/solo se agrupa/);
+    expect(
+      validateWidget(maintenance({ chart: "bar", measures: [{ key: "parts_consumed" }], groupBy: "spare_part" })),
+    ).toBeNull();
+    expect(
+      validateWidget(maintenance({ chart: "line", measures: [{ key: "wo_open" }], groupBy: "time" })),
+    ).toMatch(/solo se agrupa/);
+  });
+
+  it("los filtros no cruzan de fuente", () => {
+    expect(validateWidget(maintenance({ filters: { priorities: ["high"] } }))).toMatch(/filtros son de tickets/);
+    expect(validateWidget(maintenance({ filters: { assetTypes: ["printer"], workOrderType: "corrective" } }))).toBeNull();
+    expect(validateWidget(widget({ filters: { assetTypes: ["printer"] } }))).toMatch(/son de mantenimiento/);
   });
 });

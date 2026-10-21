@@ -9,7 +9,7 @@ import {
 import { Router } from "express";
 import { Types } from "mongoose";
 import { validateBody, validateQuery } from "../../middleware/validate";
-import { SparePart, WorkOrder } from "../../models/maintenance.models";
+import { Asset, SparePart, WorkOrder } from "../../models/maintenance.models";
 import { Notification } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 
@@ -58,6 +58,13 @@ router.get("/notifications", validateQuery(paginationQuery), async (_req, res) =
         .lean()
     : [];
   const partNumbers = new Map(parts.map((part) => [String(part._id), part.number]));
+  const assetIds = [...new Set(items.filter((item) => item.assetId).map((item) => item.assetId))];
+  const assets = assetIds.length
+    ? await Asset.find({ _id: { $in: assetIds } })
+        .select("number")
+        .lean()
+    : [];
+  const assetNumbers = new Map(assets.map((asset) => [String(asset._id), asset.number]));
 
   const response: NotificationListResponse = {
     items: items.map((item) => ({
@@ -74,6 +81,9 @@ router.get("/notifications", validateQuery(paginationQuery), async (_req, res) =
         : {}),
       ...(item.sparePartId && partNumbers.has(String(item.sparePartId))
         ? { sparePartId: String(item.sparePartId), sparePartNumber: partNumbers.get(String(item.sparePartId))! }
+        : {}),
+      ...(item.assetId && assetNumbers.has(String(item.assetId))
+        ? { assetId: String(item.assetId), assetNumber: assetNumbers.get(String(item.assetId))! }
         : {}),
       ...(item.readAt ? { readAt: item.readAt.toISOString() } : {}),
       createdAt: item.createdAt!.toISOString(),

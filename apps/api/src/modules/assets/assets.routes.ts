@@ -358,6 +358,10 @@ router.patch("/assets/:id", validateBody(updateAssetInput), async (req, res) => 
   }
 
   const same = (a: unknown, b: unknown) => String(a ?? "") === String(b ?? "");
+  // Una garantía nueva (renovada o corregida) vuelve a merecer su aviso (plan A6).
+  if (input.warrantyUntil !== undefined && !same(input.warrantyUntil, asset.warrantyUntil)) {
+    $unset["warrantyNotifiedAt"] = "";
+  }
   const now = new Date();
   const events: Record<string, unknown>[] = [];
 

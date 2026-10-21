@@ -25,6 +25,7 @@ import { Notification, Settings, SETTINGS_ID } from "../models/support.models";
 import { Ticket } from "../models/ticket.model";
 import { User } from "../models/user.model";
 import { connect, disconnect, resetDatabase, seedTicket, type Fixture } from "../test/fixtures";
+import { runMaintenanceAlerts } from "../jobs/maintenanceAlerts.job";
 import { runPreventiveJob } from "../jobs/preventive.job";
 import { seedMaintenance, type MaintenanceSeedSummary } from "./maintenance";
 
@@ -179,7 +180,13 @@ describe("semilla del módulo 2", () => {
     expect(await runPreventiveJob(now)).toEqual({ generated: 0, advanced: 0, overdue: 0 });
   });
 
-  it("se puede repetir: vuelve a dejar el mismo módulo 2", async () => {
+  it("las alertas de equipos ya salieron: la primera pasada no repite ninguna (plan A6)", async () => {
+    expect(await Notification.countDocuments({ type: "repeated_failures" })).toBeGreaterThan(0);
+    expect(await Asset.countDocuments({ repeatedFailuresNotifiedAt: { $exists: true } })).toBeGreaterThan(0);
+    expect(await runMaintenanceAlerts(now)).toEqual({ warranty: 0, repeated: 0 });
+  });
+
+    it("se puede repetir: vuelve a dejar el mismo módulo 2", async () => {
     const again = await seedMaintenance(now);
     expect(again.assets).toBe(summary.assets);
     expect(await Asset.countDocuments()).toBe(summary.assets);

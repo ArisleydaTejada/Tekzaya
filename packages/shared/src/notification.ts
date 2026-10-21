@@ -79,6 +79,9 @@ export const notificationView = z.object({
   /** El aviso de stock bajo lleva al repuesto (`/repuestos/REP-0003`). */
   sparePartId: objectId.optional(),
   sparePartNumber: z.number().int().positive().optional(),
+  /** Garantía por vencer y fallas repetidas llevan al equipo (`/activos/ACT-0012`). */
+  assetId: objectId.optional(),
+  assetNumber: z.number().int().positive().optional(),
   readAt: isoDateTime.optional(),
   createdAt: isoDateTime,
 });

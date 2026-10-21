@@ -87,9 +87,16 @@ export function hoverCursor(theme: ChartTheme, kind: "band" | "line") {
  * puede ser noventa y cuatro tickets o el 94 % de cumplimiento, y la diferencia
  * importa en la tarjeta, en la tabla, en el CSV y en el tooltip.
  */
-export function formatValue(value: number | null, unit: MeasureUnit): string {
+export function formatValue(value: number | null, unit: MeasureUnit, currency?: string): string {
   if (value === null) return "—";
   switch (unit) {
+    case "money":
+      // Montos en unidades de la moneda; sin decimales a partir de mil, que en una
+      // tarjeta no aportan nada.
+      return `${currency ?? ""} ${value.toLocaleString("es-MX", {
+        minimumFractionDigits: Math.abs(value) >= 1000 ? 0 : 2,
+        maximumFractionDigits: Math.abs(value) >= 1000 ? 0 : 2,
+      })}`.trim();
     case "count":
       return Number.isInteger(value) ? String(value) : formatNumber(value);
     case "hours":

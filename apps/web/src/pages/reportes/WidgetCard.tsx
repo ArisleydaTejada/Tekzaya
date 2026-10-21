@@ -108,11 +108,12 @@ export function WidgetCard({
       <div ref={chartRef} className="flex-1">
         {query.isPending && <Skeleton />}
         {query.isError && <Failed />}
+        {/* La lista de abajo es de tickets: una gráfica de mantenimiento no la filtra. */}
         {query.data && (
           <ReportChart
             widget={widget}
             result={query.data}
-            {...(onDrill && widget.groupBy
+            {...(onDrill && widget.groupBy && widget.source !== "maintenance"
               ? { onSelect: (key: string) => onDrill(widget.groupBy!, key) }
               : {})}
           />

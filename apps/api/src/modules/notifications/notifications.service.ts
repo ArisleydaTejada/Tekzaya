@@ -23,6 +23,8 @@ export interface NotificationInput {
   workOrderNumber?: number;
   sparePartId?: Types.ObjectId;
   sparePartNumber?: number;
+  assetId?: Types.ObjectId;
+  assetNumber?: number;
 }
 
 function viewOf(
@@ -41,6 +43,8 @@ function viewOf(
     ...(input.workOrderNumber ? { workOrderNumber: input.workOrderNumber } : {}),
     ...(input.sparePartId ? { sparePartId: String(input.sparePartId) } : {}),
     ...(input.sparePartNumber ? { sparePartNumber: input.sparePartNumber } : {}),
+    ...(input.assetId ? { assetId: String(input.assetId) } : {}),
+    ...(input.assetNumber ? { assetNumber: input.assetNumber } : {}),
     createdAt: (doc.createdAt ?? new Date()).toISOString(),
   };
 }
@@ -61,6 +65,7 @@ export async function notify(
       ...(input.ticketId ? { ticketId: input.ticketId } : {}),
       ...(input.workOrderId ? { workOrderId: input.workOrderId } : {}),
       ...(input.sparePartId ? { sparePartId: input.sparePartId } : {}),
+      ...(input.assetId ? { assetId: input.assetId } : {}),
     })),
   );
 

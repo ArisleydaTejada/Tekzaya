@@ -2,6 +2,7 @@ import { z } from "zod";
 import { areaRef } from "./area";
 import { isoDateTime, objectId, paginationQuery } from "./common";
 import { priority, slaState, ticketStatus } from "./enums";
+import { assetType, workOrderType } from "./maintenance/enums";
 import { statsPeriod, statsQueryFields, statsRange, statsScope, scopeRangeRules } from "./stats";
 import { userSummary } from "./user";
 
@@ -14,9 +15,25 @@ import { userSummary } from "./user";
 // desde la sesión (spec §7.8.1, regla de seguridad). Un reporte guardado guarda lo
 // que se pidió, nunca un permiso.
 
+// ── Fuentes de datos (plan A6) ────────────────────────────────
+
+/**
+ * De dónde sale una gráfica. Los tickets son la fuente de F7; mantenimiento es la
+ * segunda (plan A6) y tiene su propio catálogo de medidas y dimensiones. Un widget
+ * guardado antes de A6 no trae fuente y se lee como `tickets`.
+ */
+export const REPORT_SOURCES = ["tickets", "maintenance"] as const;
+export const reportSource = z.enum(REPORT_SOURCES);
+export type ReportSource = z.infer<typeof reportSource>;
+
+export const REPORT_SOURCE_LABEL: Record<ReportSource, string> = {
+  tickets: "Tickets",
+  maintenance: "Mantenimiento",
+};
+
 // ── Medidas (spec §7.8.4) ─────────────────────────────────────
 
-export const MEASURE_KEYS = [
+export const TICKET_MEASURE_KEYS = [
   // Volumen
   "created",
   "resolved",
@@ -60,10 +77,39 @@ export const MEASURE_KEYS = [
   "away_days",
   "on_behalf_rate",
 ] as const;
+export type TicketMeasureKey = (typeof TICKET_MEASURE_KEYS)[number];
+
+/** Medidas de la fuente `maintenance` (plan A6). */
+export const MAINTENANCE_MEASURE_KEYS = [
+  "wo_created",
+  "wo_completed",
+  "wo_open",
+  "failures",
+  "mtbf",
+  "mttr",
+  "availability",
+  "preventive_compliance",
+  "maintenance_cost",
+  "parts_consumed",
+] as const;
+export type MaintenanceMeasureKey = (typeof MAINTENANCE_MEASURE_KEYS)[number];
+
+export const MEASURE_KEYS = [...TICKET_MEASURE_KEYS, ...MAINTENANCE_MEASURE_KEYS] as const;
 export const measureKey = z.enum(MEASURE_KEYS);
 export type MeasureKey = z.infer<typeof measureKey>;
 
-export const MEASURE_FAMILIES = ["volume", "time", "sla", "quality", "ai", "load", "people"] as const;
+export const MEASURE_FAMILIES = [
+  "volume",
+  "time",
+  "sla",
+  "quality",
+  "ai",
+  "load",
+  "people",
+  "work",
+  "reliability",
+  "spend",
+] as const;
 export const measureFamily = z.enum(MEASURE_FAMILIES);
 export type MeasureFamily = z.infer<typeof measureFamily>;
 
@@ -75,10 +121,14 @@ export const MEASURE_FAMILY_LABEL: Record<MeasureFamily, string> = {
   ai: "Inteligencia artificial",
   load: "Carga y actividad",
   people: "Personas",
+  work: "Órdenes de trabajo",
+  reliability: "Confiabilidad",
+  spend: "Costos y repuestos",
 };
 
 /** Unidad de la medida. Dos medidas solo comparten gráfica si comparten unidad (spec §7.8.3). */
-export const MEASURE_UNITS = ["count", "hours", "percent", "rating", "days"] as const;
+/** `money` va en unidades de la moneda (no en centavos) y el resultado trae `currency`. */
+export const MEASURE_UNITS = ["count", "hours", "percent", "rating", "days", "money"] as const;
 export const measureUnit = z.enum(MEASURE_UNITS);
 export type MeasureUnit = z.infer<typeof measureUnit>;
 
@@ -104,6 +154,8 @@ export const AGGREGATION_LABEL: Record<Aggregation, string> = {
 
 export interface MeasureMeta {
   label: string;
+  /** Fuente de la que sale; sin este campo, `tickets`. */
+  source?: ReportSource;
   family: MeasureFamily;
   unit: MeasureUnit;
   /** Desde qué perspectivas tiene sentido; el resto se oculta al empleado. */
@@ -133,6 +185,19 @@ const BOTH = PERSPECTIVES;
 const AGENT = ["agent"] as const;
 const REQUESTER = ["requester"] as const;
 const TIME_AGGREGATIONS = AGGREGATIONS;
+
+/** Por dónde se agrupa lo que sale de las órdenes de trabajo. */
+const WORK_DIMENSIONS: readonly DimensionKey[] = [
+  "time",
+  "area",
+  "asset",
+  "asset_type",
+  "location",
+  "technician",
+  "work_order_type",
+];
+/** Lo que se mide sobre el equipo (su historial de estados) no sabe de técnicos ni de órdenes. */
+const ASSET_DIMENSIONS: readonly DimensionKey[] = ["time", "area", "asset", "asset_type", "location"];
 
 export const MEASURE_META: Record<MeasureKey, MeasureMeta> = {
   created: {
@@ -416,7 +481,118 @@ export const MEASURE_META: Record<MeasureKey, MeasureMeta> = {
     perspectives: REQUESTER,
     higherIsBetter: true,
   },
+
+  // ── Mantenimiento (plan A6) ───────────────────────────────────
+  wo_created: {
+    label: "Órdenes creadas",
+    source: "maintenance",
+    family: "work",
+    unit: "count",
+    perspectives: AGENT,
+    higherIsBetter: false,
+    onlyDimensions: WORK_DIMENSIONS,
+    hint: "Órdenes de trabajo abiertas en el período, correctivas y preventivas.",
+  },
+  wo_completed: {
+    label: "Órdenes completadas",
+    source: "maintenance",
+    family: "work",
+    unit: "count",
+    perspectives: AGENT,
+    higherIsBetter: true,
+    onlyDimensions: WORK_DIMENSIONS,
+  },
+  wo_open: {
+    label: "Órdenes abiertas",
+    source: "maintenance",
+    family: "work",
+    unit: "count",
+    perspectives: AGENT,
+    higherIsBetter: false,
+    onlyDimensions: WORK_DIMENSIONS.filter((key) => key !== "time"),
+    hint: "Sin completar ni cancelar al final del período.",
+  },
+  failures: {
+    label: "Fallas",
+    source: "maintenance",
+    family: "reliability",
+    unit: "count",
+    perspectives: AGENT,
+    higherIsBetter: false,
+    areaOnly: true,
+    onlyDimensions: ASSET_DIMENSIONS,
+    hint: "Una falla es una orden correctiva; las canceladas no cuentan.",
+  },
+  mtbf: {
+    label: "MTBF (tiempo medio entre fallas)",
+    source: "maintenance",
+    family: "reliability",
+    unit: "hours",
+    perspectives: AGENT,
+    higherIsBetter: true,
+    areaOnly: true,
+    onlyDimensions: ASSET_DIMENSIONS,
+    hint: "Horas laborables operativas ÷ fallas del período.",
+  },
+  mttr: {
+    label: "MTTR (tiempo medio de reparación)",
+    source: "maintenance",
+    family: "reliability",
+    unit: "hours",
+    perspectives: AGENT,
+    higherIsBetter: false,
+    areaOnly: true,
+    onlyDimensions: ASSET_DIMENSIONS,
+    hint: "Horas laborables en reparación ÷ reparaciones terminadas en el período.",
+  },
+  availability: {
+    label: "Disponibilidad",
+    source: "maintenance",
+    family: "reliability",
+    unit: "percent",
+    perspectives: AGENT,
+    higherIsBetter: true,
+    areaOnly: true,
+    onlyDimensions: ASSET_DIMENSIONS,
+    hint: "Tiempo operativo ÷ (operativo + en reparación), en horas laborables.",
+  },
+  preventive_compliance: {
+    label: "Cumplimiento de preventivos",
+    source: "maintenance",
+    family: "work",
+    unit: "percent",
+    perspectives: AGENT,
+    higherIsBetter: true,
+    onlyDimensions: WORK_DIMENSIONS.filter((key) => key !== "work_order_type"),
+    hint: "Preventivos completados a tiempo ÷ programados en el período.",
+  },
+  maintenance_cost: {
+    label: "Costo de mantenimiento",
+    source: "maintenance",
+    family: "spend",
+    unit: "money",
+    perspectives: AGENT,
+    higherIsBetter: false,
+    onlyDimensions: WORK_DIMENSIONS.filter((key) => key !== "technician"),
+    hint: "Repuestos y servicios externos de las órdenes completadas en el período.",
+  },
+  parts_consumed: {
+    label: "Repuestos consumidos",
+    source: "maintenance",
+    family: "spend",
+    unit: "count",
+    perspectives: AGENT,
+    higherIsBetter: false,
+    areaOnly: true,
+    onlyDimensions: [...WORK_DIMENSIONS.filter((key) => key !== "technician"), "spare_part"],
+    hint: "Unidades consumidas en órdenes menos las devueltas.",
+  },
 };
+
+/** De qué fuente sale una medida. */
+export function measureSource(key: MeasureKey): ReportSource {
+  return MEASURE_META[key].source ?? "tickets";
+}
 
 // ── Dimensiones (spec §7.8.5) ─────────────────────────────────
 
@@ -434,6 +610,13 @@ export const DIMENSION_KEYS = [
   "ai_result",
   "csat",
   "availability",
+  // Mantenimiento (plan A6)
+  "asset",
+  "asset_type",
+  "location",
+  "technician",
+  "work_order_type",
+  "spare_part",
 ] as const;
 export const dimensionKey = z.enum(DIMENSION_KEYS);
 export type DimensionKey = z.infer<typeof dimensionKey>;
@@ -448,23 +631,39 @@ export interface DimensionMeta {
   supervisorOnly?: boolean;
   /** En el alcance de un área todas las filas serían la misma; se oculta. */
   hiddenInAreaScope?: boolean;
+  /** Fuentes en las que existe; sin este campo, solo `tickets`. */
+  sources?: readonly ReportSource[];
 }
 
+const BOTH_SOURCES = REPORT_SOURCES;
+const MAINTENANCE = ["maintenance"] as const;
+
 export const DIMENSION_META: Record<DimensionKey, DimensionMeta> = {
-  time: { label: "Tiempo", isTime: true },
+  time: { label: "Tiempo", isTime: true, sources: BOTH_SOURCES },
   weekday_hour: { label: "Día de la semana × hora", heatmapOnly: true },
   category: { label: "Categoría" },
   priority: { label: "Prioridad" },
   status: { label: "Estado" },
   sla_state: { label: "Estado de SLA" },
-  area: { label: "Área", hiddenInAreaScope: true },
+  area: { label: "Área", hiddenInAreaScope: true, sources: BOTH_SOURCES },
   assignee: { label: "Responsable", supervisorOnly: true },
   requester: { label: "Solicitante", supervisorOnly: true },
   created_on_behalf: { label: "Creado por / en nombre de" },
   ai_result: { label: "Resultado de la IA", supervisorOnly: true },
   csat: { label: "Calificación CSAT" },
   availability: { label: "Disponibilidad", supervisorOnly: true },
+  asset: { label: "Equipo", sources: MAINTENANCE },
+  asset_type: { label: "Tipo de equipo", sources: MAINTENANCE },
+  location: { label: "Ubicación", sources: MAINTENANCE },
+  technician: { label: "Técnico", supervisorOnly: true, sources: MAINTENANCE },
+  work_order_type: { label: "Tipo de orden", sources: MAINTENANCE },
+  spare_part: { label: "Repuesto", sources: MAINTENANCE },
 };
+
+/** De qué fuentes es una dimensión. */
+export function dimensionSources(key: DimensionKey): readonly ReportSource[] {
+  return DIMENSION_META[key].sources ?? ["tickets"];
+}
 
 // ── Tipos de gráfica (spec §7.8.6) ────────────────────────────
 
@@ -540,6 +739,10 @@ export const widgetFilters = z
     requesterId: objectId.optional(),
     slaState: slaState.optional(),
     createdOnBehalf: z.boolean().optional(),
+    /** Solo mantenimiento: tipos de equipo. */
+    assetTypes: z.array(assetType).max(10).optional(),
+    /** Solo mantenimiento: correctivas o preventivas. */
+    workOrderType: workOrderType.optional(),
   })
   .default({});
 export type WidgetFilters = z.infer<typeof widgetFilters>;
@@ -572,6 +775,8 @@ export type WidgetMeasure = z.infer<typeof widgetMeasure>;
 export const reportWidget = z.object({
   id: z.string().min(1).max(40),
   title: z.string().trim().min(1, "Ponle un título").max(80),
+  /** Los widgets guardados antes de A6 no la traen: son de tickets. */
+  source: reportSource.default("tickets"),
   chart: chartType,
   measures: z.array(widgetMeasure).min(1, "Elige al menos una medida").max(6),
   /** Solo lo usa el alcance personal; en un área el reporte es siempre de agente. */
@@ -608,6 +813,34 @@ export function validateWidget(widget: ReportWidget): string | null {
   const [minMeasures, maxMeasures] = meta.measures;
   const [minDims, maxDims] = meta.dimensions;
   const dims = [widget.groupBy, widget.splitBy].filter(Boolean) as DimensionKey[];
+  const source = widget.source ?? "tickets";
+
+  // Una gráfica sale de una sola fuente: "tickets creados" y "MTBF" no comparten
+  // filas ni eje, y mezclarlas daría barras que no se pueden comparar.
+  const foreign = widget.measures.find((item) => measureSource(item.key) !== source);
+  if (foreign) {
+    return `«${MEASURE_META[foreign.key].label}» es de ${REPORT_SOURCE_LABEL[measureSource(foreign.key)].toLowerCase()}, no de ${REPORT_SOURCE_LABEL[source].toLowerCase()}`;
+  }
+  const foreignDim = dims.find((key) => !dimensionSources(key).includes(source));
+  if (foreignDim) {
+    return `«${DIMENSION_META[foreignDim].label}» no existe en ${REPORT_SOURCE_LABEL[source].toLowerCase()}`;
+  }
+  const filters = widget.filters ?? {};
+  if (source === "maintenance") {
+    const ticketOnly =
+      Boolean(filters.categoryIds?.length) ||
+      Boolean(filters.priorities?.length) ||
+      Boolean(filters.statuses?.length) ||
+      Boolean(filters.assigneeId) ||
+      Boolean(filters.requesterId) ||
+      Boolean(filters.slaState) ||
+      filters.createdOnBehalf !== undefined;
+    if (ticketOnly) {
+      return "Esos filtros son de tickets: en mantenimiento se filtra por área, tipo de equipo y tipo de orden";
+    }
+  } else if (filters.assetTypes?.length || filters.workOrderType) {
+    return "Los filtros de equipo y de orden son de mantenimiento";
+  }
 
   if (widget.measures.length < minMeasures || widget.measures.length > maxMeasures) {
     return minMeasures === maxMeasures
@@ -749,6 +982,8 @@ export const reportQueryResult = z.object({
   totals: z.array(z.number().nullable()),
   /** Hubo más grupos que el límite y el resto se juntó en «Otros». */
   grouped: z.boolean(),
+  /** Moneda de las medidas de unidad `money`. */
+  currency: z.string().optional(),
 });
 export type ReportQueryResult = z.infer<typeof reportQueryResult>;
 
@@ -1049,6 +1284,7 @@ export const reportCatalog = z.object({
   measures: z.array(
     z.object({
       key: measureKey,
+      source: reportSource,
       label: z.string(),
       family: measureFamily,
       unit: measureUnit,
@@ -1058,7 +1294,7 @@ export const reportCatalog = z.object({
       hint: z.string().optional(),
     }),
   ),
-  dimensions: z.array(z.object({ key: dimensionKey, label: z.string() })),
+  dimensions: z.array(z.object({ key: dimensionKey, label: z.string(), sources: z.array(reportSource) })),
   charts: z.array(z.object({ type: chartType, label: z.string() })),
   templates: z.array(reportTemplate),
   limits: z.object({

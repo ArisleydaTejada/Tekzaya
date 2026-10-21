@@ -18,6 +18,7 @@ function widget(partial: Partial<ReportWidget> = {}): ReportWidget {
   return {
     id: "w1",
     title: "Prueba",
+    source: "tickets",
     chart: "kpi",
     measures: [{ key: "created" }],
     filters: {},

@@ -1,11 +1,15 @@
 import {
   AGGREGATION_LABEL,
+  ASSET_TYPES,
+  ASSET_TYPE_LABEL,
   CHART_META,
   CHART_TYPES,
   MEASURE_FAMILY_LABEL,
   MEASURE_FAMILIES,
   PRIORITIES,
   PRIORITY_LABEL,
+  REPORT_SOURCES,
+  REPORT_SOURCE_LABEL,
   SLA_STATES,
   SLA_STATE_LABEL,
   TICKET_STATUSES,
@@ -13,12 +17,17 @@ import {
   validateWidget,
   WIDGET_SORTS,
   WIDGET_SORT_LABEL,
+  WORK_ORDER_TYPES,
+  WORK_ORDER_TYPE_LABEL,
   type Aggregation,
+  type AssetType,
   type ChartType,
   type DimensionKey,
   type MeasureKey,
   type ReportCatalog,
+  type ReportSource,
   type ReportWidget,
+  type WorkOrderType,
 } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -69,6 +78,32 @@ export function WidgetEditor({
 
   const set = (patch: Partial<ReportWidget>) => setDraft((current) => ({ ...current, ...patch }));
   const chartMeta = CHART_META[draft.chart];
+  const source = draft.source ?? "tickets";
+  // Mantenimiento solo aparece si el catálogo lo ofrece: quien no mantiene equipos ni lo ve.
+  const sources = REPORT_SOURCES.filter((option) => catalog.measures.some((measure) => measure.source === option));
+  const measures = catalog.measures.filter((measure) => measure.source === source);
+  const dimensions = catalog.dimensions.filter((item) => item.sources.includes(source));
+
+  /**
+   * Cambiar de fuente es empezar la gráfica de nuevo: ninguna medida ni dimensión de
+   * una sirve en la otra. Se queda el título, el área y los ajustes de presentación.
+   */
+  function switchSource(next: ReportSource) {
+    if (next === source) return;
+    const first = catalog.measures.find((measure) => measure.source === next);
+    if (!first) return;
+    setDraft((current) => {
+      const { groupBy: _group, splitBy: _split, ...rest } = current;
+      return {
+        ...rest,
+        source: next,
+        chart: "kpi",
+        measures: [{ key: first.key }],
+        filters: current.filters.areaId ? { areaId: current.filters.areaId } : {},
+        showTarget: false,
+      };
+    });
+  }
   const allowsSplit = chartMeta.dimensions[1] >= 2;
   const allowsGroup = chartMeta.dimensions[1] >= 1;
 
@@ -90,6 +125,29 @@ export function WidgetEditor({
         </header>
 
         <div className="space-y-5 px-5 py-4">
+          {/* 0 · Fuente (plan A6) */}
+          {sources.length > 1 && (
+            <Row label="Fuente de datos">
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Fuente de datos">
+                {sources.map((option) => (
+                  <button
+                    key={option}
+                    role="radio"
+                    aria-checked={source === option}
+                    onClick={() => switchSource(option)}
+                    className={`rounded-lg border px-2.5 py-1 text-xs ${
+                      source === option
+                        ? "border-accent bg-accent text-white"
+                        : "border-[var(--content-border)] text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                    }`}
+                  >
+                    {REPORT_SOURCE_LABEL[option]}
+                  </button>
+                ))}
+              </div>
+            </Row>
+          )}
+
           {/* 1 · Título */}
           <Row label="Título">
             <input
@@ -103,7 +161,7 @@ export function WidgetEditor({
           <Row label="¿Qué quieres medir?" hint={`Hasta ${chartMeta.measures[1]}`}>
             <div className="max-h-56 space-y-3 overflow-y-auto rounded-lg border border-[var(--content-border)] p-2.5">
               {MEASURE_FAMILIES.map((family) => {
-                const options = catalog.measures.filter((measure) => measure.family === family);
+                const options = measures.filter((measure) => measure.family === family);
                 if (!options.length) return null;
                 return (
                   <div key={family}>
@@ -168,7 +226,7 @@ export function WidgetEditor({
                 }
                 options={[
                   { value: "", label: "Sin agrupar" },
-                  ...catalog.dimensions.map((item) => ({ value: item.key, label: item.label })),
+                  ...dimensions.map((item) => ({ value: item.key, label: item.label })),
                 ]}
               />
             </Row>
@@ -181,7 +239,7 @@ export function WidgetEditor({
                 onChange={(value) => set({ splitBy: (value || undefined) as DimensionKey | undefined })}
                 options={[
                   { value: "", label: "Sin segmentar" },
-                  ...catalog.dimensions
+                  ...dimensions
                     .filter((item) => item.key !== draft.groupBy)
                     .map((item) => ({ value: item.key, label: item.label })),
                 ]}
@@ -232,6 +290,34 @@ export function WidgetEditor({
                   ]}
                 />
               )}
+              {source === "maintenance" && (
+                <>
+                  <Chips
+                    options={ASSET_TYPES.map((value) => ({ value, label: ASSET_TYPE_LABEL[value] }))}
+                    selected={draft.filters.assetTypes ?? []}
+                    onChange={(values) =>
+                      set({
+                        filters: { ...draft.filters, assetTypes: values.length ? (values as AssetType[]) : undefined },
+                      })
+                    }
+                  />
+                  <Select
+                    label="Filtrar por tipo de orden"
+                    value={draft.filters.workOrderType ?? ""}
+                    onChange={(value) =>
+                      set({
+                        filters: { ...draft.filters, workOrderType: (value || undefined) as WorkOrderType | undefined },
+                      })
+                    }
+                    options={[
+                      { value: "", label: "Correctivas y preventivas" },
+                      ...WORK_ORDER_TYPES.map((value) => ({ value, label: WORK_ORDER_TYPE_LABEL[value] })),
+                    ]}
+                  />
+                </>
+              )}
+              {source === "tickets" && (
+              <>
               <Chips
                 options={PRIORITIES.map((value) => ({ value, label: PRIORITY_LABEL[value] }))}
                 selected={draft.filters.priorities ?? []}
@@ -286,6 +372,8 @@ export function WidgetEditor({
                     ...categories.map((item) => ({ value: item.id, label: item.name })),
                   ]}
                 />
+              )}
+              </>
               )}
             </div>
           </Row>
@@ -346,7 +434,7 @@ export function WidgetEditor({
                 onChange={(value) => set({ showLegend: value })}
               />
               <Toggle
-                label="Meta de SLA"
+                label={source === "maintenance" ? "Meta del 100 %" : "Meta de SLA"}
                 checked={draft.showTarget}
                 onChange={(value) => set({ showTarget: value })}
               />

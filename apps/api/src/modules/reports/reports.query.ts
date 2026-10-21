@@ -11,6 +11,7 @@ import {
   type ReportRow,
   type ReportWidget,
   type StatsRange,
+  type TicketMeasureKey,
   type WidgetComparison,
 } from "@tekzaya/shared";
 import type { Types } from "mongoose";
@@ -23,6 +24,7 @@ import {
   type DimensionPlan,
   type LabelKind,
 } from "./reports.dimensions";
+import { canReportMaintenance, evaluateMaintenance } from "./reports.maintenance";
 import {
   anchorDateExpr,
   evaluate,
@@ -66,18 +68,24 @@ export async function runWidget(options: QueryOptions): Promise<ReportQueryResul
 
   const invalid = validateWidget(widget);
   if (invalid) throw new AppError(422, "validation_error", invalid);
+  const maintenance = widget.source === "maintenance";
+  if (maintenance && !(await canReportMaintenance(options.actor))) {
+    throw new AppError(403, "forbidden", "Los reportes de mantenimiento son de las áreas que mantienen equipos");
+  }
 
   const [settings, calendar] = await Promise.all([getSettings(), getCalendar()]);
   const base = baseFilterFor(options, now);
   const memberIds = await memberIdsOf(scope);
 
-  const shared = {
+  const shared: Shared = {
     base,
     calendar,
     now,
     minIncidentTickets: settings.incidentDetection.minTickets,
     ...(memberIds ? { memberIds } : {}),
     timezone: settings.businessHours.timezone,
+    actor: options.actor,
+    scope,
   };
 
   const main = await measureAll(widget, shared, range);
@@ -120,6 +128,9 @@ export async function runWidget(options: QueryOptions): Promise<ReportQueryResul
       : {}),
     totals,
     grouped: limited.grouped,
+    ...(widget.measures.some((item) => MEASURE_META[item.key].unit === "money")
+      ? { currency: settings.maintenance.currency }
+      : {}),
   };
 }
 
@@ -148,6 +159,32 @@ interface Shared {
   minIncidentTickets: number;
   memberIds?: Types.ObjectId[];
   timezone: string;
+  /** Lo necesita la fuente de mantenimiento, que no mide sobre `base`. */
+  actor: Actor;
+  scope: ResolvedScope;
+}
+
+/** Medidas de una gráfica de mantenimiento; `grouped: false` es la cuenta de totales. */
+function maintenanceValues(
+  widget: ReportWidget,
+  shared: Shared,
+  range: StatsRange,
+  grouped: boolean,
+): Promise<MeasureValues[]> {
+  return evaluateMaintenance(
+    widget,
+    {
+      actor: shared.actor,
+      scope: shared.scope,
+      filters: widget.filters,
+      range,
+      calendar: shared.calendar,
+      timezone: shared.timezone,
+      bucket: bucketFor(range),
+      now: shared.now,
+    },
+    grouped,
+  );
 }
 
 /**
@@ -162,10 +199,10 @@ function plansFor(
   range: StatsRange,
 ): { group?: DimensionPlan; split?: DimensionPlan } {
   const ctx = {
-    anchorDate: anchorDateExpr(MEASURE_SPEC[key].anchor),
+    anchorDate: anchorDateExpr(MEASURE_SPEC[key as TicketMeasureKey].anchor),
     bucket: bucketFor(range),
     timezone: shared.timezone,
-    personField: personFieldOf(key),
+    personField: personFieldOf(key as TicketMeasureKey),
     now: shared.now,
   };
   return {
@@ -179,11 +216,12 @@ async function measureAll(
   shared: Shared,
   range: StatsRange,
 ): Promise<MeasureValues[]> {
+  if (widget.source === "maintenance") return maintenanceValues(widget, shared, range, true);
   // Las medidas van en paralelo: son consultas independientes y un fallo en una no
   // debería retrasar las demás (spec §7.8.8, rendimiento).
   return Promise.all(
     widget.measures.map((item) =>
-      evaluate(item.key, item.aggregation, {
+      evaluate(item.key as TicketMeasureKey, item.aggregation, {
         ...shared,
         range,
         ...plansFor(item.key, widget, shared, range),
@@ -204,10 +242,14 @@ async function totalsFor(
   main: MeasureValues[],
 ): Promise<(number | null)[]> {
   if (!widget.groupBy) return main.map((values) => values.get("") ?? null);
+  if (widget.source === "maintenance") {
+    const flat = await maintenanceValues(widget, shared, range, false);
+    return flat.map((values) => values.get("") ?? null);
+  }
 
   const flat = await Promise.all(
     widget.measures.map((item) =>
-      evaluate(item.key, item.aggregation, { ...shared, range }),
+      evaluate(item.key as TicketMeasureKey, item.aggregation, { ...shared, range }),
     ),
   );
   return flat.map((values) => values.get("") ?? null);
@@ -392,6 +434,7 @@ async function compare(
   const members = await memberIdsOf(scope);
   const other: Shared = {
     ...shared,
+    scope,
     base: baseFilterFor({ ...options, scope, perspective }, shared.now),
     ...(members ? { memberIds: members } : {}),
   };

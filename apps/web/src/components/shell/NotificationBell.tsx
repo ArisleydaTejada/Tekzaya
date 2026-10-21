@@ -1,5 +1,6 @@
 import {
   formatTicketNumber,
+  formatAssetNumber,
   formatSparePartNumber,
   formatWorkOrderNumber,
   NOTIFICATION_TONE,
@@ -147,6 +148,7 @@ function NotificationRow({
           {item.ticketNumber ? `${formatTicketNumber(item.ticketNumber)} · ` : ""}
           {item.workOrderNumber ? `${formatWorkOrderNumber(item.workOrderNumber)} · ` : ""}
           {item.sparePartNumber ? `${formatSparePartNumber(item.sparePartNumber)} · ` : ""}
+          {item.assetNumber ? `${formatAssetNumber(item.assetNumber)} · ` : ""}
           {formatWhen(item.createdAt)}
         </p>
       </div>
@@ -161,7 +163,9 @@ function NotificationRow({
       ? `/ordenes/${formatWorkOrderNumber(item.workOrderNumber)}`
       : item.sparePartNumber
         ? `/repuestos/${formatSparePartNumber(item.sparePartNumber)}`
-        : null;
+        : item.assetNumber
+          ? `/activos/${formatAssetNumber(item.assetNumber)}`
+          : null;
   if (!to) return <li>{content}</li>;
 
   return (

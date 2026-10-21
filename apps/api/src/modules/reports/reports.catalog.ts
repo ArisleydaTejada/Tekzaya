@@ -2,9 +2,11 @@ import {
   CHART_META,
   CHART_TYPES,
   DIMENSION_META,
+  dimensionSources,
   dimensionsForScope,
   maxReportScope,
   MEASURE_META,
+  measureSource,
   measuresForScope,
   type Actor,
   type ReportCatalog,
@@ -13,6 +15,7 @@ import {
   type StatsScope,
 } from "@tekzaya/shared";
 import { getSettings } from "../settings/settings.service";
+import { canReportMaintenance } from "./reports.maintenance";
 import { canReportOnOthers, scopeOptionsFor } from "./reports.scope";
 
 /**
@@ -26,15 +29,21 @@ export async function catalogFor(actor: Actor): Promise<ReportCatalog> {
   const allowed = maxReportScope(actor);
   const scope: StatsScope = allowed.type === "global" ? "global" : allowed.type === "area" ? "area" : "me";
   const supervisor = canReportOnOthers(actor);
+  // La fuente de mantenimiento solo se ofrece a quien puede pedirla (plan A6).
+  const maintenance = await canReportMaintenance(actor);
+  const sourceAllowed = (source: string) => source === "tickets" || maintenance;
 
   return {
     scopes: scopeOptionsFor(actor),
     maxScope: scope,
     canPickPerson: supervisor,
-    measures: measuresForScope(scope).map((key) => {
+    measures: measuresForScope(scope)
+      .filter((key) => sourceAllowed(measureSource(key)))
+      .map((key) => {
       const meta = MEASURE_META[key];
       return {
         key,
+        source: measureSource(key),
         label: meta.label,
         family: meta.family,
         unit: meta.unit,
@@ -44,12 +53,15 @@ export async function catalogFor(actor: Actor): Promise<ReportCatalog> {
         ...(meta.hint ? { hint: meta.hint } : {}),
       };
     }),
-    dimensions: dimensionsForScope(scope, supervisor).map((key) => ({
-      key,
-      label: DIMENSION_META[key].label,
-    })),
+    dimensions: dimensionsForScope(scope, supervisor)
+      .map((key) => ({
+        key,
+        label: DIMENSION_META[key].label,
+        sources: dimensionSources(key).filter(sourceAllowed),
+      }))
+      .filter((item) => item.sources.length > 0),
     charts: CHART_TYPES.map((type) => ({ type, label: CHART_META[type].label })),
-    templates: templatesFor(scope),
+    templates: templatesFor(scope, maintenance),
     limits: settings.reportLimits,
   };
 }
@@ -61,6 +73,7 @@ let widgetSeq = 0;
 /** Una gráfica de plantilla, con los ajustes de presentación por defecto. */
 function widget(partial: {
   title: string;
+  source?: ReportWidget["source"];
   chart: ReportWidget["chart"];
   measures: ReportWidget["measures"];
   groupBy?: ReportWidget["groupBy"];
@@ -75,6 +88,7 @@ function widget(partial: {
   return {
     id: `w${widgetSeq}`,
     title: partial.title,
+    source: partial.source ?? "tickets",
     chart: partial.chart,
     measures: partial.measures,
     ...(partial.groupBy ? { groupBy: partial.groupBy } : {}),
@@ -98,7 +112,7 @@ const m = (key: ReportWidget["measures"][number]["key"], aggregation?: "avg" | "
  * se guardan como propias (spec §7.8.7). La que un rol no puede pedir no se le
  * ofrece, porque sus gráficas devolverían 403 una a una.
  */
-function templatesFor(scope: StatsScope): ReportTemplate[] {
+function templatesFor(scope: StatsScope, maintenance: boolean): ReportTemplate[] {
   widgetSeq = 0;
   const personal: ReportTemplate[] = [
     {
@@ -311,7 +325,8 @@ function templatesFor(scope: StatsScope): ReportTemplate[] {
     },
   ];
 
-  if (scope === "area") return [...areaTemplates, ...personal];
+  const maintenanceList = maintenance ? maintenanceTemplates(scope) : [];
+  if (scope === "area") return [...areaTemplates, ...maintenanceList, ...personal];
 
   const globalTemplates: ReportTemplate[] = [
     {
@@ -372,5 +387,74 @@ function templatesFor(scope: StatsScope): ReportTemplate[] {
     },
   ];
 
-  return [...globalTemplates, ...areaTemplates, ...personal];
+  return [...globalTemplates, ...areaTemplates, ...maintenanceList, ...personal];
+}
+
+/**
+ * Plantillas de mantenimiento (plan A6). En el alcance de un área, "por área" sería
+ * una sola barra: ahí se reparte por tipo de equipo.
+ */
+function maintenanceTemplates(requested: StatsScope): ReportTemplate[] {
+  const scope = requested === "global" ? "global" : "area";
+  const w = (partial: Parameters<typeof widget>[0]) => widget({ ...partial, source: "maintenance" });
+  const byArea = scope === "global" ? "area" : "asset_type";
+  const areaLabel = scope === "global" ? "por área" : "por tipo de equipo";
+  return [
+    {
+      templateId: "maintenance-cost",
+      title: scope === "global" ? "Costo por área" : "Costo de mantenimiento",
+      description: "Lo que costaron las reparaciones y los preventivos: repuestos y servicios externos.",
+      scope,
+      period: "year",
+      widgets: [
+        w({ title: "Costo del período", chart: "kpi", measures: [m("maintenance_cost")], compareWith: { kind: "previous_period" } }),
+        w({ title: "Órdenes completadas", chart: "kpi", measures: [m("wo_completed")], compareWith: { kind: "previous_period" } }),
+        w({ title: "Repuestos consumidos", chart: "kpi", measures: [m("parts_consumed")] }),
+        w({ title: `Costo ${areaLabel}`, chart: "hbar", measures: [m("maintenance_cost")], groupBy: byArea, w: 2 }),
+        w({ title: "Correctivo frente a preventivo", chart: "donut", measures: [m("maintenance_cost")], groupBy: "work_order_type" }),
+        w({ title: "Costo en el tiempo", chart: "line", measures: [m("maintenance_cost")], groupBy: "time", w: 3 }),
+      ],
+    },
+    {
+      templateId: "availability-by-type",
+      title: "Disponibilidad por tipo de equipo",
+      description: "MTBF, MTTR y disponibilidad en horas laborables, por tipo de equipo.",
+      scope,
+      period: "year",
+      widgets: [
+        w({ title: "Disponibilidad", chart: "kpi", measures: [m("availability")], compareWith: { kind: "previous_period" } }),
+        w({ title: "MTBF", chart: "kpi", measures: [m("mtbf")] }),
+        w({ title: "MTTR", chart: "kpi", measures: [m("mttr")] }),
+        w({ title: "Disponibilidad por tipo", chart: "hbar", measures: [m("availability")], groupBy: "asset_type", sort: "value_asc", w: 2 }),
+        w({ title: "Fallas por tipo", chart: "hbar", measures: [m("failures")], groupBy: "asset_type" }),
+        w({ title: "Detalle por tipo", chart: "table", measures: [m("mtbf"), m("mttr")], groupBy: "asset_type", w: 3 }),
+      ],
+    },
+    {
+      templateId: "top-costly-assets",
+      title: "Top 10 activos más caros de mantener",
+      description: "Los equipos que más costaron en el año: candidatos a reemplazo.",
+      scope,
+      period: "year",
+      widgets: [
+        w({ title: "Costo por equipo", chart: "hbar", measures: [m("maintenance_cost")], groupBy: "asset", limit: 10, w: 2 }),
+        w({ title: "Fallas por equipo", chart: "hbar", measures: [m("failures")], groupBy: "asset", limit: 10 }),
+        w({ title: "Detalle", chart: "table", measures: [m("maintenance_cost"), m("wo_completed")], groupBy: "asset", limit: 10, w: 3 }),
+      ],
+    },
+    {
+      templateId: "preventive-compliance",
+      title: "Cumplimiento de preventivos",
+      description: "Qué parte de los preventivos programados se hizo a tiempo.",
+      scope,
+      period: "year",
+      widgets: [
+        w({ title: "Cumplimiento", chart: "kpi", measures: [m("preventive_compliance")], compareWith: { kind: "previous_period" }, showTarget: true }),
+        w({ title: "Órdenes abiertas", chart: "kpi", measures: [m("wo_open")] }),
+        w({ title: "Cumplimiento en el tiempo", chart: "line", measures: [m("preventive_compliance")], groupBy: "time", showTarget: true, w: 2 }),
+        w({ title: `Cumplimiento ${areaLabel}`, chart: "hbar", measures: [m("preventive_compliance")], groupBy: byArea, sort: "value_asc", w: 2 }),
+        w({ title: "Por técnico", chart: "hbar", measures: [m("preventive_compliance")], groupBy: "technician" }),
+      ],
+    },
+  ];
 }

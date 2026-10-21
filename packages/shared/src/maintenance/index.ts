@@ -11,3 +11,5 @@ export * from "./workOrderApi";
 export * from "./sparePartApi";
 export * from "./schedule";
 export * from "./planApi";
+export * from "./reliability";
+export * from "./dashboardApi";
