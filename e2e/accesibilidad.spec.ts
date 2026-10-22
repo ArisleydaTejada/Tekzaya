@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { storageStateOf, type Role } from "./accounts";
+import { mockMaintenanceAi } from "./aiMocks";
 
 /**
  * Accesibilidad (spec §13): contraste AA, controles con nombre y 360 px.
@@ -10,7 +11,14 @@ import { storageStateOf, type Role } from "./accounts";
  * contraste insuficiente o un campo sin etiqueta sin que nadie lo note.
  */
 
-const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => Promise<void> }[] = [
+const PAGES: {
+  name: string;
+  path: string;
+  role: Role;
+  /** Antes de abrir la página: simular la IA, que la API de los E2E no tiene. */
+  setup?: (page: Page) => Promise<void>;
+  ready?: (page: Page) => Promise<void>;
+}[] = [
   { name: "tablero (supervisor)", path: "/tablero", role: "supervisor" },
   { name: "tablero (empleado)", path: "/tablero", role: "employee" },
   { name: "tickets · lista", path: "/tickets", role: "supervisor" },
@@ -139,6 +147,32 @@ const PAGES: { name: string; path: string; role: Role; ready?: (page: Page) => P
     ready: (page) => expect(page.getByLabel("Cargando panel")).toHaveCount(0),
   },
   {
+    // Las dos tarjetas de IA del módulo 2 (plan A7), con respuestas simuladas.
+    name: "activos · ficha con ¿reparar o reemplazar?",
+    path: "/activos",
+    role: "supervisor",
+    setup: mockMaintenanceAi,
+    ready: async (page) => {
+      await page.getByRole("textbox", { name: "Buscar activos" }).fill("multifuncional");
+      await page.getByRole("link", { name: "Impresora multifuncional de Ventas" }).click();
+      await expect(page.getByRole("heading", { name: "¿Reparar o reemplazar?" })).toBeVisible();
+    },
+  },
+  {
+    name: "órdenes de trabajo · estimación de costo",
+    path: "/ordenes",
+    role: "supervisor",
+    setup: mockMaintenanceAi,
+    ready: async (page) => {
+      await page.getByLabel("Filtrar por estado").selectOption("in_progress");
+      await page.getByLabel("Filtrar por tipo").selectOption("corrective");
+      await expect(page.getByLabel("Cargando órdenes")).toHaveCount(0);
+      await page.getByRole("cell").getByRole("link", { name: /^OT-\d{4}$/ }).first().click();
+      await page.getByRole("button", { name: "Estimar costo" }).click();
+      await expect(page.getByRole("list", { name: "Reparaciones parecidas" })).toBeVisible();
+    },
+  },
+  {
     name: "preventivos · planes",
     path: "/preventivos",
     role: "supervisor",
@@ -183,6 +217,7 @@ for (const theme of ["light", "dark"] as const) {
           window.localStorage.setItem("tekzaya-theme", value);
         }, theme);
         const page = await context.newPage();
+        await target.setup?.(page);
         await page.goto(target.path);
         await page.waitForLoadState("networkidle");
         await target.ready?.(page);
@@ -209,4 +244,16 @@ test.describe("360 px de ancho", () => {
       expect(overflow, "la página entera no debe desplazarse de lado").toBeLessThanOrEqual(0);
     });
   }
+
+  test("la ficha con ¿reparar o reemplazar? no desborda horizontalmente", async ({ page }) => {
+    await mockMaintenanceAi(page);
+    await page.goto("/activos");
+    await page.getByRole("textbox", { name: "Buscar activos" }).fill("multifuncional");
+    await page.getByRole("link", { name: "Impresora multifuncional de Ventas" }).click();
+    await expect(page.getByRole("heading", { name: "¿Reparar o reemplazar?" })).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "la página entera no debe desplazarse de lado").toBeLessThanOrEqual(0);
+  });
 });

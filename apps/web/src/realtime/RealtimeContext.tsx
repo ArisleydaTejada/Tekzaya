@@ -123,6 +123,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // Completar un preventivo puede mover la fecha de su plan y cambia el calendario.
       void queryClient.invalidateQueries({ queryKey: planKeys.all });
       void queryClient.invalidateQueries({ queryKey: maintenanceKeys.all });
+      // Una falla nueva o un costo cargado cambian los números de «¿Reparar o reemplazar?».
+      // El servidor solo vuelve a llamar a la IA si cambió el historial.
+      void queryClient.invalidateQueries({ queryKey: ["ai", "replacement"] });
     });
 
     return () => {

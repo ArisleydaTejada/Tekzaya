@@ -3,6 +3,8 @@ import {
   autocompleteResponse,
   classifyResponse,
   incidentResponse,
+  repairEstimateResponse,
+  replacementAdviceResponse,
   suggestAreaResponse,
   summaryResponse,
   type AiStatus,
@@ -10,6 +12,8 @@ import {
   type AutocompleteInput,
   type Classification,
   type IncidentGroup,
+  type RepairEstimateResponse,
+  type ReplacementAdvice,
   type SuggestAreaInput,
   type SummaryResponse,
 } from "@tekzaya/shared";
@@ -18,6 +22,7 @@ import { apiFetch, sessionFetch } from "./client";
 export const aiKeys = {
   status: ["ai", "status"] as const,
   summary: (ticketId: string) => ["ai", "summary", ticketId] as const,
+  replacement: (assetId: string) => ["ai", "replacement", assetId] as const,
 };
 
 /**
@@ -72,4 +77,15 @@ export async function dismissIncident(ticketId: string): Promise<void> {
     method: "POST",
     credentials: "include",
   });
+}
+
+// ── Módulo 2 (plan A7) ────────────────────────────────────────
+
+/** `null` si el equipo no es candidato a reemplazo o no hay IA: la tarjeta no se monta. */
+export async function getReplacementAdvice(assetId: string): Promise<ReplacementAdvice | null> {
+  return (await apiFetch(`/ai/assets/${assetId}/replacement`, replacementAdviceResponse)).advice;
+}
+
+export function estimateRepair(workOrderId: string): Promise<RepairEstimateResponse> {
+  return apiFetch(`/ai/work-orders/${workOrderId}/estimate`, repairEstimateResponse, { method: "POST" });
 }

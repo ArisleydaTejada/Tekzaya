@@ -9,6 +9,7 @@ import {
   workOrder as workOrderSchema,
   workOrderCost,
   type AssetStatus,
+  type ReplacementAdviceResponse,
 } from "@tekzaya/shared";
 import { Types } from "mongoose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -24,10 +25,12 @@ import {
 import { Notification, Settings, SETTINGS_ID } from "../models/support.models";
 import { Ticket } from "../models/ticket.model";
 import { User } from "../models/user.model";
-import { connect, disconnect, resetDatabase, seedTicket, type Fixture } from "../test/fixtures";
+import { DisabledAiProvider, setAiProvider } from "../modules/ai/ai.provider";
+import { connect, disconnect, loginAs, resetDatabase, seedTicket, type Fixture } from "../test/fixtures";
 import { runMaintenanceAlerts } from "../jobs/maintenanceAlerts.job";
 import { runPreventiveJob } from "../jobs/preventive.job";
 import { seedMaintenance, type MaintenanceSeedSummary } from "./maintenance";
+import { REPEATED_FAILURE_ASSET } from "./maintenance-catalog";
 
 /**
  * La semilla del módulo 2 es material de defensa: MTBF, costos y stock tienen que
@@ -186,7 +189,29 @@ describe("semilla del módulo 2", () => {
     expect(await runMaintenanceAlerts(now)).toEqual({ warranty: 0, repeated: 0 });
   });
 
-    it("se puede repetir: vuelve a dejar el mismo módulo 2", async () => {
+  it("con clave, la multifuncional sale como candidata a reemplazo, con sus números (DoD de A7)", async () => {
+    const explanation = "Vuelve a fallar poco después de cada reparación: conviene reemplazarla.";
+    setAiProvider({ configured: true, json: async () => null, text: async () => explanation });
+    try {
+      const printer = await Asset.findOne({ name: REPEATED_FAILURE_ASSET }).lean();
+      const supervisor = await loginAs(fixture.users.supIt.email);
+      const response = await supervisor.get(`/api/v1/ai/assets/${String(printer!._id)}/replacement`);
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      const { advice } = response.body as ReplacementAdviceResponse;
+      // Las dos razones de la regla, con las mismas cifras que imprime la semilla.
+      expect(advice).toMatchObject({
+        reasons: ["repeated_failures", "repair_cost"],
+        repairCost: summary.repeatedFailure.repairCost,
+        purchaseCost: summary.repeatedFailure.purchaseCost,
+        explanation,
+      });
+      expect(advice!.failuresInWindow).toBe(summary.repeatedFailure.last90Days);
+    } finally {
+      setAiProvider(new DisabledAiProvider());
+    }
+  });
+
+  it("se puede repetir: vuelve a dejar el mismo módulo 2", async () => {
     const again = await seedMaintenance(now);
     expect(again.assets).toBe(summary.assets);
     expect(await Asset.countDocuments()).toBe(summary.assets);

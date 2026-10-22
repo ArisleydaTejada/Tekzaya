@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { objectId } from "./common";
 import { priority } from "./enums";
+import { aiFeatures } from "./settings";
 
 // Todo lo de IA comparte una regla: **puede no haber respuesta**. Cada esquema
 // admite `null`, y la interfaz está obligada a contemplarlo. Es lo que hace que
@@ -10,13 +11,7 @@ import { priority } from "./enums";
 export const aiStatus = z.object({
   /** Hay clave configurada en el backend. Sin ella, todo lo demás da igual. */
   configured: z.boolean(),
-  enabled: z.object({
-    suggestArea: z.boolean(),
-    classify: z.boolean(),
-    summary: z.boolean(),
-    autocomplete: z.boolean(),
-    detectIncidents: z.boolean(),
-  }),
+  enabled: aiFeatures,
 });
 export type AiStatus = z.infer<typeof aiStatus>;
 

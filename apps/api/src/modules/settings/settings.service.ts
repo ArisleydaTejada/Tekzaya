@@ -30,7 +30,9 @@ export async function getSettings(): Promise<SettingsShape> {
         autoCloseResolvedDays: doc.autoCloseResolvedDays ?? DEFAULT_SETTINGS.autoCloseResolvedDays,
         onHoldReminderDays: doc.onHoldReminderDays ?? DEFAULT_SETTINGS.onHoldReminderDays,
         onHoldAutoCloseDays: doc.onHoldAutoCloseDays ?? DEFAULT_SETTINGS.onHoldAutoCloseDays,
-        aiEnabled: (doc.aiEnabled as SettingsShape["aiEnabled"]) ?? DEFAULT_SETTINGS.aiEnabled,
+        // Sobre los valores por defecto: una base guardada antes de A7 no trae los
+        // interruptores del módulo 2, y sin ellos la IA de mantenimiento no existiría.
+        aiEnabled: { ...DEFAULT_SETTINGS.aiEnabled, ...(doc.aiEnabled as Partial<SettingsShape["aiEnabled"]>) },
         incidentDetection:
           (doc.incidentDetection as SettingsShape["incidentDetection"]) ??
           DEFAULT_SETTINGS.incidentDetection,

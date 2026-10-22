@@ -1092,6 +1092,8 @@ const AI_LABEL: Record<keyof Settings["aiEnabled"], string> = {
   summary: "Resumir la conversación",
   autocomplete: "Autocompletar respuestas",
   detectIncidents: "Detectar incidentes",
+  replacementAdvice: "Sugerir reparar o reemplazar un equipo",
+  repairEstimate: "Estimar el costo de una reparación",
 };
 
 /** Los plazos se guardan en minutos y se editan en horas: nadie piensa en 1440. */
@@ -1409,7 +1411,7 @@ function ConfiguracionTab() {
             Funciones de inteligencia artificial
           </h3>
           <p className="mb-1 text-xs text-[var(--content-ink-dim)]">
-            Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano.
+            Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano, y los equipos y las órdenes muestran sus números sin la tarjeta de IA.
           </p>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {(Object.keys(AI_LABEL) as (keyof Settings["aiEnabled"])[]).map((key) => (

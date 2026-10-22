@@ -8,7 +8,7 @@ Guía rápida con lo que el profesor podría preguntar. Cada sección es corta a
 
 Plataforma web de **soporte interno por tickets con IA**. Un empleado reporta un problema, la IA sugiere a qué área va (TI, Mantenimiento, Ventas…) y qué prioridad tiene, y el supervisor del área lo asigna a un técnico. El sistema mide los **tiempos de atención (SLA)**, avisa en **tiempo real** y genera **reportes personalizables**.
 
-*(La idea completa incluye un segundo módulo de mantenimiento de activos; esta primera fase es solo el de tickets.)*
+Tiene **dos módulos en una sola herramienta**: el de **tickets** (soporte) y el de **mantenimiento de activos** (inventario de equipos, averías, órdenes de trabajo con su costo, repuestos, preventivos y sus métricas). Se unen en un punto: una queja sobre la impresora se vincula al equipo y se convierte en orden de trabajo (ver §10).
 
 **Roles:**
 - **Empleado**: crea tickets y ve los suyos.
@@ -44,7 +44,7 @@ Otras piezas:
 
 El navegador (React) llama a una **API REST** (`/api/v1/...`) en Express, que lee y escribe en MongoDB. Además hay un canal **WebSocket** (Socket.IO) para avisos en vivo y **trabajos programados** (cron) que vigilan los plazos.
 
-El backend está dividido por módulos: `tickets`, `auth`, `ai`, `reports`, `stats`, `notifications`, `admin`, `attachments`, etc. Cada ruta valida su entrada con Zod, exige sesión y aplica permisos.
+El backend está dividido por módulos: `tickets`, `auth`, `ai`, `reports`, `stats`, `notifications`, `admin`, `attachments`, y los del módulo 2: `assets`, `workOrders`, `spareParts`, `plans`, `maintenance`. Cada ruta valida su entrada con Zod, exige sesión y aplica permisos.
 
 ---
 
@@ -116,6 +116,8 @@ Usos, cada uno activable/desactivable por el administrador:
 3. **Resumen** del ticket para quien lo atiende.
 4. **Autocompletar** respuestas (con Tab) y sugerencias para resolver.
 5. **Detectar incidentes** (tickets duplicados o del mismo problema).
+6. **¿Reparar o reemplazar?** (módulo 2): en la ficha de un equipo con fallas repetidas o reparaciones caras.
+7. **Estimar el costo de una reparación** (módulo 2): en una orden correctiva abierta.
 
 Decisiones de diseño:
 - Una **interfaz `AiProvider`**: el resto del sistema no sabe que existe Gemini. Cambiar de proveedor es escribir otra implementación.
@@ -123,6 +125,7 @@ Decisiones de diseño:
 - Cada respuesta incluye **confianza (0–1)**; la detección de incidentes solo actúa por encima de un mínimo configurable.
 - **Caché en memoria + límite por persona**, porque la cuota gratuita de Gemini es pequeña.
 - La IA **sugiere, no decide**: la persona puede corregirla, y esas correcciones alimentan las métricas de precisión de la IA.
+- **En el módulo 2 la IA no inventa cifras.** Quién es candidato a reemplazo lo decide una regla en código (fallas repetidas, o reparaciones que ya suman el 50 % del precio de compra); Gemini solo **redacta la explicación**, y si cita un número que no estaba en los datos que se le dieron, la explicación se descarta. La estimación de costo es la **mediana y los percentiles 25–75** de reparaciones pasadas: Gemini solo **elige cuáles se parecen**, respondiendo con números de una lista (no puede inventar órdenes), y con menos de 3 casos no hay estimación. Cada cifra se puede rastrear hasta órdenes reales.
 
 ---
 
@@ -166,33 +169,60 @@ Extras:
 
 ---
 
-## 10. Otras funciones por si preguntan
+## 10. Módulo 2: mantenimiento de activos
+
+**La idea:** cada equipo (laptop, impresora, aire acondicionado…) tiene un **área responsable** que lo mantiene. Así se reutilizan las áreas, supervisores y permisos del módulo 1 sin roles nuevos: IT mantiene la impresora aunque esté en Ventas.
+
+| Pieza | Qué hace |
+|---|---|
+| **Inventario** (`ACT-0001`) | Ficha del equipo con foto, garantía, persona a cargo y **línea de tiempo** (historial que solo crece: alta, mudanzas, fallas, reparaciones, baja). |
+| **Averías** | Al crear un ticket se puede **vincular un equipo**; el técnico lo **convierte en orden de trabajo**. Un ticket vinculado todavía no es una falla: la falla nace con la OT correctiva. |
+| **Órdenes de trabajo** (`OT-0001`) | Ciclo propio (Pendiente → Asignada → En progreso → En espera → Completada). **Costo = repuestos + servicios externos**; el trabajo de los técnicos de la empresa no se cobra. |
+| **Repuestos** (`REP-0001`) | Stock como **libro de movimientos**; nunca negativo (descuento atómico condicionado) y aviso de **stock bajo**. |
+| **Preventivos** | Planes "cada 3 meses" por equipo o por tipo; un trabajo diario genera la OT antes de la fecha. Calendario mensual. |
+| **Panel y reportes** | KPI, alertas (garantías, fallas repetidas, stock bajo) y una segunda fuente en el constructor: **MTBF, MTTR, disponibilidad**, costo, cumplimiento de preventivos. |
+
+**Decisiones que conviene saber explicar:**
+- **Montos en centavos enteros**: `0.1 + 0.2` no da `0.3` en JavaScript.
+- **El costo del repuesto se congela al consumirlo** (promedio ponderado de ese momento): una compra posterior más cara no cambia lo que costó una reparación pasada.
+- **Nada se borra**: un equipo se da de baja, un repuesto se desactiva, una OT se cancela.
+- **El empleado nunca ve costos**: ve "su" laptop para poder reportar una falla; el precio y las reparaciones son del área.
+- **MTBF y disponibilidad se miden en horas laborables**, con el mismo motor que el SLA: una impresora que falla el viernes a las 18:00 y vuelve el lunes a las 9:00 estuvo parada 1 hora laborable, no 63.
+
+**Fórmulas:**
+- **MTBF** (tiempo medio entre fallas) = horas operativas ÷ número de fallas.
+- **MTTR** (tiempo medio de reparación) = horas en reparación ÷ número de reparaciones terminadas.
+- **Disponibilidad** = operativo ÷ (operativo + en reparación).
+
+---
+
+## 11. Otras funciones por si preguntan
 
 - **Crear ticket en nombre de otra persona** (supervisores).
 - **Disponibilidad**: un técnico "ausente" (vacaciones, permiso, incapacidad) deja de recibir asignaciones y vuelve solo (job horario).
 - **Enlaces de acceso** para invitar usuarios.
 - **Notas internas vs. públicas**: las internas no las ve el solicitante.
 - **Tema claro/oscuro** y barra lateral.
-- **Seed** (`npm run seed`) que carga áreas, categorías y usuarios de prueba.
+- **Seed** (`npm run seed`) que carga áreas, categorías, usuarios y tickets de prueba, y el módulo 2: ~60 equipos con **12 meses de historial**, ~170 OT, 25 repuestos (2 bajo mínimo), 8 planes (1 vencido) y la **multifuncional de Ventas con fallas repetidas** para la demo de IA.
 
 ---
 
-## 11. Cómo se ejecuta
+## 12. Cómo se ejecuta
 
 ```bash
 npm install
 npm run seed       # datos iniciales
 npm run dev        # arranca API (puerto 4000) y web (Vite, 5173) a la vez
-npm test           # pruebas de api y shared (295)
-npm run test:e2e   # los 5 recorridos y la accesibilidad, en Chromium
-npm run perf       # 10 000 tickets en una base aparte, medidos contra el §13
+npm test           # pruebas de api y shared (467)
+npm run test:e2e   # los recorridos de los dos módulos y la accesibilidad, en Chromium
+npm run perf       # 10 000 tickets, 1 000 activos y 10 000 OT en una base aparte
 ```
 
 Configuración en un `.env` en la raíz (Mongo, secretos JWT, Google client ID, clave de Gemini). La guía completa, con las cuentas, está en el `README.md`.
 
 ---
 
-## 12. Preguntas que podrían hacerte
+## 13. Preguntas que podrían hacerte
 
 **¿Por qué el SLA no cuenta noches y fines de semana?**
 Porque un ticket creado el viernes a las 17:55 no debería vencer el sábado: nadie trabaja. Medir en tiempo laborable hace la métrica justa.
@@ -213,17 +243,26 @@ Se guardan las *fechas* de vencimiento y riesgo (calculadas una vez); el estado 
 Añadirlo al catálogo de `shared` (`CHART_TYPES`) y escribir su render en `ReportChart.tsx`. El backend no cambia.
 
 **¿Cómo sabes que aguanta con muchos tickets?**
-Porque está medido: `npm run perf` carga 10 000 tickets y mide cada pantalla. Lo más lento es ordenar la bandeja por solicitante (0,84 s); el spec pide menos de 2 s. La primera medición falló (3,4 s en un filtro de horas laborales) y el arreglo fue una caché por día en el motor de SLA.
+Porque está medido: `npm run perf` carga 10 000 tickets, 1 000 activos y 10 000 órdenes de trabajo y mide cada pantalla. Lo más lento es ordenar la bandeja por solicitante (0,82 s); el spec pide menos de 2 s. Del módulo 2, la gráfica más pesada es MTBF y MTTR por tipo de equipo (0,65 s de 3 s), porque recorre la historia de los mil equipos. La primera medición del módulo 1 falló (3,4 s en un filtro de horas laborales) y el arreglo fue una caché por día en el motor de SLA.
+
+**¿La IA se inventa cuánto va a costar una reparación?**
+No. El rango es la mediana y los percentiles 25–75 del costo **real** de órdenes pasadas; la IA solo elige cuáles se parecen a la falla, por número de lista, y la tarjeta enlaza cada una. Con menos de tres casos parecidos no se muestra nada: un modelo que "estima 120 USD" sin datos detrás es peor que no estimar.
+
+**¿Por qué una orden de trabajo y no usar el mismo ticket?**
+Porque tienen ciclos distintos: el ticket es la conversación con quien reportó (con su SLA); la OT es la trastienda técnica (repuestos, proveedores, costo) y puede nacer de un preventivo sin ningún ticket. Están enlazadas en los dos sentidos.
+
+**¿Cómo evitas que dos técnicos gasten el último repuesto a la vez?**
+El descuento es una sola operación atómica condicionada (`$inc` solo si `stock >= cantidad`): uno pasa y el otro recibe 409. Hay una prueba que lo lanza en paralelo.
 
 **¿Es accesible?**
 axe revisa las pantallas principales en tema claro y oscuro en cada ejecución de las E2E (contraste AA, controles con nombre), el Kanban se maneja con teclado y la prioridad siempre lleva texto, no solo color.
 
 **¿Qué mejorarías?**
-El módulo de mantenimiento de activos (segunda fase), caché de IA compartida (Redis) si hay varios servidores, y probar con lector de pantalla real además de axe.
+Códigos QR en cada equipo para reportar una falla desde el móvil, mantenimiento por uso (horas de motor, páginas impresas), caché de IA compartida (Redis) si hay varios servidores, y probar con lector de pantalla real además de axe.
 
 ---
 
-## 13. Ensayo en el equipo de la presentación
+## 14. Ensayo en el equipo de la presentación
 
 Hacerlo **en esa máquina** y con antelación: es lo único de la fase F8 que no se puede comprobar desde el equipo de desarrollo.
 
@@ -231,7 +270,7 @@ Hacerlo **en esa máquina** y con antelación: es lo único de la fase F8 que no
 
 - [ ] `git pull`, `npm install` y `npm test` en verde.
 - [ ] MongoDB arranca solo con el equipo (`Get-Service MongoDB` → *Running*).
-- [ ] `npm run test:e2e` en verde: si pasa, los cinco recorridos funcionan en esa máquina y sin IA.
+- [ ] `npm run test:e2e` en verde: si pasa, los recorridos de los dos módulos funcionan en esa máquina y sin IA.
 - [ ] Probar la red del aula: ¿llega a `generativelanguage.googleapis.com`? Si no, se presenta sin IA (ver abajo).
 
 **La mañana de la defensa**
@@ -249,8 +288,17 @@ Hacerlo **en esa máquina** y con antelación: es lo único de la fase F8 que no
 4. Con las dos ventanas a la vista, crear un ticket: sube el tablero del supervisor y suena su campana.
 5. Reportes: el empleado solo ve "Yo"; la administradora ve las cuatro opciones.
 
+**Módulo 2: los cinco recorridos de mantenimiento** (`e2e/08…13`)
+
+1. **De la queja al equipo reparado:** el empleado reporta "la impresora no imprime" vinculando la multifuncional → el supervisor de IT convierte el ticket en OT, carga un repuesto y la completa → el ticket recibe el aviso y se resuelve → la línea de tiempo del equipo lo muestra todo.
+2. **Preventivo:** en *Preventivos*, el calendario del mes y el plan vencido; abrir su OT y marcar la lista de verificación.
+3. **Stock bajo:** consumir rodillos en una orden deja el repuesto bajo mínimo y suena la campana del supervisor.
+4. **¿Reparar o reemplazar?** (necesita IA): la ficha de la multifuncional de Ventas muestra la sugerencia con sus números; en una correctiva abierta, «Estimar costo» da el rango con los casos que lo sostienen.
+5. **Reportes:** plantilla *Disponibilidad por tipo de equipo* (MTBF y MTTR en horas laborables) y *Costo por área*, con exportación.
+
 **Plan B sin IA**
 
 - Dejar `GEMINI_API_KEY` vacía en `.env` y reiniciar: las funciones de IA desaparecen de la pantalla y todo lo demás funciona igual (las E2E lo prueban en cada ejecución).
 - O apagar solo «Sugerir área al crear un ticket» en *Administración → Configuración* si la cuota gratuita se agota en plena demo.
+- Sin IA, el recorrido 4 del módulo 2 se cuenta con el **panel de mantenimiento**: la alerta de fallas repetidas no depende de Gemini y lleva a la misma ficha, con los números en «Estado actual».
 - Si falla Google, el inicio de sesión por correo no depende de nada externo.

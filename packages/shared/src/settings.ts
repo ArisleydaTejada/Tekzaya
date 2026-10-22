@@ -35,6 +35,24 @@ export const businessHours = z.object({
 });
 export type BusinessHours = z.infer<typeof businessHours>;
 
+/**
+ * Un interruptor por función de IA; el administrador los apaga uno a uno. Las dos
+ * últimas son del módulo 2 (plan A7). Una base guardada antes de que existieran
+ * no las trae: al leerla valen encendidas, como las demás por defecto.
+ */
+export const aiFeatures = z.object({
+  suggestArea: z.boolean(),
+  classify: z.boolean(),
+  summary: z.boolean(),
+  autocomplete: z.boolean(),
+  detectIncidents: z.boolean(),
+  /** ¿Reparar o reemplazar? en la ficha del equipo. */
+  replacementAdvice: z.boolean(),
+  /** Estimación del costo de una reparación en la orden correctiva. */
+  repairEstimate: z.boolean(),
+});
+export type AiFeatures = z.infer<typeof aiFeatures>;
+
 export const settings = z.object({
   slaPolicies: z.record(z.enum(PRIORITIES), slaPolicy),
   businessHours,
@@ -42,13 +60,7 @@ export const settings = z.object({
   autoCloseResolvedDays: z.number().int().min(1),
   onHoldReminderDays: z.number().int().min(1),
   onHoldAutoCloseDays: z.number().int().min(1),
-  aiEnabled: z.object({
-    suggestArea: z.boolean(),
-    classify: z.boolean(),
-    summary: z.boolean(),
-    autocomplete: z.boolean(),
-    detectIncidents: z.boolean(),
-  }),
+  aiEnabled: aiFeatures,
   incidentDetection: z.object({
     windowHours: z.number().int().positive(),
     minConfidence: z.number().min(0).max(1),
@@ -97,6 +109,8 @@ export const DEFAULT_SETTINGS: Settings = {
     summary: true,
     autocomplete: true,
     detectIncidents: true,
+    replacementAdvice: true,
+    repairEstimate: true,
   },
   incidentDetection: { windowHours: 48, minConfidence: 0.6, minTickets: 3 },
   reportLimits: { maxSavedReports: 20, maxWidgetsPerReport: 12 },
@@ -114,15 +128,7 @@ export const updateSettingsInput = z.object({
   autoCloseResolvedDays: z.number().int().min(1).max(90).optional(),
   onHoldReminderDays: z.number().int().min(1).max(90).optional(),
   onHoldAutoCloseDays: z.number().int().min(1).max(180).optional(),
-  aiEnabled: z
-    .object({
-      suggestArea: z.boolean(),
-      classify: z.boolean(),
-      summary: z.boolean(),
-      autocomplete: z.boolean(),
-      detectIncidents: z.boolean(),
-    })
-    .optional(),
+  aiEnabled: aiFeatures.optional(),
   reportLimits: z
     .object({
       maxSavedReports: z.number().int().min(1).max(200),

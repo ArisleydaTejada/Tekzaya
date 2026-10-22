@@ -72,7 +72,7 @@ Hay más cuentas de ejemplo en [`apps/api/src/seed/catalog.ts`](apps/api/src/see
 
 ### Inteligencia artificial (Gemini)
 
-Sin clave, la aplicación funciona entera: el ticket se crea con el área elegida a mano y prioridad *Media*, y las funciones de IA no aparecen en pantalla. Para activarla:
+Sin clave, la aplicación funciona entera: el ticket se crea con el área elegida a mano y prioridad *Media*, el módulo de mantenimiento muestra sus números y alertas sin las tarjetas de IA (*¿Reparar o reemplazar?* y *Estimar costo*), y las funciones de IA no aparecen en pantalla. Para activarla:
 
 1. Crea una clave gratuita en <https://aistudio.google.com/apikey>.
 2. Ponla en `GEMINI_API_KEY` del `.env` y reinicia `npm run dev`.
@@ -93,7 +93,7 @@ Necesita un `GOOGLE_CLIENT_ID` de Google Cloud Console. Sin él, el botón respo
 | `npm run seed` | Rehace los datos de demostración |
 | `npm test` | Pruebas unitarias y de integración (Vitest + Supertest, contra MongoDB) |
 | `npm run test:e2e` | Los recorridos de la defensa y la auditoría de accesibilidad en Chromium (Playwright) |
-| `npm run perf` | Siembra 10 000 tickets en una base aparte y mide contra los umbrales del spec §13 |
+| `npm run perf` | Siembra 10 000 tickets, 1 000 activos y 10 000 órdenes de trabajo en una base aparte y mide contra los umbrales del spec §13 y del plan A7 |
 | `npm run typecheck` | Comprobación de tipos de los tres paquetes |
 | `npm run lint` | oxlint |
 

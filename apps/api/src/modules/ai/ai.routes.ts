@@ -1,6 +1,8 @@
 import {
   autocompleteInput,
   canReadInternalNotes,
+  canViewAssetDetails,
+  FINAL_WORK_ORDER_STATUSES,
   isAdmin,
   suggestAreaInput,
   type AutocompleteInput,
@@ -9,6 +11,7 @@ import {
 import { Router } from "express";
 import { AppError } from "../../middleware/errors";
 import { validateBody } from "../../middleware/validate";
+import { assetRefOf, loadVisibleAsset } from "../assets/asset.access";
 import {
   idOf,
   loadVisibleTicket,
@@ -16,6 +19,8 @@ import {
   routeParam,
   type LeanTicket,
 } from "../tickets/ticket.access";
+import { loadVisibleWorkOrder } from "../workOrders/workOrder.access";
+import { repairEstimate, replacementAdvice } from "./ai.maintenance";
 import {
   aiStatus,
   autocomplete,
@@ -146,6 +151,36 @@ router.post("/tickets/:id/incident/dismiss", async (req, res) => {
 
   await dismissIncident(String(idOf(ticket)));
   res.status(204).end();
+});
+
+// ── Módulo 2 · ¿Reparar o reemplazar? ───────────────────────
+
+/**
+ * Lo pide la ficha del equipo al abrirse. Habla de costos y del historial, que
+ * son del área (plan §3): el empleado que ve su laptop no lo recibe.
+ */
+router.get("/ai/assets/:id/replacement", async (req, res) => {
+  const actor = res.locals.actor;
+  const asset = await loadVisibleAsset(routeParam(req.params["id"]), actor);
+  if (!canViewAssetDetails(actor, assetRefOf(asset))) {
+    throw new AppError(403, "forbidden", "El historial del equipo es del área que lo mantiene");
+  }
+  res.json({ advice: await replacementAdvice(asset) });
+});
+
+// ── Módulo 2 · Estimación del costo de una reparación ────────
+
+/**
+ * Lo pide el botón «Estimar costo» de una correctiva abierta: la que ya terminó
+ * tiene su costo real, y un preventivo no es una reparación.
+ */
+router.post("/ai/work-orders/:id/estimate", async (req, res) => {
+  const actor = res.locals.actor;
+  const order = await loadVisibleWorkOrder(routeParam(req.params["id"]), actor);
+  if (order.type !== "corrective" || (FINAL_WORK_ORDER_STATUSES as readonly string[]).includes(order.status)) {
+    throw new AppError(409, "not_estimable", "Solo se estima el costo de una orden correctiva abierta");
+  }
+  res.json(await repairEstimate(order));
 });
 
 export default router;

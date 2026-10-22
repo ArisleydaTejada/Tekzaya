@@ -1230,9 +1230,17 @@ function AssetCard({
             La orden {formatWorkOrderNumber(finished.number)} se completó. Si el problema quedó resuelto, resuelve el
             ticket con una nota para el solicitante.
           </p>
-          <button onClick={onResolve} className="mt-1.5 font-semibold text-accent-ink hover:underline">
-            Resolver el ticket
-          </button>
+          {/* Un ticket sin responsable no se resuelve (lo rechaza el servidor):
+              se dice qué falta en vez de ofrecer un botón que acabaría en error. */}
+          {ticket.status === "open" ? (
+            <p className="mt-1.5 text-[var(--content-ink-dim)]">
+              Antes, tómalo o asígnalo: un ticket sin responsable no se puede resolver.
+            </p>
+          ) : (
+            <button onClick={onResolve} className="mt-1.5 font-semibold text-accent-ink hover:underline">
+              Resolver el ticket
+            </button>
+          )}
         </div>
       )}
 

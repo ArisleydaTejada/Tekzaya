@@ -29,6 +29,7 @@ import { Avatar, AvatarStack } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
 import { AlertIcon, ArrowRightIcon, PencilIcon, PlusIcon, WrenchIcon, XIcon } from "../components/icons";
 import { Modal } from "../components/Modal";
+import { ReplacementAdviceCard } from "../components/maintenanceAi";
 import { NewWorkOrderModal } from "../components/NewWorkOrderModal";
 import { Plate } from "../components/Plate";
 import { PlanFormModal } from "../components/plans";
@@ -406,6 +407,7 @@ function Overview({
       </div>
       <div className="space-y-4">
         <RecurringFailure events={events} onShow={() => onShow("historial")} />
+        <ReplacementAdviceCard assetId={asset.id} />
         <RecentActivity events={events} loading={isLoading} onShow={() => onShow("historial")} />
         <ServiceHistory events={events} loading={isLoading} onShow={() => onShow("historial")} />
       </div>

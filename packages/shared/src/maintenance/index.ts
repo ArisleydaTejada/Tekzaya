@@ -13,3 +13,5 @@ export * from "./schedule";
 export * from "./planApi";
 export * from "./reliability";
 export * from "./dashboardApi";
+export * from "./advice";
+export * from "./adviceApi";

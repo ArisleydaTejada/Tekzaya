@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from "@tekzaya/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Notification } from "../../models/support.models";
@@ -124,7 +125,7 @@ describe("acceso a la administración", () => {
     expect(festivos.body.holidays).toEqual(["2026-12-25"]);
 
     const ia = await rrhh.patch("/api/v1/settings").send({
-      aiEnabled: { suggestArea: false, classify: false, summary: false, autocomplete: false, detectIncidents: false },
+      aiEnabled: { ...DEFAULT_SETTINGS.aiEnabled, suggestArea: false },
     });
     expect(ia.status).toBe(403);
 

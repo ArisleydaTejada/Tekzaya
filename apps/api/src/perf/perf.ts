@@ -1,11 +1,13 @@
 /**
- * Medición de rendimiento contra los umbrales del spec §13 (F8).
+ * Medición de rendimiento contra los umbrales del spec §13 (F8) y del plan del
+ * módulo 2 (A7: lista < 2 s, reporte < 3 s).
  *
- *   npm run perf               10 000 tickets en `tekzaya_perf`
- *   PERF_TICKETS=20000 npm run perf
+ *   npm run perf               10 000 tickets, 1 000 activos y 10 000 OT en `tekzaya_perf`
+ *   PERF_TICKETS=20000 PERF_ASSETS=2000 PERF_WORK_ORDERS=20000 npm run perf
  *
  * 1. Siembra una base APARTE con la semilla de demostración y la lleva a N
- *    tickets clonando los sembrados con otras fechas. La base de la demo no se toca.
+ *    tickets clonando los sembrados con otras fechas, y a N activos y N órdenes
+ *    clonando los equipos con su historia. La base de la demo no se toca.
  * 2. Levanta la API dentro de este mismo proceso y mide, por HTTP, lo mismo que
  *    pide cada pantalla: el tablero, la bandeja de tickets con sus pestañas, las
  *    gráficas de un reporte y las descargas CSV.
@@ -21,6 +23,8 @@ import { fileURLToPath } from "node:url";
 
 const PERF_URI = process.env["PERF_MONGODB_URI"] ?? "mongodb://localhost:27017/tekzaya_perf";
 const TARGET = Number(process.env["PERF_TICKETS"] ?? 10_000);
+const TARGET_ASSETS = Number(process.env["PERF_ASSETS"] ?? 1_000);
+const TARGET_WORK_ORDERS = Number(process.env["PERF_WORK_ORDERS"] ?? 10_000);
 /** Repeticiones en caliente por medición; se informa la peor, no la media. */
 const RUNS = 5;
 
@@ -124,6 +128,119 @@ async function growTo(target: number): Promise<void> {
   );
 }
 
+/**
+ * Módulo 2: clona los equipos sembrados, cada uno con sus órdenes y su línea de
+ * tiempo, hasta `targetAssets`; luego completa hasta `targetOrders` repitiendo
+ * reparaciones terminadas (con sus pasos de falla y reparación) en otra fecha
+ * del último año, sobre el mismo equipo. La historia de un equipo puede quedar
+ * con paradas que se pisan: para medir el servidor da igual, porque MTBF y
+ * disponibilidad recorren los mismos eventos estén como estén.
+ */
+async function growMaintenance(targetAssets: number, targetOrders: number): Promise<void> {
+  const { Types } = await import("mongoose");
+  const { Asset, AssetEvent, WorkOrder } = await import("../models/maintenance.models");
+  const { Counter } = await import("../models/counter.model");
+
+  const assets = await Asset.find().lean();
+  const orders = await WorkOrder.find().lean();
+  const events = await AssetEvent.find().lean();
+  const ordersOf = groupBy(orders, (order) => String(order.assetId));
+  const eventsOf = groupBy(events, (event) => String(event.assetId));
+
+  let assetNumber = Math.max(0, ...assets.map((asset) => asset.number));
+  let orderNumber = Math.max(0, ...orders.map((order) => order.number));
+  const missingAssets = targetAssets - assets.length;
+  console.log(`▸ Clonando ${Math.max(0, missingAssets).toLocaleString("es")} activos a partir de ${assets.length}`);
+
+  for (let done = 0; done < missingAssets; done += 100) {
+    const newAssets: Record<string, unknown>[] = [];
+    const newOrders: Record<string, unknown>[] = [];
+    const newEvents: Record<string, unknown>[] = [];
+    for (let i = 0; i < Math.min(100, missingAssets - done); i++) {
+      const source = assets[(done + i) % assets.length]!;
+      const { _id, photoId: _photo, ...rest } = source;
+      const assetId = new Types.ObjectId();
+      assetNumber += 1;
+      newAssets.push({ ...rest, _id: assetId, number: assetNumber });
+
+      // Las órdenes clonadas no vuelven a su ticket: el ticket solo enlaza la original.
+      const orderIds = new Map<string, InstanceType<typeof Types.ObjectId>>();
+      for (const order of ordersOf.get(String(_id)) ?? []) {
+        const { _id: orderId, ticketId: _ticket, ...body } = order;
+        const id = new Types.ObjectId();
+        orderIds.set(String(orderId), id);
+        orderNumber += 1;
+        newOrders.push({ ...body, _id: id, number: orderNumber, assetId });
+      }
+      for (const event of eventsOf.get(String(_id)) ?? []) {
+        const { _id: _eventId, ticketId: _ticket, workOrderId, ...body } = event;
+        const cloned = workOrderId ? orderIds.get(String(workOrderId)) : undefined;
+        newEvents.push({ ...body, assetId, ...(cloned ? { workOrderId: cloned } : {}) });
+      }
+    }
+    await Asset.collection.insertMany(newAssets, { ordered: false });
+    if (newOrders.length) await WorkOrder.collection.insertMany(newOrders, { ordered: false });
+    if (newEvents.length) await AssetEvent.collection.insertMany(newEvents, { ordered: false });
+    process.stdout.write(`\r  ${(done + newAssets.length).toLocaleString("es")} / ${missingAssets.toLocaleString("es")}`);
+  }
+
+  // Reparaciones terminadas de todos los equipos, ya clonados, para repetirlas.
+  const repairs = await WorkOrder.find({ type: "corrective", status: "completed", ticketId: { $exists: false } }).lean();
+  const repairEvents = groupBy(
+    await AssetEvent.find({ workOrderId: { $in: repairs.map((order) => order._id) } }).lean(),
+    (event) => String(event.workOrderId),
+  );
+  const missingOrders = targetOrders - (await WorkOrder.countDocuments());
+  console.log(`\n▸ Repitiendo ${Math.max(0, missingOrders).toLocaleString("es")} reparaciones a partir de ${repairs.length}`);
+
+  // Generador con semilla fija: dos ejecuciones producen los mismos datos.
+  let state = 20261022;
+  const random = () => {
+    state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
+    return state / 2_147_483_648;
+  };
+  const yearAgo = Date.now() - 365 * DAY_MS;
+
+  for (let done = 0; done < missingOrders; done += 1_000) {
+    const newOrders: Record<string, unknown>[] = [];
+    const newEvents: Record<string, unknown>[] = [];
+    for (let i = 0; i < Math.min(1_000, missingOrders - done); i++) {
+      const source = repairs[Math.floor(random() * repairs.length)]!;
+      // Más atrás, pero sin salir del último año que recorren los reportes.
+      const offset = Math.floor(random() * Math.max(0, source.createdAt.getTime() - yearAgo));
+      const { _id, ...body } = source;
+      const id = new Types.ObjectId();
+      orderNumber += 1;
+      newOrders.push({ ...shiftDates(body, offset), _id: id, number: orderNumber });
+      for (const event of repairEvents.get(String(_id)) ?? []) {
+        const { _id: _eventId, ...rest } = event;
+        newEvents.push({ ...shiftDates(rest, offset), workOrderId: id });
+      }
+    }
+    await WorkOrder.collection.insertMany(newOrders, { ordered: false });
+    if (newEvents.length) await AssetEvent.collection.insertMany(newEvents, { ordered: false });
+    process.stdout.write(`\r  ${(done + newOrders.length).toLocaleString("es")} / ${missingOrders.toLocaleString("es")}`);
+  }
+
+  await Counter.updateOne({ _id: "asset" }, { $set: { seq: assetNumber } }, { upsert: true });
+  await Counter.updateOne({ _id: "work_order" }, { $set: { seq: orderNumber } }, { upsert: true });
+  console.log(
+    `\n  Total: ${(await Asset.countDocuments()).toLocaleString("es")} activos · ` +
+      `${(await WorkOrder.countDocuments()).toLocaleString("es")} OT · ` +
+      `${(await AssetEvent.countDocuments()).toLocaleString("es")} eventos`,
+  );
+}
+
+function groupBy<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const group = map.get(key(item));
+    if (group) group.push(item);
+    else map.set(key(item), [item]);
+  }
+  return map;
+}
+
 // ── 2 · Medición ──────────────────────────────────────────────
 
 interface Session {
@@ -141,6 +258,7 @@ interface Check {
 async function main(): Promise<void> {
   seedBase();
   await growTo(TARGET);
+  await growMaintenance(TARGET_ASSETS, TARGET_WORK_ORDERS);
 
   // La conexión de `growTo` sigue abierta y es la misma que usarán los modelos.
   const { createApp } = await import("../app");
@@ -191,6 +309,12 @@ async function main(): Promise<void> {
   });
   const report = (partial: Record<string, unknown>) =>
     call(admin, "/reports/query", { scope: "global", period: "year", widget: widget(partial) });
+  const maintenanceReport = (partial: Record<string, unknown>) =>
+    call(admin, "/reports/query", {
+      scope: "global",
+      period: "year",
+      widget: widget({ source: "maintenance", ...partial }),
+    });
 
   /** Una pantalla pide varias cosas a la vez; cuenta lo que tarda la más lenta. */
   const screen = (...requests: (() => Promise<unknown>)[]) => () =>
@@ -300,6 +424,64 @@ async function main(): Promise<void> {
           "/reports/tickets?scope=global&period=year&limit=50&resolutionHoursOp=gt&resolutionHours=8",
         ),
     },
+    // ── Módulo 2 (plan A7) ─────────────────────────────────────
+    {
+      name: "Activos · inventario, primera página (supervisor)",
+      limitMs: 2_000,
+      run: () => call(supervisor, "/assets?limit=25"),
+    },
+    {
+      name: "Activos · todas las áreas, búsqueda y filtro",
+      limitMs: 2_000,
+      run: () => call(admin, "/assets?q=impresora&status=operational,in_repair&sort=warranty&limit=25"),
+    },
+    {
+      name: "Órdenes · lista de mi área",
+      limitMs: 2_000,
+      run: () => call(supervisor, "/work-orders?limit=25"),
+    },
+    {
+      name: "Órdenes · kanban (100 abiertas)",
+      limitMs: 2_000,
+      run: () => call(admin, "/work-orders?status=pending,assigned,in_progress,on_hold&limit=100"),
+    },
+    {
+      name: "Panel de mantenimiento · todas las áreas",
+      limitMs: 2_000,
+      run: () => call(admin, "/maintenance/dashboard"),
+    },
+    {
+      name: "Gráfica · MTBF y MTTR por tipo de equipo",
+      limitMs: 3_000,
+      run: () =>
+        maintenanceReport({ chart: "bar", measures: [{ key: "mtbf" }, { key: "mttr" }], groupBy: "asset_type" }),
+    },
+    {
+      name: "Gráfica · disponibilidad por equipo",
+      limitMs: 3_000,
+      run: () => maintenanceReport({ chart: "bar", measures: [{ key: "availability" }], groupBy: "asset" }),
+    },
+    {
+      name: "Gráfica · costo de mantenimiento por mes y área",
+      limitMs: 3_000,
+      run: () =>
+        maintenanceReport({ chart: "stacked", measures: [{ key: "maintenance_cost" }], groupBy: "time", splitBy: "area" }),
+    },
+    {
+      name: "Gráfica · equipos más caros de mantener",
+      limitMs: 3_000,
+      run: () => maintenanceReport({ chart: "bar", measures: [{ key: "maintenance_cost" }], groupBy: "asset" }),
+    },
+    {
+      name: "Gráfica · cumplimiento de preventivos por mes",
+      limitMs: 3_000,
+      run: () => maintenanceReport({ chart: "line", measures: [{ key: "preventive_compliance" }], groupBy: "time" }),
+    },
+    {
+      name: "CSV · inventario de activos, todo",
+      limitMs: 5_000,
+      run: () => call(admin, "/assets/export"),
+    },
     {
       name: "CSV · lista del período, todo el año",
       limitMs: 5_000,
@@ -349,7 +531,8 @@ async function main(): Promise<void> {
   console.log(
     failed.length
       ? `\n✗ ${failed.length} de ${rows.length} mediciones superan su umbral`
-      : `\n✓ Las ${rows.length} mediciones cumplen el §13 con ${TARGET.toLocaleString("es")} tickets`,
+      : `\n✓ Las ${rows.length} mediciones cumplen el §13 con ${TARGET.toLocaleString("es")} tickets, ` +
+          `${TARGET_ASSETS.toLocaleString("es")} activos y ${TARGET_WORK_ORDERS.toLocaleString("es")} OT`,
   );
   process.exit(failed.length ? 1 : 0);
 }

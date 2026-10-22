@@ -43,6 +43,7 @@ import { AssetStatusBadge } from "../components/assets";
 import { Avatar } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
 import { CheckIcon, PaperclipIcon, PlusIcon, XIcon } from "../components/icons";
+import { RepairEstimateCard } from "../components/maintenanceAi";
 import { Modal } from "../components/Modal";
 import { MoneyInput } from "../components/MoneyInput";
 import { Plate } from "../components/Plate";
@@ -220,6 +221,7 @@ export default function OrdenDetailPage() {
 
         <aside className="space-y-4" aria-label="Resumen de la orden">
           <CostCard order={order} />
+          <RepairEstimateCard order={order} />
 
           <Plate className="space-y-2 p-4 text-sm">
             <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">Equipo</h2>
