@@ -43,13 +43,16 @@ export const asset = z.object({
   purchaseCost: money.optional(),
   warrantyUntil: isoDate.optional(),
   status: assetStatus,
-  photoId: objectId.optional(),
+  /** Fotos del equipo; la primera es la portada. Falta en los de antes de la galería. */
+  photoIds: z.array(objectId).optional(),
   retiredAt: isoDateTime.optional(),
   retiredReason: z.string().optional(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });
 export type Asset = z.infer<typeof asset>;
+
+export const MAX_ASSET_PHOTOS = 12;
 
 export const createAssetInput = z.object({
   name: text(120),
@@ -64,7 +67,7 @@ export const createAssetInput = z.object({
   purchaseDate: isoDate.optional(),
   purchaseCost: money.optional(),
   warrantyUntil: isoDate.optional(),
-  photoId: objectId.optional(),
+  photoIds: z.array(objectId).max(MAX_ASSET_PHOTOS).optional(),
 });
 export type CreateAssetInput = z.infer<typeof createAssetInput>;
 
@@ -86,7 +89,8 @@ export const updateAssetInput = z.object({
   purchaseDate: isoDate.nullable().optional(),
   purchaseCost: money.nullable().optional(),
   warrantyUntil: isoDate.nullable().optional(),
-  photoId: objectId.nullable().optional(),
+  /** La lista entera, en orden: así se agregan, quitan y reordenan las fotos. */
+  photoIds: z.array(objectId).max(MAX_ASSET_PHOTOS).optional(),
 });
 export type UpdateAssetInput = z.infer<typeof updateAssetInput>;
 

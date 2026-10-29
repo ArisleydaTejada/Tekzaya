@@ -158,7 +158,7 @@ async function growMaintenance(targetAssets: number, targetOrders: number): Prom
     const newEvents: Record<string, unknown>[] = [];
     for (let i = 0; i < Math.min(100, missingAssets - done); i++) {
       const source = assets[(done + i) % assets.length]!;
-      const { _id, photoId: _photo, ...rest } = source;
+      const { _id, photoId: _photo, photoIds: _photos, ...rest } = source;
       const assetId = new Types.ObjectId();
       assetNumber += 1;
       newAssets.push({ ...rest, _id: assetId, number: assetNumber });

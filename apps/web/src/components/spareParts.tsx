@@ -201,6 +201,11 @@ export function SparePartFormModal({
                 <MoneyInput id="initial-cost" value={initialCost} onChange={setInitialCost} currency={currency} />
               </div>
             </div>
+            {Number.isInteger(min) && qty < min && (
+              <p className="mt-2 text-xs text-[var(--content-ink-dim)]">
+                Queda por debajo del mínimo: se creará marcado como «bajo mínimo» para que se reponga.
+              </p>
+            )}
           </fieldset>
         )}
       </div>

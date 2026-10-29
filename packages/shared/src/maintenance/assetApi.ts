@@ -94,6 +94,8 @@ export type AssetPermissions = z.infer<typeof assetPermissions>;
  * `permissions.viewDetails`: el servidor lo quita, la pantalla no lo esconde.
  */
 export const assetView = asset.extend({
+  /** Siempre presente: la foto única de antes llega como la primera. */
+  photoIds: z.array(objectId),
   area: areaRef,
   usedByArea: areaRef.optional(),
   custodian: assetPerson.optional(),

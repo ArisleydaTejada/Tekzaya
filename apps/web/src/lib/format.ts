@@ -1,4 +1,4 @@
-import { PART_UNIT_LABEL, type PartUnit } from "@tekzaya/shared";
+import { partUnitLabel, type PartUnit } from "@tekzaya/shared";
 
 /**
  * Las fechas llegan en ISO y UTC; se muestran en el reloj de quien mira. La
@@ -101,6 +101,5 @@ export function formatMinutes(minutes: number): string {
 
 /** "3 unidades", "1 caja": una cantidad de repuesto con su unidad. */
 export function formatQuantity(qty: number, unit: PartUnit): string {
-  const label = PART_UNIT_LABEL[unit];
-  return `${qty} ${Math.abs(qty) === 1 ? label : `${label}s`}`;
+  return `${qty} ${partUnitLabel(unit, qty)}`;
 }

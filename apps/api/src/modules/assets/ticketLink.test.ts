@@ -283,4 +283,23 @@ describe("selector de equipos", () => {
       ["Servidor de archivos", "other"],
     ]);
   });
+
+  it("filtra por tipo y, en nombre de un compañero, agrupa por lo que tiene él a cargo", async () => {
+    await seedVentasEquipment();
+    const supervisor = await loginAs(fixture.users.supVentas.email);
+
+    const printers = await supervisor.get("/api/v1/assets/link-options?type=printer");
+    expect(printers.body.items.map((item: { name: string }) => item.name)).toEqual(["Impresora de Ventas"]);
+
+    const forVito = await supervisor.get(`/api/v1/assets/link-options?type=laptop&requesterId=${fixture.users.employeeVentas.id}`);
+    expect(forVito.status).toBe(200);
+    expect(forVito.body.person.name).toBe("Vito Ventas");
+    expect(forVito.body.items.map((item: { name: string; group: string }) => [item.name, item.group])).toEqual([
+      ["Laptop de Vito", "custodian"],
+    ]);
+
+    // Por alguien de otra área no se puede crear el ticket, así que tampoco preguntar.
+    const foreign = await supervisor.get(`/api/v1/assets/link-options?requesterId=${fixture.users.employeeIt.id}`);
+    expect(foreign.status).toBe(403);
+  });
 });

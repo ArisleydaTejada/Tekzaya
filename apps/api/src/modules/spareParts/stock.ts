@@ -1,4 +1,4 @@
-import { formatSparePartNumber, PART_UNIT_LABEL, type PartUnit } from "@tekzaya/shared";
+import { formatSparePartNumber, partUnitLabel, type PartUnit } from "@tekzaya/shared";
 import type { Types } from "mongoose";
 import { SparePart } from "../../models/maintenance.models";
 import { notify, supervisorsOf } from "../notifications/notifications.service";
@@ -90,9 +90,8 @@ export async function takeStock(
 
 /** "Solo quedan 2 unidades de Tóner HP 58A": lo que dice un 409 por falta de stock. */
 export function shortageMessage(part: Pick<LeanSparePart, "name" | "unit">, left: number): string {
-  const unit = PART_UNIT_LABEL[part.unit as PartUnit];
   return left > 0
-    ? `Solo queda${left === 1 ? "" : "n"} ${left} ${left === 1 ? unit : `${unit}s`} de ${part.name}`
+    ? `Solo queda${left === 1 ? "" : "n"} ${left} ${partUnitLabel(part.unit as PartUnit, left)} de ${part.name}`
     : `No queda ${part.name} en el almacén`;
 }
 
@@ -119,11 +118,10 @@ export async function checkLowStock(partId: Types.ObjectId, actorId?: string): P
   if (!armed) return;
 
   const audience = (await supervisorsOf(armed.areaId)).filter((id) => id !== actorId);
-  const unit = PART_UNIT_LABEL[armed.unit as PartUnit];
   await notify(audience, {
     type: "low_stock",
     title: `Stock bajo: ${armed.name}`,
-    body: `${formatSparePartNumber(armed.number)} · quedan ${armed.stock} ${armed.stock === 1 ? unit : `${unit}s`} de un mínimo de ${armed.minStock}`,
+    body: `${formatSparePartNumber(armed.number)} · quedan ${armed.stock} ${partUnitLabel(armed.unit as PartUnit, armed.stock)} de un mínimo de ${armed.minStock}`,
     sparePartId: armed._id,
     sparePartNumber: armed.number,
   });

@@ -7,6 +7,7 @@ export * from "./downtime";
 export * from "./settings";
 export * from "./assetApi";
 export * from "./ticketLink";
+export * from "./assetMention";
 export * from "./workOrderApi";
 export * from "./sparePartApi";
 export * from "./schedule";

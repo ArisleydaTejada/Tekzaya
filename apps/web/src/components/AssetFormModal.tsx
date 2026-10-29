@@ -18,8 +18,9 @@ import {
   listAssetPeople,
   updateAsset,
 } from "../api/assets";
-import { areaKeys, attachmentUrl, listAreas, uploadAttachment } from "../api/tickets";
+import { areaKeys, listAreas } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
+import { AssetPhotosField } from "./assets";
 import { Modal } from "./Modal";
 import { MoneyInput } from "./MoneyInput";
 
@@ -37,7 +38,7 @@ interface Draft {
   purchaseDate: string;
   purchaseCost: string;
   warrantyUntil: string;
-  photoId: string;
+  photoIds: string[];
 }
 
 function draftOf(asset: AssetDetail | null, defaultAreaId: string): Draft {
@@ -54,11 +55,11 @@ function draftOf(asset: AssetDetail | null, defaultAreaId: string): Draft {
     purchaseDate: asset?.purchaseDate ?? "",
     purchaseCost: asset?.purchaseCost != null ? amountInputFromCents(asset.purchaseCost) : "",
     warrantyUntil: asset?.warrantyUntil ?? "",
-    photoId: asset?.photoId ?? "",
+    photoIds: asset?.photoIds ?? [],
   };
 }
 
-const OPTIONAL_TEXT = ["brand", "model", "serial", "usedByAreaId", "custodianId", "purchaseDate", "warrantyUntil", "photoId"] as const;
+const OPTIONAL_TEXT = ["brand", "model", "serial", "usedByAreaId", "custodianId", "purchaseDate", "warrantyUntil"] as const;
 
 /**
  * Alta y edición del activo. Al editar solo viaja lo que cambió, y un campo
@@ -132,6 +133,7 @@ export function AssetFormModal({
           areaId: draft.areaId,
           location: draft.location.trim(),
           ...(cost !== null ? { purchaseCost: cost } : {}),
+          ...(draft.photoIds.length ? { photoIds: draft.photoIds } : {}),
         };
         for (const key of OPTIONAL_TEXT) {
           const value = draft[key].trim();
@@ -147,6 +149,7 @@ export function AssetFormModal({
       if (draft.areaId !== before.areaId) input.areaId = draft.areaId;
       if (draft.location.trim() !== before.location) input.location = draft.location.trim();
       if (draft.purchaseCost.trim() !== before.purchaseCost) input.purchaseCost = cost;
+      if (draft.photoIds.join() !== before.photoIds.join()) input.photoIds = draft.photoIds;
       for (const key of OPTIONAL_TEXT) {
         const value = draft[key].trim();
         if (value !== before[key]) input[key] = value || null;
@@ -156,21 +159,6 @@ export function AssetFormModal({
     onSuccess: onSaved,
     onError: (cause) => setError(cause.message),
   });
-
-  async function pickPhoto(file: File | undefined) {
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const stored = await uploadAttachment(file);
-      if (!stored.mimeType.startsWith("image/")) throw new Error("La foto tiene que ser una imagen");
-      set("photoId", stored.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo subir la foto");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   const valid = draft.name.trim().length > 0 && draft.location.trim().length > 0 && draft.areaId !== "";
 
@@ -304,21 +292,15 @@ export function AssetFormModal({
         <Labeled label="Garantía hasta">
           {(id) => <input id={id} type="date" value={draft.warrantyUntil} onChange={(e) => set("warrantyUntil", e.target.value)} className={INPUT} />}
         </Labeled>
-        <Labeled label="Foto" hint="Opcional">
+        <Labeled label="Fotos" hint="Opcional · la primera es la portada" className="sm:col-span-2">
           {(id) => (
-            <div className="flex items-center gap-3">
-              {draft.photoId && (
-                <img src={attachmentUrl(draft.photoId)} alt="" className="h-10 w-10 rounded-lg border border-[var(--content-border)] object-cover" />
-              )}
-              <input
-                id={id}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={(e) => void pickPhoto(e.target.files?.[0])}
-                className="min-w-0 flex-1 text-xs text-[var(--content-ink-dim)] file:mr-2 file:rounded-md file:border-0 file:bg-[var(--content-bg)] file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-[var(--content-ink)]"
-              />
-              {uploading && <span className="text-xs text-[var(--content-ink-dim)]">Subiendo…</span>}
-            </div>
+            <AssetPhotosField
+              id={id}
+              value={draft.photoIds}
+              onChange={(photoIds) => set("photoIds", photoIds)}
+              onUploading={setUploading}
+              onError={setError}
+            />
           )}
         </Labeled>
       </div>

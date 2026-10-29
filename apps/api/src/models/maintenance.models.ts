@@ -38,6 +38,9 @@ const assetSchema = new Schema(
     // Caché del estado actual para que la lista sea rápida; la verdad está en
     // `asset_events` (plan §2.3).
     status: { type: String, enum: ASSET_STATUSES, default: "operational" },
+    /** Fotos del equipo; la primera es la portada. */
+    photoIds: { type: [{ type: Schema.Types.ObjectId, ref: "Attachment" }], default: [] },
+    /** Foto única de antes de la galería; se lee como la primera de `photoIds`. */
     photoId: { type: Schema.Types.ObjectId, ref: "Attachment" },
     retiredAt: { type: Date },
     retiredReason: { type: String },

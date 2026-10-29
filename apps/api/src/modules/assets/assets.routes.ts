@@ -34,7 +34,7 @@ import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
 import { csvFile, csvRow, sendCsv } from "../tickets/ticket.csv";
 import { routeParam } from "../tickets/ticket.access";
-import { assetRefOf, assetScopeFilter, loadVisibleAsset, type LeanAsset } from "./asset.access";
+import { assetRefOf, assetScopeFilter, loadVisibleAsset, photoIdsOf, type LeanAsset } from "./asset.access";
 import { hydrateAssets, todayKey, toAssetView } from "./asset.view";
 
 const router = Router();
@@ -128,21 +128,34 @@ async function assertReferences(input: {
 }
 
 /**
- * La foto se sube antes como cualquier adjunto (borrador sin dueño) y aquí se
- * enlaza al activo. Solo vale una imagen que subió quien guarda, que no esté ya
- * en un ticket ni en otro equipo: si no, bastaría con conocer un id para colgar
- * en un activo el archivo de otra persona.
+ * Las fotos se suben antes como cualquier adjunto (borrador sin dueño) y aquí se
+ * enlazan al activo. Las que ya son del equipo pasan sin más; una nueva solo vale
+ * si es una imagen que subió quien guarda y que no está ya en un ticket ni en
+ * otro equipo: si no, bastaría con conocer un id para colgar en un activo el
+ * archivo de otra persona. Se comprueban todas antes de enlazar ninguna.
  */
-async function claimPhoto(photoId: string, actor: Actor, assetId: Types.ObjectId): Promise<void> {
-  const file = await Attachment.findById(photoId).lean();
-  const usable =
-    file &&
-    String(file.uploaderId) === actor.id &&
-    !file.ticketId &&
-    (!file.assetId || file.assetId.equals(assetId)) &&
-    file.mimeType?.startsWith("image/");
-  if (!usable) throw new AppError(422, "validation_error", "La foto no es válida: sube una imagen nueva");
-  await Attachment.updateOne({ _id: photoId }, { $set: { assetId } });
+async function claimPhotos(
+  photoIds: readonly string[],
+  actor: Actor,
+  assetId: Types.ObjectId,
+  current: readonly Types.ObjectId[] = [],
+): Promise<string[]> {
+  const unique = [...new Set(photoIds)];
+  const fresh = unique.filter((id) => !current.some((own) => own.equals(id)));
+  const files = await Attachment.find({ _id: { $in: fresh } }).lean();
+  const usable = (id: string) => {
+    const file = files.find((candidate) => String(candidate._id) === id);
+    return (
+      file &&
+      String(file.uploaderId) === actor.id &&
+      !file.ticketId &&
+      (!file.assetId || file.assetId.equals(assetId)) &&
+      file.mimeType?.startsWith("image/")
+    );
+  };
+  if (!fresh.every(usable)) throw new AppError(422, "validation_error", "Alguna foto no es válida: sube una imagen nueva");
+  if (fresh.length) await Attachment.updateMany({ _id: { $in: fresh } }, { $set: { assetId } });
+  return unique;
 }
 
 async function detailOf(asset: LeanAsset, actor: Actor) {
@@ -294,14 +307,14 @@ router.post("/assets", validateBody(createAssetInput), async (req, res) => {
   await assertReferences(input);
 
   const _id = new Types.ObjectId();
-  if (input.photoId) await claimPhoto(input.photoId, actor, _id);
+  const { photoIds = [], ...fields } = input;
+  const photos = await claimPhotos(photoIds, actor, _id);
 
   const now = new Date();
-  const { photoId, ...fields } = input;
   await Asset.create({
     _id,
     ...fields,
-    ...(photoId ? { photoId } : {}),
+    photoIds: photos,
     number: await nextNumber("asset"),
     status: "operational",
   });
@@ -347,14 +360,19 @@ router.patch("/assets/:id", validateBody(updateAssetInput), async (req, res) => 
     throw new AppError(403, "forbidden", "No puedes pasar el equipo a un área que no supervisas");
   }
   await assertReferences(input);
-  if (input.photoId) await claimPhoto(input.photoId, actor, asset._id);
+  const { photoIds, ...fields } = input;
 
   const $set: Record<string, unknown> = {};
   const $unset: Record<string, ""> = {};
-  for (const [key, value] of Object.entries(input)) {
+  for (const [key, value] of Object.entries(fields)) {
     if (value === undefined) continue;
     if (value === null) $unset[key] = "";
     else $set[key] = value;
+  }
+  // Una foto que se quita sigue enlazada al equipo: solo sale de su galería.
+  if (photoIds) {
+    $set["photoIds"] = await claimPhotos(photoIds, actor, asset._id, photoIdsOf(asset));
+    $unset["photoId"] = "";
   }
 
   const same = (a: unknown, b: unknown) => String(a ?? "") === String(b ?? "");

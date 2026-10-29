@@ -1,5 +1,6 @@
 import {
   assetPickerQuery,
+  canCreateOnBehalfOf,
   canCreateWorkOrder,
   canLinkAssetToTicket,
   canLinkAssetsOnTicket,
@@ -86,6 +87,14 @@ router.get("/assets/link-options", validateQuery(assetPickerQuery), async (_req,
     status: "open",
   };
   if (query.ticketId) ticket = refOf(plainOf(await loadVisibleTicket(query.ticketId, actor)));
+  else if (query.requesterId && query.requesterId !== actor.id) {
+    // Las mismas reglas que al crear el ticket en su nombre.
+    const target = await User.findById(query.requesterId).select("areaId status").lean();
+    if (!target || target.status !== "active" || !canCreateOnBehalfOf(actor, { id: query.requesterId, areaId: String(target.areaId) })) {
+      throw new AppError(403, "forbidden", "Solo puedes crear tickets por compañeros de tu área");
+    }
+    ticket = { ...ticket, requesterId: query.requesterId };
+  }
 
   const person = await User.findById(ticket.requesterId).select("name areaId").lean();
   const personView = { id: ticket.requesterId, name: person?.name ?? "Solicitante" };
@@ -96,6 +105,7 @@ router.get("/assets/link-options", validateQuery(assetPickerQuery), async (_req,
   }
 
   const and: Record<string, unknown>[] = [linkable, { status: { $ne: "retired" } }];
+  if (query.type) and.push({ type: query.type });
   if (query.q) {
     const number = /^(?:ACT-)?(\d{1,9})$/i.exec(query.q)?.[1];
     const pattern = new RegExp(escapeRegex(query.q), "i");

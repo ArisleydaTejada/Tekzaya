@@ -1,13 +1,16 @@
 import {
   ASSET_TYPE_LABEL,
+  ASSET_TYPE_PLURAL_LABEL,
   formatAssetNumber,
   type AssetPickGroup,
   type AssetPickerItem,
+  type AssetType,
 } from "@tekzaya/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
 import { assetKeys, listAssetLinkOptions } from "../api/assets";
 import { useAuth } from "../auth/AuthContext";
+import { useOnOpen } from "../lib/useOnOpen";
 import { AssetStatusBadge } from "./assets";
 import { SearchIcon } from "./icons";
 import { Modal } from "./Modal";
@@ -37,6 +40,8 @@ export function AssetPicker({
   onClose,
   onPick,
   ticketId,
+  requesterId,
+  type,
   selectedId,
 }: {
   open: boolean;
@@ -44,13 +49,25 @@ export function AssetPicker({
   onPick: (asset: PickedAsset) => void;
   /** Ticket ya creado; sin él, el ticket será de quien elige. */
   ticketId?: string;
+  /** Sin `ticketId`: el compañero en cuyo nombre se crea el ticket. */
+  requesterId?: string;
+  /** El tipo del que habla el ticket: se ofrece solo ese, con la opción de ver todos. */
+  type?: AssetType;
   selectedId?: string;
 }) {
   const { me } = useAuth();
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
+  const [showAll, setShowAll] = useState(false);
+  useOnOpen(open, () => setShowAll(false));
+  const onlyType = type && !showAll ? type : undefined;
 
-  const query = { ...(q ? { q } : {}), ...(ticketId ? { ticketId } : {}) };
+  const query = {
+    ...(q ? { q } : {}),
+    ...(ticketId ? { ticketId } : {}),
+    ...(requesterId ? { requesterId } : {}),
+    ...(onlyType ? { type: onlyType } : {}),
+  };
   const { data, isLoading, isError, error } = useQuery({
     queryKey: assetKeys.linkOptions(query),
     queryFn: () => listAssetLinkOptions(query),
@@ -77,6 +94,15 @@ export function AssetPicker({
         />
       </div>
 
+      {type && (
+        <p className="mb-3 flex flex-wrap items-center gap-x-2 text-xs text-[var(--content-ink-dim)]">
+          {onlyType ? `Solo ${ASSET_TYPE_PLURAL_LABEL[type]}, por lo que escribiste.` : "Todos los equipos."}
+          <button type="button" onClick={() => setShowAll(!showAll)} className="font-medium text-accent-ink hover:underline">
+            {onlyType ? "Ver todos los equipos" : `Solo ${ASSET_TYPE_PLURAL_LABEL[type]}`}
+          </button>
+        </p>
+      )}
+
       {isError ? (
         <p role="alert" className="py-6 text-center text-sm text-red">
           {error instanceof Error ? error.message : "No se pudieron cargar los equipos."}
@@ -85,7 +111,11 @@ export function AssetPicker({
         <p className="py-6 text-center text-sm text-[var(--content-ink-dim)]">Buscando equipos…</p>
       ) : groups.length === 0 ? (
         <p className="py-6 text-center text-sm text-[var(--content-ink-dim)]">
-          {q ? "Ningún equipo coincide con la búsqueda." : "No hay equipos que puedas vincular a este ticket."}
+          {q
+            ? "Ningún equipo coincide con la búsqueda."
+            : onlyType
+              ? `No hay ${ASSET_TYPE_PLURAL_LABEL[onlyType]} que puedas vincular a este ticket.`
+              : "No hay equipos que puedas vincular a este ticket."}
         </p>
       ) : (
         <div className="space-y-4">

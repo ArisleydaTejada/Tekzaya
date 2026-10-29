@@ -26,6 +26,13 @@ export const assetPickerQuery = z.object({
    * formulario de nuevo ticket: el ticket será de quien pregunta.
    */
   ticketId: objectId.optional(),
+  /** Solo los de un tipo: "la impresora no imprime" ofrece solo impresoras. */
+  type: assetType.optional(),
+  /**
+   * Sin `ticketId`: el compañero en cuyo nombre se crea el ticket. Agrupa por
+   * lo que tiene a cargo él, no quien lo escribe.
+   */
+  requesterId: objectId.optional(),
 });
 export type AssetPickerQuery = z.infer<typeof assetPickerQuery>;
 

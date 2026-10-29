@@ -40,7 +40,7 @@ describe("recorrido del supervisor (DoD de A1)", () => {
       custodianId: String(fixture.users.employeeVentas.id),
       purchaseCost: 112_900,
       warrantyUntil: "2028-01-31",
-      photoId: upload.body.id,
+      photoIds: [upload.body.id],
     });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body.number).toBe(1);
@@ -243,7 +243,7 @@ describe("reglas de gestión", () => {
       .post("/api/v1/attachments")
       .attach("file", PNG, { filename: "ajena.png", contentType: "image/png" });
     const supervisor = await loginAs(fixture.users.supIt.email);
-    const stolen = await create(supervisor, { name: "Laptop", areaId: String(fixture.areas.it), photoId: foreign.body.id });
+    const stolen = await create(supervisor, { name: "Laptop", areaId: String(fixture.areas.it), photoIds: [foreign.body.id] });
     expect(stolen.status).toBe(422);
 
     const own = await supervisor
@@ -253,13 +253,48 @@ describe("reglas de gestión", () => {
       name: "Laptop de Vito",
       areaId: String(fixture.areas.it),
       custodianId: String(fixture.users.employeeVentas.id),
-      photoId: own.body.id,
+      photoIds: [own.body.id],
     });
     expect(created.status).toBe(201);
 
     // La ve Vito (la tiene a cargo); no la ve la supervisora de Ventas, que no usa el equipo.
     expect((await (await loginAs(fixture.users.employeeVentas.email)).get(`/api/v1/attachments/${own.body.id}`)).status).toBe(200);
     expect((await (await loginAs(fixture.users.supVentas.email)).get(`/api/v1/attachments/${own.body.id}`)).status).toBe(404);
+  });
+
+  it("desde la ficha se agregan, se reordenan y se quitan fotos", async () => {
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    const upload = async (name: string) =>
+      (await supervisor.post("/api/v1/attachments").attach("file", PNG, { filename: name, contentType: "image/png" })).body.id as string;
+    const first = await upload("frente.png");
+    const created = await create(supervisor, { name: "Impresora", areaId: String(fixture.areas.it), photoIds: [first] });
+    expect(created.body.photoIds).toEqual([first]);
+
+    const second = await upload("etiqueta.png");
+    const added = await supervisor.patch(`/api/v1/assets/${created.body.id}`).send({ photoIds: [second, first] });
+    expect(added.status, JSON.stringify(added.body)).toBe(200);
+    expect(added.body.photoIds).toEqual([second, first]);
+
+    const removed = await supervisor.patch(`/api/v1/assets/${created.body.id}`).send({ photoIds: [first] });
+    expect(removed.body.photoIds).toEqual([first]);
+
+    // Una ajena no entra, aunque vaya junto a las que ya son del equipo.
+    const foreign = (
+      await (await loginAs(fixture.users.agentIt.email))
+        .post("/api/v1/attachments")
+        .attach("file", PNG, { filename: "ajena.png", contentType: "image/png" })
+    ).body.id as string;
+    const stolen = await supervisor.patch(`/api/v1/assets/${created.body.id}`).send({ photoIds: [first, foreign] });
+    expect(stolen.status).toBe(422);
+  });
+
+  it("un equipo con la foto única de antes la muestra como su galería", async () => {
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    const created = await create(supervisor, { name: "Proyector", areaId: String(fixture.areas.it) });
+    expect(created.body.photoIds).toEqual([]);
+    const legacy = "0123456789abcdef01234567";
+    await Asset.updateOne({ _id: created.body.id }, { $set: { photoId: legacy }, $unset: { photoIds: "" } });
+    expect((await supervisor.get(`/api/v1/assets/${created.body.id}`)).body.photoIds).toEqual([legacy]);
   });
 
   it("marca las garantías por vencer con la antelación configurada", async () => {

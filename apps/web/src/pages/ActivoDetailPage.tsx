@@ -8,6 +8,7 @@ import {
   formatTicketNumber,
   formatWorkOrderNumber,
   describeEvery,
+  MAX_ASSET_PHOTOS,
   type AssetDetail,
   type AssetEventKind,
   type AssetEventView,
@@ -16,9 +17,9 @@ import {
   type WorkOrderStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { assetKeys, getAsset, listAssetEvents, retireAsset } from "../api/assets";
+import { assetKeys, getAsset, listAssetEvents, retireAsset, updateAsset } from "../api/assets";
 import { listPlans, planKeys } from "../api/plans";
 import { listSpareParts, sparePartKeys } from "../api/spareParts";
 import { attachmentUrl } from "../api/tickets";
@@ -34,6 +35,7 @@ import { NewWorkOrderModal } from "../components/NewWorkOrderModal";
 import { Plate } from "../components/Plate";
 import { PlanFormModal } from "../components/plans";
 import { RequiredPartStatus, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
+import { PHOTO_ACCEPT, uploadAssetPhotos } from "../lib/assetPhotos";
 import { formatDateTime, formatDay, formatQuantity, formatWhen, warrantyCountdown } from "../lib/format";
 
 const VIEWS = ["resumen", "historial", "ordenes"] as const;
@@ -140,7 +142,7 @@ export default function ActivoDetailPage() {
         )}
       </div>
 
-      <AssetHeader asset={asset} />
+      <AssetHeader asset={asset} onSaved={refresh} />
 
       {asset.status === "retired" && (
         <div className="mt-4 rounded-xl border border-[var(--content-border)] bg-[var(--content-bg)] px-4 py-3 text-sm text-[var(--content-ink-dim)]">
@@ -244,21 +246,10 @@ export default function ActivoDetailPage() {
 // ── Cabecera ──────────────────────────────────────────────────
 
 /** Quién es, dónde está y cómo está: lo que se busca al abrir la ficha, de un vistazo. */
-function AssetHeader({ asset }: { asset: AssetDetail }) {
+function AssetHeader({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: AssetDetail) => Promise<void> }) {
   return (
     <Plate className="grid gap-4 p-4 md:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
-      {asset.photoId ? (
-        <img
-          src={attachmentUrl(asset.photoId)}
-          alt={`Foto de ${asset.name}`}
-          className="h-28 w-full rounded-xl object-cover md:w-40"
-        />
-      ) : (
-        <div className="flex h-28 w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-[var(--content-bg)] text-[var(--content-ink-dim)] md:w-40">
-          <WrenchIcon className="h-6 w-6" />
-          <span className="text-xs">Sin foto</span>
-        </div>
-      )}
+      <AssetPhotos asset={asset} onSaved={onSaved} />
 
       <div className="min-w-0 self-center">
         <p className="text-xs text-[var(--content-ink-dim)]">
@@ -327,6 +318,162 @@ function WarrantyAlert({ asset }: { asset: AssetDetail }) {
           Cubre hasta el {formatDay(asset.warrantyUntil)}. Si el equipo da problemas, conviene reclamarla antes.
         </p>
       </div>
+    </div>
+  );
+}
+
+// ── Fotos ─────────────────────────────────────────────────────
+
+/**
+ * La portada y, debajo, el resto de las fotos. Quien gestiona el equipo agrega
+ * fotos desde aquí sin abrir el formulario; al abrir una en grande puede
+ * quitarla o hacerla portada. Cada cambio guarda la lista entera.
+ */
+function AssetPhotos({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: AssetDetail) => Promise<void> }) {
+  const [viewing, setViewing] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const inputId = useId();
+  const photos = asset.photoIds;
+  const canEdit = asset.permissions.manage;
+  const room = MAX_ASSET_PHOTOS - photos.length;
+
+  const save = useMutation({
+    mutationFn: (photoIds: string[]) => updateAsset(asset.id, { photoIds }),
+    onSuccess: onSaved,
+  });
+  const error = uploadError ?? save.error?.message ?? null;
+  const busy = uploading || save.isPending;
+
+  async function add(list: FileList | null) {
+    const files = [...(list ?? [])].slice(0, room);
+    if (!files.length) return;
+    setUploading(true);
+    setUploadError(null);
+    save.reset();
+    try {
+      save.mutate([...photos, ...(await uploadAssetPhotos(files))]);
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "No se pudo subir la foto");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const current = viewing !== null ? photos[viewing] : undefined;
+
+  return (
+    <div className="flex w-full flex-col gap-2 md:w-40">
+      {photos[0] ? (
+        <button onClick={() => setViewing(0)} className="overflow-hidden rounded-xl" aria-label="Ver las fotos en grande">
+          <img src={attachmentUrl(photos[0])} alt={`Foto de ${asset.name}`} className="h-28 w-full object-cover" />
+        </button>
+      ) : (
+        <div className="flex h-28 w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-[var(--content-bg)] text-[var(--content-ink-dim)]">
+          <WrenchIcon className="h-6 w-6" />
+          <span className="text-xs">Sin foto</span>
+        </div>
+      )}
+      {(photos.length > 1 || (canEdit && room > 0)) && (
+        <div className="flex flex-wrap gap-1.5">
+          {photos.slice(1).map((photoId, index) => (
+            <button
+              key={photoId}
+              onClick={() => setViewing(index + 1)}
+              aria-label={`Ver la foto ${index + 2}`}
+              className="overflow-hidden rounded-md border border-[var(--content-border)]"
+            >
+              <img src={attachmentUrl(photoId)} alt="" className="h-9 w-9 object-cover" />
+            </button>
+          ))}
+          {canEdit && room > 0 && (
+            <label
+              htmlFor={inputId}
+              className="flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--content-border)] px-2 text-[11px] text-[var(--content-ink-dim)] hover:border-accent hover:text-[var(--content-ink)] has-[:focus-visible]:border-accent"
+            >
+              <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              {busy ? "Subiendo…" : "Agregar fotos"}
+              <input
+                id={inputId}
+                type="file"
+                multiple
+                accept={PHOTO_ACCEPT}
+                disabled={busy}
+                onChange={(e) => {
+                  void add(e.target.files);
+                  e.target.value = "";
+                }}
+                className="sr-only"
+              />
+            </label>
+          )}
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-red">
+          {error}
+        </p>
+      )}
+
+      <Modal
+        open={current !== undefined}
+        onClose={() => setViewing(null)}
+        title={`Fotos de ${asset.name}`}
+        wide
+        footer={
+          canEdit && current ? (
+            <>
+              {viewing !== 0 && (
+                <button
+                  onClick={() => {
+                    save.mutate([current, ...photos.filter((other) => other !== current)]);
+                    setViewing(0);
+                  }}
+                  disabled={save.isPending}
+                  className="rounded-lg border border-[var(--content-border)] px-3 py-2 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
+                >
+                  Usar de portada
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  save.mutate(photos.filter((other) => other !== current));
+                  setViewing(null);
+                }}
+                disabled={save.isPending}
+                className="rounded-lg border border-red/40 px-3 py-2 text-sm font-medium text-red hover:bg-red/10 disabled:opacity-50"
+              >
+                Quitar foto
+              </button>
+            </>
+          ) : undefined
+        }
+      >
+        {current && viewing !== null && (
+          <div className="space-y-3">
+            <img
+              src={attachmentUrl(current)}
+              alt={`Foto ${viewing + 1} de ${asset.name}`}
+              className="max-h-[55vh] w-full rounded-xl object-contain"
+            />
+            {photos.length > 1 && (
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {photos.map((photoId, index) => (
+                  <button
+                    key={photoId}
+                    onClick={() => setViewing(index)}
+                    aria-label={`Foto ${index + 1}`}
+                    aria-current={index === viewing}
+                    className={`overflow-hidden rounded-md border-2 ${index === viewing ? "border-accent" : "border-transparent opacity-70 hover:opacity-100"}`}
+                  >
+                    <img src={attachmentUrl(photoId)} alt="" className="h-12 w-12 object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

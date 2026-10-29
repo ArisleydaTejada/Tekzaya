@@ -9,7 +9,6 @@ import {
   formatTicketNumber,
   formatWorkOrderNumber,
   hourlyServiceAmount,
-  PART_UNIT_LABEL,
   WORK_ORDER_HOLD_REASON_LABEL,
   WORK_ORDER_HOLD_REASONS,
   WORK_ORDER_STATUS_LABEL,
@@ -48,7 +47,7 @@ import { Modal } from "../components/Modal";
 import { MoneyInput } from "../components/MoneyInput";
 import { Plate } from "../components/Plate";
 import { OverdueTag, RequiredPartStatus, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
-import { formatDateTime, formatDay, formatMinutes, formatWhen } from "../lib/format";
+import { formatDateTime, formatDay, formatMinutes, formatQuantity, formatWhen } from "../lib/format";
 import { useOnOpen } from "../lib/useOnOpen";
 
 const inputClass =
@@ -494,7 +493,7 @@ function PartsSection({ order, editable, onSaved }: SectionProps) {
                   {use.part.name}
                 </p>
                 <p className="text-xs text-[var(--content-ink-dim)]">
-                  {use.qty} {use.qty === 1 ? PART_UNIT_LABEL[use.part.unit] : `${PART_UNIT_LABEL[use.part.unit]}s`} ×{" "}
+                  {formatQuantity(use.qty, use.part.unit)} ×{" "}
                   {formatMoney(use.unitCost, order.currency)}
                 </p>
               </div>

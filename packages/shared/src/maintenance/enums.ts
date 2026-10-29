@@ -61,6 +61,26 @@ export const ASSET_TYPE_LABEL: Record<AssetType, string> = {
   other: "Otro",
 };
 
+/** "Solo impresoras": el tipo en plural y en minúsculas, para escribirlo en una frase. */
+export const ASSET_TYPE_PLURAL_LABEL: Record<AssetType, string> = {
+  laptop: "laptops",
+  desktop: "computadoras de escritorio",
+  monitor: "monitores",
+  printer: "impresoras",
+  network: "equipos de red",
+  server: "servidores",
+  phone: "teléfonos",
+  ups: "UPS",
+  air_conditioner: "aires acondicionados",
+  generator: "plantas eléctricas",
+  electrical: "instalaciones eléctricas",
+  plumbing: "instalaciones de plomería",
+  appliance: "electrodomésticos",
+  furniture: "muebles",
+  vehicle: "vehículos",
+  other: "equipos de otro tipo",
+};
+
 /** Historial del activo: solo crece, y de él se derivan MTBF y disponibilidad. */
 export const ASSET_EVENT_KINDS = [
   "created",
@@ -207,3 +227,16 @@ export const PART_UNIT_LABEL: Record<PartUnit, string> = {
   liter: "litro",
   kit: "kit",
 };
+
+const PART_UNIT_PLURAL: Record<PartUnit, string> = {
+  unit: "unidades",
+  box: "cajas",
+  meter: "metros",
+  liter: "litros",
+  kit: "kits",
+};
+
+/** "unidad" o "unidades" según la cantidad. */
+export function partUnitLabel(unit: PartUnit, qty: number): string {
+  return Math.abs(qty) === 1 ? PART_UNIT_LABEL[unit] : PART_UNIT_PLURAL[unit];
+}

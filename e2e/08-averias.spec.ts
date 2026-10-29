@@ -28,14 +28,23 @@ test("crear ticket con equipo → convertir en OT → repararlo → resolver el 
   await employee.page.goto("/tickets/nuevo");
   await employee.page.getByLabel("Título / asunto").fill(TITLE);
   await employee.page.getByLabel("Descripción").fill("Todas las hojas salen con una raya negra vertical.");
-  await employee.page.getByLabel("Departamento de destino").selectOption({ label: "Ventas" });
 
-  await employee.page.getByRole("button", { name: "Vincular un equipo" }).click();
+  // "La multifuncional imprime…": la única impresora de su área se elige sola,
+  // por coincidencia de palabras, sin IA.
+  await expect(employee.page.getByText("Elegido por lo que escribiste.", { exact: false })).toBeVisible();
+  await expect(employee.page.getByText(PRINTER)).toBeVisible();
+
+  // El selector ofrece solo impresoras, con la opción de ver todos los equipos.
+  await employee.page.getByRole("button", { name: "Cambiar" }).click();
   const picker = employee.page.getByRole("dialog", { name: "Vincular un equipo" });
+  await expect(picker.getByText("Solo impresoras, por lo que escribiste.")).toBeVisible();
+  await expect(picker.getByRole("region", { name: "A tu cargo" })).toHaveCount(0);
+  await picker.getByRole("button", { name: "Ver todos los equipos" }).click();
   // Primero lo que tiene a su cargo, después lo que usa su área.
   await expect(picker.getByRole("region", { name: "A tu cargo" })).toContainText("Laptop de Diego Castillo");
   await picker.getByRole("region", { name: "Los que usa tu área" }).getByRole("button", { name: new RegExp(PRINTER) }).click();
   await expect(picker).toBeHidden();
+  await employee.page.getByLabel("Departamento de destino").selectOption({ label: "Ventas" });
 
   // El área elegida no es la que mantiene el equipo: se sugiere, no se impone.
   await expect(employee.page.getByText("Este equipo lo mantiene IT y Sistemas.")).toBeVisible();

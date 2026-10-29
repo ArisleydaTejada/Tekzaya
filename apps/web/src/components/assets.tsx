@@ -1,11 +1,15 @@
 import {
   ASSET_STATUS_LABEL,
+  MAX_ASSET_PHOTOS,
   WARRANTY_STATE_LABEL,
   type AssetStatus,
   type WarrantyState,
 } from "@tekzaya/shared";
+import { useState } from "react";
+import { attachmentUrl } from "../api/tickets";
+import { PHOTO_ACCEPT, uploadAssetPhotos } from "../lib/assetPhotos";
 import { formatDay, warrantyCountdown } from "../lib/format";
-import { AlertIcon, CheckIcon, ShieldIcon, WrenchIcon, XIcon } from "./icons";
+import { AlertIcon, CheckIcon, PlusIcon, ShieldIcon, WrenchIcon, XIcon } from "./icons";
 
 /**
  * Los estados del activo reutilizan los tonos de los tickets: verde operativo,
@@ -78,5 +82,91 @@ export function WarrantyBadge({
         )}
       </span>
     </span>
+  );
+}
+
+// ── Fotos ─────────────────────────────────────────────────────
+
+/**
+ * Las fotos del formulario: miniaturas con su botón de quitar y un selector que
+ * admite varias a la vez. La primera es la portada.
+ */
+export function AssetPhotosField({
+  id,
+  value,
+  onChange,
+  onUploading,
+  onError,
+}: {
+  id: string;
+  value: readonly string[];
+  onChange: (photoIds: string[]) => void;
+  onUploading: (uploading: boolean) => void;
+  onError: (message: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const room = MAX_ASSET_PHOTOS - value.length;
+
+  async function pick(list: FileList | null) {
+    const files = [...(list ?? [])];
+    if (!files.length) return;
+    if (files.length > room) {
+      onError(`Caben ${MAX_ASSET_PHOTOS} fotos por equipo`);
+      return;
+    }
+    setUploading(true);
+    onUploading(true);
+    onError(null);
+    try {
+      onChange([...value, ...(await uploadAssetPhotos(files))]);
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : "No se pudo subir la foto");
+    } finally {
+      setUploading(false);
+      onUploading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {value.map((photoId, index) => (
+        <div key={photoId} className="relative">
+          <img
+            src={attachmentUrl(photoId)}
+            alt={index === 0 ? "Portada" : `Foto ${index + 1}`}
+            className="h-14 w-14 rounded-lg border border-[var(--content-border)] object-cover"
+          />
+          <button
+            type="button"
+            onClick={() => onChange(value.filter((other) => other !== photoId))}
+            aria-label={`Quitar foto ${index + 1}`}
+            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--content-border)] bg-[var(--content-surface)] text-[var(--content-ink-dim)] hover:text-red"
+          >
+            <XIcon className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+      {room > 0 && (
+        <label
+          htmlFor={id}
+          className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-[var(--content-border)] text-[10px] text-[var(--content-ink-dim)] hover:border-accent hover:text-[var(--content-ink)] has-[:focus-visible]:border-accent"
+        >
+          <PlusIcon className="h-4 w-4" aria-hidden="true" />
+          {uploading ? "Subiendo…" : "Agregar"}
+          <input
+            id={id}
+            type="file"
+            multiple
+            accept={PHOTO_ACCEPT}
+            disabled={uploading}
+            onChange={(e) => {
+              void pick(e.target.files);
+              e.target.value = "";
+            }}
+            className="sr-only"
+          />
+        </label>
+      )}
+    </div>
   );
 }

@@ -15,7 +15,7 @@ import type { Types } from "mongoose";
 import { Area } from "../../models/area.model";
 import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
-import { assetRefOf, type LeanAsset } from "./asset.access";
+import { assetRefOf, photoIdsOf, type LeanAsset } from "./asset.access";
 
 /** Nombres de áreas y personas que necesita una tanda de activos, en dos consultas. */
 export interface AssetHydration {
@@ -107,7 +107,7 @@ export function toAssetView(asset: LeanAsset, h: AssetHydration, actor: Actor): 
     ...(asset.warrantyUntil ? { warrantyUntil: asset.warrantyUntil } : {}),
     warranty: warrantyStateOf(asset.warrantyUntil ?? undefined, h.today, h.warrantyAlertDays),
     status: asset.status as AssetStatus,
-    ...(asset.photoId ? { photoId: String(asset.photoId) } : {}),
+    photoIds: photoIdsOf(asset).map(String),
     ...(asset.retiredAt ? { retiredAt: asset.retiredAt.toISOString() } : {}),
     ...(viewDetails && asset.retiredReason ? { retiredReason: asset.retiredReason } : {}),
     createdAt: asset.createdAt.toISOString(),

@@ -7,7 +7,7 @@ import {
   formatWorkOrderNumber,
   hourlyServiceAmount,
   nextFixedDue,
-  PART_UNIT_LABEL,
+  partUnitLabel,
   wallClockIn,
   weightedAverageCost,
   workOrderCost,
@@ -1016,13 +1016,12 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
         lowStockNotifiedAt?: Date;
       };
       if (!part.lowStockNotifiedAt) return [];
-      const unit = PART_UNIT_LABEL[part.unit];
       return [
         {
           userId: supervisorOf(part.areaId)._id,
           type: "low_stock",
           title: `Stock bajo: ${part.name}`,
-          body: `${formatSparePartNumber(part.number)} · quedan ${part.stock} ${part.stock === 1 ? unit : `${unit}s`} de un mínimo de ${part.minStock}`,
+          body: `${formatSparePartNumber(part.number)} · quedan ${part.stock} ${partUnitLabel(part.unit, part.stock)} de un mínimo de ${part.minStock}`,
           sparePartId: part._id,
           createdAt: part.lowStockNotifiedAt,
           updatedAt: part.lowStockNotifiedAt,

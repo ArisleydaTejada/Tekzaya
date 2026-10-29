@@ -20,6 +20,7 @@ export interface LeanAsset {
   purchaseCost?: number | null;
   warrantyUntil?: string | null;
   status: string;
+  photoIds?: Types.ObjectId[] | null;
   photoId?: Types.ObjectId | null;
   retiredAt?: Date | null;
   retiredReason?: string | null;
@@ -33,6 +34,12 @@ export function assetRefOf(asset: Pick<LeanAsset, "areaId" | "usedByAreaId" | "c
     usedByAreaId: asset.usedByAreaId ? String(asset.usedByAreaId) : undefined,
     custodianId: asset.custodianId ? String(asset.custodianId) : undefined,
   };
+}
+
+/** Las fotos del equipo; un activo de antes de la galería tiene, como mucho, su `photoId`. */
+export function photoIdsOf(asset: Pick<LeanAsset, "photoIds" | "photoId">): Types.ObjectId[] {
+  if (asset.photoIds?.length) return asset.photoIds;
+  return asset.photoId ? [asset.photoId] : [];
 }
 
 /**

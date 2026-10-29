@@ -1,12 +1,16 @@
 import {
+  ASSET_TYPE_PLURAL_LABEL,
   createTicketInput,
+  detectAssetType,
   formatAssetNumber,
   formatTicketNumber,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   PRIORITY_LABEL,
+  mentionedAssetNumber,
   type Area,
   type AreaSuggestion,
+  type AssetPickerItem,
   type Attachment,
   type TicketDetail,
 } from "@tekzaya/shared";
@@ -15,7 +19,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { aiKeys, getAiStatus, suggestArea } from "../api/ai";
-import { assetKeys, getAsset } from "../api/assets";
+import { assetKeys, getAsset, listAssetLinkOptions } from "../api/assets";
 import { ApiRequestError } from "../api/client";
 import {
   areaKeys,
@@ -52,6 +56,10 @@ export default function CreateTicketPage() {
   const [created, setCreated] = useState<TicketDetail | null>(null);
   const [asset, setAsset] = useState<PickedAsset | null>(null);
   const [pickingAsset, setPickingAsset] = useState(false);
+  /** El equipo salió de lo escrito, no de un clic: si el texto cambia, cambia con él. */
+  const [assetFromText, setAssetFromText] = useState(false);
+  /** Elegido o quitado a mano: desde ahí el texto ya no lo toca. */
+  const [assetTouched, setAssetTouched] = useState(false);
 
   /*
    * "Reportar una falla" desde la ficha de un equipo llega con `?activo=ACT-0012`:
@@ -74,11 +82,42 @@ export default function CreateTicketPage() {
   }
 
   /** Elegir el equipo rellena el área si está vacía; si no, solo la sugiere abajo. */
-  function pickAsset(picked: PickedAsset) {
+  function pickAsset(picked: PickedAsset, fromText = false) {
     setAsset(picked);
+    setAssetFromText(fromText);
+    if (!fromText) setAssetTouched(true);
     if (!areaId) {
       setAreaId(picked.area.id);
       setCategoryId("");
+    }
+  }
+
+  /*
+   * El equipo, deducido de lo que se escribe (sin IA): "ACT-0012" lo nombra
+   * directamente; "la impresora no imprime" busca impresoras entre las que
+   * puede vincular quien reporta. Si una sola es suya o de su área, se elige
+   * sola; si hay varias, se ofrecen esas para escoger.
+   */
+  const mentionedNumber = mentionedAssetNumber(`${title} ${description}`);
+  const mentionedType = detectAssetType(title, description);
+  const mentionQuery = mentionedNumber
+    ? { q: formatAssetNumber(mentionedNumber) }
+    : mentionedType
+      ? { type: mentionedType }
+      : null;
+  const mentionKey = mentionQuery && { ...mentionQuery, ...(onBehalfOf ? { requesterId: onBehalfOf } : {}) };
+  const { data: mentioned, status: mentionStatus } = useQuery({
+    queryKey: assetKeys.linkOptions(mentionKey ?? {}),
+    queryFn: () => listAssetLinkOptions(mentionKey ?? {}),
+    enabled: mentionKey !== null,
+    staleTime: 60_000,
+  });
+  const { pick: textPick, candidates } = mentionKey && mentioned ? chooseMentioned(mentioned.items) : NO_MENTION;
+  if (!assetTouched && (mentionKey === null || mentionStatus !== "pending")) {
+    if (textPick && textPick.id !== asset?.id) pickAsset(textPick, true);
+    else if (!textPick && asset && assetFromText) {
+      setAsset(null);
+      setAssetFromText(false);
     }
   }
 
@@ -248,6 +287,8 @@ export default function CreateTicketPage() {
               setAiError(null);
               setFiles([]);
               setAsset(null);
+              setAssetFromText(false);
+              setAssetTouched(false);
             }}
             className="rounded-lg border border-[var(--content-border)] px-4 py-2 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-surface)]"
           >
@@ -382,13 +423,21 @@ export default function CreateTicketPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAsset(null)}
+                  onClick={() => {
+                    setAsset(null);
+                    setAssetTouched(true);
+                  }}
                   className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
                   aria-label="Quitar equipo"
                 >
                   <XIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
+              {assetFromText && (
+                <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
+                  Elegido por lo que escribiste. Si no es este, cámbialo o quítalo.
+                </p>
+              )}
               {/* La impresora de Ventas la mantiene TI: el ticket debe ir allí. */}
               {areaId && areaId !== asset.area.id && (
                 <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-amber">
@@ -405,6 +454,36 @@ export default function CreateTicketPage() {
                   </button>
                 </p>
               )}
+            </div>
+          ) : candidates.length > 1 && mentionedType ? (
+            <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2.5">
+              <p className="text-xs text-[var(--content-ink)]">
+                Hay {candidates.length} {ASSET_TYPE_PLURAL_LABEL[mentionedType]} que puedes vincular. ¿Cuál es?
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {candidates.slice(0, CANDIDATES_SHOWN).map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => pickAsset(candidate)}
+                    className="flex min-w-0 max-w-full flex-col rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-left text-xs hover:border-accent"
+                  >
+                    <span className="truncate font-medium text-[var(--content-ink)]">{candidate.name}</span>
+                    <span className="truncate text-[var(--content-ink-dim)]">
+                      <span className="font-display tabular">{formatAssetNumber(candidate.number)}</span> · {candidate.location}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPickingAsset(true)}
+                className="mt-2 text-xs font-medium text-accent-ink hover:underline"
+              >
+                {candidates.length > CANDIDATES_SHOWN
+                  ? `Ver las ${candidates.length} ${ASSET_TYPE_PLURAL_LABEL[mentionedType]}`
+                  : "Es otro equipo"}
+              </button>
             </div>
           ) : (
             <button
@@ -619,11 +698,31 @@ export default function CreateTicketPage() {
       <AssetPicker
         open={pickingAsset}
         onClose={() => setPickingAsset(false)}
-        onPick={pickAsset}
+        onPick={(picked) => pickAsset(picked)}
         {...(asset ? { selectedId: asset.id } : {})}
+        {...(onBehalfOf ? { requesterId: onBehalfOf } : {})}
+        {...(mentionedType ? { type: mentionedType } : {})}
       />
     </div>
   );
+}
+
+const CANDIDATES_SHOWN = 4;
+
+const NO_MENTION = { pick: null, candidates: [] as PickedAsset[] };
+
+/**
+ * De los equipos que casan con lo escrito, el que se elige solo: el único que
+ * tiene a su cargo quien reporta o, si no, el único que usa su área. Con
+ * varios en el primer grupo que tenga alguno, se ofrecen esos para escoger.
+ */
+function chooseMentioned(items: readonly AssetPickerItem[]): { pick: PickedAsset | null; candidates: PickedAsset[] } {
+  for (const group of ["custodian", "area", "other"] as const) {
+    const inGroup = items.filter((item) => item.group === group).map(({ group: _group, ...asset }) => asset);
+    if (inGroup.length === 1) return { pick: inGroup[0]!, candidates: [] };
+    if (inGroup.length > 1) return { pick: null, candidates: inGroup };
+  }
+  return NO_MENTION;
 }
 
 function FieldError({ messages }: { messages?: string[] }) {
