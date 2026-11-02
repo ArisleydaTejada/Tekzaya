@@ -2,6 +2,16 @@ import { assetScopeFor, canViewAsset, type Actor, type AssetRef } from "@tekzaya
 import { Types } from "mongoose";
 import { AppError } from "../../middleware/errors";
 import { Asset } from "../../models/maintenance.models";
+import { User } from "../../models/user.model";
+
+/**
+ * Para buscar un equipo por quien lo tiene: el nombre de una laptop es su marca y
+ * modelo, y "la laptop de Diego" se encuentra escribiendo "Diego".
+ */
+export async function custodianSearch(pattern: RegExp): Promise<Record<string, unknown>[]> {
+  const people = await User.find({ name: pattern }).select("_id").limit(50).lean();
+  return people.length ? [{ custodianId: { $in: people.map((person) => person._id) } }] : [];
+}
 
 /** Documento plano de un activo, tal como sale de `.lean()`. */
 export interface LeanAsset {

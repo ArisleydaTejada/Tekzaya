@@ -87,8 +87,10 @@ const PAGES: {
     path: "/activos",
     role: "employee",
     ready: async (page) => {
-      await page.getByRole("textbox", { name: "Buscar activos" }).fill("Laptop de Diego");
-      await page.getByRole("link", { name: "Laptop de Diego Castillo" }).click();
+      await page.getByRole("textbox", { name: "Buscar activos" }).fill("Diego Castillo");
+      // La búsqueda espera a que se deje de escribir: primero hay que ver solo la suya.
+      await expect(page.getByRole("link", { name: /^Laptop / })).toHaveCount(1);
+      await page.getByRole("link", { name: /^Laptop / }).click();
       await page.getByRole("link", { name: "Reportar una falla" }).click();
       await page.getByLabel("Título / asunto").fill("La laptop se apaga sola");
       await page.getByLabel("Descripción").fill("Se apaga a los diez minutos de encenderla.");
@@ -155,7 +157,8 @@ const PAGES: {
     ready: async (page) => {
       await page.getByRole("textbox", { name: "Buscar activos" }).fill("multifuncional");
       await page.getByRole("link", { name: "Impresora multifuncional de Ventas" }).click();
-      await expect(page.getByRole("heading", { name: "¿Reparar o reemplazar?" })).toBeVisible();
+      await page.getByRole("button", { name: "Evaluar con IA" }).click();
+      await expect(page.getByRole("list", { name: "Por qué es candidato" })).toBeVisible();
     },
   },
   {
@@ -250,7 +253,8 @@ test.describe("360 px de ancho", () => {
     await page.goto("/activos");
     await page.getByRole("textbox", { name: "Buscar activos" }).fill("multifuncional");
     await page.getByRole("link", { name: "Impresora multifuncional de Ventas" }).click();
-    await expect(page.getByRole("heading", { name: "¿Reparar o reemplazar?" })).toBeVisible();
+    await page.getByRole("button", { name: "Evaluar con IA" }).click();
+    await expect(page.getByRole("list", { name: "Por qué es candidato" })).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

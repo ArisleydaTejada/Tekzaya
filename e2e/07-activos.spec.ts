@@ -76,7 +76,7 @@ test.describe("empleado de Ventas", () => {
 
   test("ve su laptop y la impresora de su área, sin precios ni historial", async ({ page }) => {
     await page.goto("/activos");
-    await expect(page.getByRole("link", { name: "Laptop de Diego Castillo" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Laptop / }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Impresora multifuncional de Ventas" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Nuevo activo" })).toHaveCount(0);
 
@@ -84,9 +84,13 @@ test.describe("empleado de Ventas", () => {
     await page.getByRole("textbox", { name: "Buscar activos" }).fill("Servidor de archivos");
     await expect(page.getByText("Ningún activo coincide con los filtros.")).toBeVisible();
 
-    await page.getByRole("textbox", { name: "Buscar activos" }).fill("Laptop de Diego");
-    await page.getByRole("link", { name: "Laptop de Diego Castillo" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Laptop de Diego Castillo" })).toBeVisible();
+    // La laptop se llama por su marca y modelo; se encuentra por quien la tiene.
+    await page.getByRole("textbox", { name: "Buscar activos" }).fill("Diego Castillo");
+    // La búsqueda espera a que se deje de escribir: primero hay que ver solo la suya.
+    await expect(page.getByRole("link", { name: /^Laptop / })).toHaveCount(1);
+    await page.getByRole("link", { name: /^Laptop / }).click();
+    await expect(page.getByRole("heading", { level: 1, name: /^Laptop / })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Diego/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Reportar una falla" })).toBeVisible();
     await expect(page.getByText("Costo de compra")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Línea de tiempo" })).toHaveCount(0);

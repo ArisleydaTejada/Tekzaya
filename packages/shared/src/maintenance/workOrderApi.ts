@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { areaRef } from "../area";
 import { isoDateTime, objectId, paginated, paginationQuery } from "../common";
+import { ticketStatus } from "../enums";
 import { commaSeparated } from "../ticket";
 import { assetPerson } from "./assetApi";
 import {
@@ -162,7 +163,18 @@ export const workOrderDetail = workOrder
     asset: workOrderAssetRef,
     area: areaRef,
     assignees: z.array(assetPerson),
-    ticket: z.object({ id: objectId, number: z.number().int().positive(), title: z.string() }).optional(),
+    ticket: z
+      .object({
+        id: objectId,
+        number: z.number().int().positive(),
+        title: z.string(),
+        status: ticketStatus,
+        /** Quien mira puede resolverlo ya: admite Resuelto y no le quedan otras OT abiertas. */
+        canResolve: z.boolean(),
+        /** Para resolverlo, quien mira se suma antes como responsable del ticket. */
+        takeFirst: z.boolean(),
+      })
+      .optional(),
     /** El plan preventivo que la generó. */
     plan: z.object({ id: objectId, title: z.string() }).optional(),
     partsUsed: z.array(

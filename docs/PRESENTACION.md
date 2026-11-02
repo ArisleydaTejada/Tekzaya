@@ -293,7 +293,7 @@ Hacerlo **en esa máquina** y con antelación: es lo único de la fase F8 que no
 1. **De la queja al equipo reparado:** el empleado reporta "la impresora no imprime" vinculando la multifuncional → el supervisor de IT convierte el ticket en OT, carga un repuesto y la completa → el ticket recibe el aviso y se resuelve → la línea de tiempo del equipo lo muestra todo.
 2. **Preventivo:** en *Preventivos*, el calendario del mes y el plan vencido; abrir su OT y marcar la lista de verificación.
 3. **Stock bajo:** consumir rodillos en una orden deja el repuesto bajo mínimo y suena la campana del supervisor.
-4. **¿Reparar o reemplazar?** (necesita IA): la ficha de la multifuncional de Ventas muestra la sugerencia con sus números; en una correctiva abierta, «Estimar costo» da el rango con los casos que lo sostienen.
+4. **¿Reparar o reemplazar?** (necesita IA): en la ficha de la multifuncional de Ventas, «Evaluar con IA» muestra la sugerencia con sus números; en una correctiva abierta, «Estimar costo» da el rango con los casos que lo sostienen.
 5. **Reportes:** plantilla *Disponibilidad por tipo de equipo* (MTBF y MTTR en horas laborables) y *Costo por área*, con exportación.
 
 **Plan B sin IA**

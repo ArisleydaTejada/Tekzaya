@@ -19,7 +19,7 @@ export const assetPickGroup = z.enum(ASSET_PICK_GROUPS);
 export type AssetPickGroup = z.infer<typeof assetPickGroup>;
 
 export const assetPickerQuery = z.object({
-  /** Número (`ACT-0012`), nombre, marca, modelo, serie o ubicación. */
+  /** Número (`ACT-0012`), nombre, marca, modelo, serie, ubicación o quien lo tiene. */
   q: z.string().trim().max(120).optional(),
   /**
    * Ticket ya creado en el que se vincula. Sin él, el selector es el del
@@ -43,6 +43,8 @@ export const assetPickerItem = z.object({
   type: assetType,
   status: assetStatus,
   location: z.string(),
+  /** Quien lo tiene a cargo: distingue dos laptops del mismo modelo. */
+  custodianName: z.string().optional(),
   /** Área responsable: si no es la elegida en el ticket, la pantalla la sugiere. */
   area: areaRef,
   group: assetPickGroup,

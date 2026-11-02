@@ -1,5 +1,7 @@
 import {
   canAssignWorkOrder,
+  canChangeStatus,
+  canSelfAssign,
   canManageAsset,
   canTakeWorkOrder,
   canWorkOnWorkOrder,
@@ -10,25 +12,54 @@ import {
   type AreaRef,
   type AssetPerson,
   type PartUnit,
+  type TicketRef,
+  type TicketStatus,
   type WorkOrderAssetRef,
   type WorkOrderDetail,
   type WorkOrderListItem,
 } from "@tekzaya/shared";
 import type { Types } from "mongoose";
 import { Area } from "../../models/area.model";
-import { Asset, MaintenancePlan, SparePart } from "../../models/maintenance.models";
+import { Asset, MaintenancePlan, SparePart, WorkOrder } from "../../models/maintenance.models";
 import { Ticket } from "../../models/ticket.model";
 import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
+import { refOf, type LeanTicket } from "../tickets/ticket.access";
+import { ALLOWED_TRANSITIONS } from "../tickets/ticket.lifecycle";
 import { todayKey } from "../assets/asset.view";
+import { OPEN_WORK_ORDER } from "./workOrder.lifecycle";
 import { workOrderRefOf, type LeanWorkOrder } from "./workOrder.access";
+
+/**
+ * ¿Puede quien mira resolver el ticket de origen desde la OT? Hace falta que sea
+ * su última orden abierta y que el ticket admita pasar a Resuelto. El técnico que
+ * hizo el trabajo suele haber tomado la orden y no el ticket: si es del área, se
+ * suma primero como responsable (`takeFirst`) y luego lo resuelve, como haría él
+ * mismo desde el ticket.
+ */
+function ticketResolution(
+  actor: Actor,
+  ticket: { status: TicketStatus; ref: TicketRef },
+  openOrderIds: readonly string[],
+  orderId: string,
+): { canResolve: boolean; takeFirst: boolean } {
+  const lastOrder = openOrderIds.every((id) => id === orderId);
+  const allowed = ALLOWED_TRANSITIONS[ticket.status].includes("resolved") || ticket.status === "open";
+  if (!lastOrder || !allowed) return { canResolve: false, takeFirst: false };
+  // Abierto es "sin responsables": hay que tomarlo aunque se sea supervisor.
+  if (ticket.status !== "open" && canChangeStatus(actor, ticket.ref)) return { canResolve: true, takeFirst: false };
+  const canTake = canSelfAssign(actor, ticket.ref);
+  return { canResolve: canTake, takeFirst: canTake };
+}
 
 /** Lo que una tanda de OT necesita para leerse: equipos, áreas, personas y tickets. */
 export interface WorkOrderHydration {
   assets: Map<string, WorkOrderAssetRef & { areaId: string; usedByAreaId?: string; custodianId?: string }>;
   areas: Map<string, AreaRef>;
   people: Map<string, AssetPerson>;
-  tickets: Map<string, { id: string; number: number; title: string }>;
+  tickets: Map<string, { id: string; number: number; title: string; status: TicketStatus; ref: TicketRef }>;
+  /** Solo en la ficha: las OT abiertas de cada ticket, para saber si ya se puede resolver. */
+  ticketOpenOrders: Map<string, string[]>;
   parts: Map<string, { id: string; number: number; name: string; unit: PartUnit }>;
   /** Existencias de hoy de los repuestos requeridos: si alcanza o no se decide al mirar. */
   stock: Map<string, number>;
@@ -52,13 +83,16 @@ export async function hydrateWorkOrders(
         ]
       : []),
   ]);
-  const [assets, areas, people, tickets, parts, plans, settings] = await Promise.all([
+  const ticketIds = ids(orders.map((order) => order.ticketId));
+  const [assets, areas, people, tickets, parts, plans, settings, ticketOrders] = await Promise.all([
     Asset.find({ _id: { $in: ids(orders.map((order) => order.assetId)) } })
       .select("number name type status location areaId usedByAreaId custodianId")
       .lean(),
     Area.find({ _id: { $in: ids(orders.map((order) => order.areaId)) } }).select("name color").lean(),
     User.find({ _id: { $in: ids(userIds) } }).select("name avatarUrl areaId").lean(),
-    Ticket.find({ _id: { $in: ids(orders.map((order) => order.ticketId)) } }).select("number title").lean(),
+    Ticket.find({ _id: { $in: ticketIds } })
+      .select("number title status areaId requesterId createdById assigneeIds additionalRequesterIds")
+      .lean(),
     full
       ? SparePart.find({
           _id: {
@@ -77,6 +111,9 @@ export async function hydrateWorkOrders(
       ? MaintenancePlan.find({ _id: { $in: ids(orders.map((order) => order.planId)) } }).select("title").lean()
       : [],
     getSettings(),
+    full && ticketIds.length
+      ? WorkOrder.find({ ticketId: { $in: ticketIds }, ...OPEN_WORK_ORDER }).select("ticketId").lean()
+      : [],
   ]);
 
   return {
@@ -109,8 +146,22 @@ export async function hydrateWorkOrders(
       ]),
     ),
     tickets: new Map(
-      tickets.map((ticket) => [String(ticket._id), { id: String(ticket._id), number: ticket.number!, title: ticket.title! }]),
+      tickets.map((ticket) => [
+        String(ticket._id),
+        {
+          id: String(ticket._id),
+          number: ticket.number!,
+          title: ticket.title!,
+          status: ticket.status as TicketStatus,
+          ref: refOf(ticket as LeanTicket),
+        },
+      ]),
     ),
+    ticketOpenOrders: ticketOrders.reduce((map, order) => {
+      const key = String(order.ticketId);
+      map.set(key, [...(map.get(key) ?? []), String(order._id)]);
+      return map;
+    }, new Map<string, string[]>()),
     parts: new Map(
       (parts as { _id: Types.ObjectId; number: number; name: string; unit: string }[]).map((part) => [
         String(part._id),
@@ -189,7 +240,17 @@ export function toWorkOrderDetail(order: LeanWorkOrder, h: WorkOrderHydration, a
     areaId: String(order.areaId),
     area: h.areas.get(String(order.areaId)) ?? unknownArea(order.areaId),
     ...(order.ticketId ? { ticketId: String(order.ticketId) } : {}),
-    ...(ticket ? { ticket } : {}),
+    ...(ticket
+      ? {
+          ticket: {
+            id: ticket.id,
+            number: ticket.number,
+            title: ticket.title,
+            status: ticket.status,
+            ...ticketResolution(actor, ticket, h.ticketOpenOrders.get(ticket.id) ?? [], String(order._id)),
+          },
+        }
+      : {}),
     ...(order.planId ? { planId: String(order.planId) } : {}),
     ...(plan ? { plan } : {}),
     status: order.status,

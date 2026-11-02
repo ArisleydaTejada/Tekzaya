@@ -2,11 +2,12 @@ import {
   formatMoney,
   formatWorkOrderNumber,
   REPLACEMENT_REASON_LABEL,
+  type AssetView,
   type RepairEstimateMiss,
   type WorkOrderDetail,
 } from "@tekzaya/shared";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { aiKeys, estimateRepair, getAiStatus, getReplacementAdvice } from "../api/ai";
 import { formatWhen } from "../lib/format";
@@ -54,19 +55,65 @@ function formatAge(months: number): string {
 // ── ¿Reparar o reemplazar? ────────────────────────────────────
 
 /**
- * En la ficha del equipo, solo si la regla lo marca como candidato. Se pide al
- * abrir la ficha; el servidor no llama a la IA si el equipo no es candidato.
+ * En la ficha del equipo, a pedido: un botón y no al abrir la ficha, para no
+ * evaluar cada equipo que alguien mira. Si la regla no lo marca como candidato,
+ * el servidor no llama a la IA y se dice así; lo pedido queda en caché unos
+ * minutos, así que volver a la ficha muestra la respuesta sin pedirla otra vez.
  */
-export function ReplacementAdviceCard({ assetId }: { assetId: string }) {
+export function ReplacementAdviceCard({ asset }: { asset: Pick<AssetView, "id" | "status" | "permissions"> }) {
   const ai = useAi();
+  const [asked, setAsked] = useState(false);
   const enabled = Boolean(ai?.configured && ai.enabled.replacementAdvice);
-  const { data: advice } = useQuery({
-    queryKey: aiKeys.replacement(assetId),
-    queryFn: () => getReplacementAdvice(assetId),
-    enabled,
+  const shown = enabled && asset.status !== "retired" && asset.permissions.viewDetails;
+  const { data: advice, isFetching, isError, error, refetch } = useQuery({
+    queryKey: aiKeys.replacement(asset.id),
+    queryFn: () => getReplacementAdvice(asset.id),
+    enabled: shown && asked,
     staleTime: 5 * 60_000,
   });
-  if (!enabled || !advice) return null;
+  if (!shown) return null;
+
+  if (advice === undefined) {
+    return (
+      <Plate className="p-4 text-sm">
+        <AiLabel>Sugerencia de IA</AiLabel>
+        <h2 className="mt-1 font-display text-sm font-semibold text-[var(--content-ink)]">
+          ¿Reparar o reemplazar?
+        </h2>
+        <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
+          Revisa sus fallas y lo gastado en reparaciones frente al precio de compra.
+        </p>
+        <button
+          onClick={() => (asked ? void refetch() : setAsked(true))}
+          disabled={isFetching}
+          className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-accent-ink hover:bg-[var(--content-bg)] disabled:opacity-60"
+        >
+          <SparkleIcon className={isFetching ? "animate-pulse" : ""} aria-hidden="true" />
+          {isFetching ? "Evaluando…" : "Evaluar con IA"}
+        </button>
+        {isError && (
+          <p role="alert" className="mt-2 text-xs text-red">
+            {error instanceof Error ? error.message : "No se pudo evaluar."}
+          </p>
+        )}
+      </Plate>
+    );
+  }
+
+  if (advice === null) {
+    return (
+      <Plate className="p-4 text-sm">
+        <AiLabel>Sugerencia de IA</AiLabel>
+        <h2 className="mt-1 font-display text-sm font-semibold text-[var(--content-ink)]">
+          ¿Reparar o reemplazar?
+        </h2>
+        <p className="mt-1 text-[var(--content-ink)]">
+          Por ahora conviene seguir reparándolo: no tiene fallas repetidas ni reparaciones que sumen la mitad de
+          lo que costó. Con esos números no hizo falta consultar a la IA.
+        </p>
+      </Plate>
+    );
+  }
 
   const money = (cents: number) => formatMoney(cents, advice.currency);
   return (

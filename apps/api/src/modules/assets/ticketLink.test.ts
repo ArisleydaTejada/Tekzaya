@@ -117,6 +117,45 @@ describe("de la queja a la orden de trabajo (DoD de A2)", () => {
     expect((await employee.patch(`/api/v1/tickets/${ticketId}/asset`).send({ assetId: null })).status).toBe(409);
   });
 
+  it("la OT dice si su ticket ya se puede resolver: con responsable y sin otras órdenes abiertas", async () => {
+    const { laptop } = await seedVentasEquipment();
+    const employee = await loginAs(fixture.users.employeeVentas.email);
+    const created = await createTicket(employee, { assetId: String(laptop._id) });
+    const ticketId = created.body.id as string;
+
+    const agent = await loginAs(fixture.users.agentIt.email);
+    await agent.post(`/api/v1/tickets/${ticketId}/work-order`).send({ outOfService: true });
+    const order = await WorkOrder.findOne({ ticketId }).lean();
+    const detailOf = async (who: Agent) => (await who.get(`/api/v1/work-orders/${order!._id}`)).body;
+
+    // Abierto, sin responsable: el técnico del área lo resuelve tomándolo antes.
+    expect((await detailOf(agent)).ticket).toMatchObject({ status: "open", canResolve: true, takeFirst: true });
+
+    expect((await agent.post(`/api/v1/tickets/${ticketId}/take`)).status).toBe(200);
+    expect((await detailOf(agent)).ticket).toMatchObject({ status: "assigned", canResolve: true, takeFirst: false });
+    // Otro del área que no es responsable también puede, sumándose primero; el
+    // supervisor ya puede mover el estado sin tomarlo.
+    const employeeIt = await loginAs(fixture.users.employeeIt.email);
+    expect((await detailOf(employeeIt)).ticket).toMatchObject({ canResolve: true, takeFirst: true });
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    expect((await detailOf(supervisor)).ticket).toMatchObject({ canResolve: true, takeFirst: false });
+
+    // Otra orden abierta del mismo ticket: resolverlo ahora sería adelantarse.
+    const other = await WorkOrder.create({
+      ...order,
+      _id: undefined,
+      number: await nextNumber("work_order"),
+      status: "pending",
+    });
+    expect((await detailOf(agent)).ticket.canResolve).toBe(false);
+    await WorkOrder.deleteOne({ _id: other._id });
+
+    // Resuelto desde el ticket, la OT ya no lo ofrece.
+    const resolved = await agent.patch(`/api/v1/tickets/${ticketId}`).send({ status: "resolved", note: "Se cambió el cargador." });
+    expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
+    expect((await detailOf(agent)).ticket).toMatchObject({ status: "resolved", canResolve: false });
+  });
+
   it("si el equipo sigue funcionando, la falla queda sin tiempo de parada", async () => {
     const { printer } = await seedVentasEquipment();
     const employee = await loginAs(fixture.users.employeeVentas.email);

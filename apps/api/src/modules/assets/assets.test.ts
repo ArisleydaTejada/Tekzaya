@@ -183,6 +183,10 @@ describe("quién ve qué", () => {
     const byNumber = await tecnico.get("/api/v1/assets?q=ACT-0003");
     expect(byNumber.body.items.map((item: { name: string }) => item.name)).toEqual(["Servidor"]);
 
+    // Por quien lo tiene a cargo: "Vito Ventas" no está en ningún nombre.
+    const byCustodian = await tecnico.get(`/api/v1/assets?q=${encodeURIComponent("Vito Ventas")}`);
+    expect(byCustodian.body.items.map((item: { name: string }) => item.name)).toEqual(["Laptop de Vito"]);
+
     const retiredOnly = await tecnico.get("/api/v1/assets?status=retired");
     expect(retiredOnly.body.total).toBe(0);
     expect(retiredOnly.body.statusCounts).toEqual({ operational: 3, in_repair: 0, retired: 0 });

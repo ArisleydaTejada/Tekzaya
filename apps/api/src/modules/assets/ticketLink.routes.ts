@@ -31,7 +31,7 @@ import { recordSystemEvent } from "../tickets/ticket.lifecycle";
 import { broadcastTicket } from "../tickets/ticket.notify";
 import { hydrate, toDetail } from "../tickets/ticket.view";
 import { broadcastWorkOrder, openWorkOrder } from "../workOrders/workOrder.lifecycle";
-import { assetRefOf, type LeanAsset } from "./asset.access";
+import { assetRefOf, custodianSearch, type LeanAsset } from "./asset.access";
 import { assetLabel, loadLinkableAsset, openOrdersOf } from "./asset.ticket";
 
 /**
@@ -117,6 +117,7 @@ router.get("/assets/link-options", validateQuery(assetPickerQuery), async (_req,
         { model: pattern },
         { serial: pattern },
         { location: pattern },
+        ...(await custodianSearch(pattern)),
       ],
     });
   }
@@ -142,6 +143,11 @@ router.get("/assets/link-options", validateQuery(assetPickerQuery), async (_req,
     .select("name color")
     .lean();
   const areaById = new Map(areas.map((area) => [String(area._id), { id: String(area._id), name: area.name!, color: area.color! }]));
+  // Varias laptops iguales se distinguen por quién las tiene.
+  const custodians = await User.find({ _id: { $in: [...first, ...rest].map((asset) => asset.custodianId).filter(Boolean) } })
+    .select("name")
+    .lean();
+  const custodianName = new Map(custodians.map((user) => [String(user._id), user.name!]));
 
   const toItem = (asset: LeanAsset, group: AssetPickerItem["group"]): AssetPickerItem => ({
     id: String(asset._id),
@@ -150,6 +156,9 @@ router.get("/assets/link-options", validateQuery(assetPickerQuery), async (_req,
     type: asset.type as AssetPickerItem["type"],
     status: asset.status as AssetPickerItem["status"],
     location: asset.location,
+    ...(asset.custodianId && custodianName.has(String(asset.custodianId))
+      ? { custodianName: custodianName.get(String(asset.custodianId))! }
+      : {}),
     area: areaById.get(String(asset.areaId)) ?? { id: String(asset.areaId), name: "Área eliminada", color: "#7c8cae" },
     group,
   });

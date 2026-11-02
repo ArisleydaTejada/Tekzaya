@@ -305,7 +305,9 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     const model = LAPTOP_MODELS[index % LAPTOP_MODELS.length]!;
     addAsset({
       model,
-      name: `Laptop de ${person.name}`,
+      // Se nombra por lo que es, no por quien la tiene: la persona va en "a cargo
+      // de" y cambia cuando la laptop pasa a otro.
+      name: `Laptop ${model.brand} ${model.model}`,
       areaId: itId,
       usedByAreaId: person.areaId,
       custodianId: person._id,
@@ -955,8 +957,10 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
   const windowStart = new Date(now.getTime() - rules.repeatedFailure.windowDays * DAY_MS);
   for (const doc of assetDocs) {
     if (doc.retiredAt) continue;
-    const notice = (fields: Record<string, unknown>, sentAt: Date) =>
-      equipmentNotices.push({ userId: supervisorOf(doc.areaId)._id, assetId: doc._id, createdAt: sentAt, updatedAt: sentAt, ...fields });
+    const notice = (fields: Record<string, unknown>, sentAt: Date, userIds = [supervisorOf(doc.areaId)._id]) =>
+      equipmentNotices.push(
+        ...userIds.map((userId) => ({ userId, assetId: doc._id, createdAt: sentAt, updatedAt: sentAt, ...fields })),
+      );
 
     if (doc.warrantyUntil && doc.warrantyUntil >= today && doc.warrantyUntil <= addDays(today, rules.warrantyAlertDays)) {
       const due = addDays(doc.warrantyUntil, -rules.warrantyAlertDays);
@@ -969,6 +973,8 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
           body: `${formatAssetNumber(doc.number)} · ${doc.name} · vence el ${doc.warrantyUntil}`,
         },
         sentAt,
+        // La garantía le llega a toda el área que mantiene el equipo, como en el trabajo diario.
+        technicians(doc.areaId, true).map((person) => person._id),
       );
     }
 

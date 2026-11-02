@@ -147,6 +147,7 @@ export function AssetPicker({
                           <span className="block truncate text-xs text-[var(--content-ink-dim)]">
                             <span className="font-display tabular">{formatAssetNumber(asset.number)}</span> ·{" "}
                             {ASSET_TYPE_LABEL[asset.type]} · {asset.location}
+                            {asset.custodianName && ` · ${asset.custodianName}`}
                           </span>
                         </span>
                         <AssetStatusBadge status={asset.status} />

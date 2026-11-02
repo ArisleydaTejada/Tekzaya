@@ -5,7 +5,7 @@ import { EXPLANATION, mockMaintenanceAi } from "./aiMocks";
 /**
  * Recorrido 13 · ¿Reparar o reemplazar? (recorrido 4 de la defensa, DoD de A7).
  * Con IA, la multifuncional de Ventas —la de las fallas repetidas de la semilla—
- * muestra la sugerencia con su explicación y sus números, y una correctiva abierta
+ * muestra, al pedirla con el botón, la sugerencia con su explicación y sus números; una correctiva abierta
  * estima su costo a partir de reparaciones parecidas que se pueden abrir. Sin
  * clave, ninguna de las dos tarjetas se monta y el módulo sigue igual.
  */
@@ -36,6 +36,9 @@ test.describe("con IA", () => {
   test("la multifuncional sugiere reemplazarla, con su explicación y sus números", async ({ page }) => {
     await openPrinter(page);
     await expect(page.getByRole("heading", { name: "¿Reparar o reemplazar?" })).toBeVisible();
+    // No se evalúa al abrir la ficha: se pide con el botón.
+    await expect(page.getByText(EXPLANATION)).toHaveCount(0);
+    await page.getByRole("button", { name: "Evaluar con IA" }).click();
     const reasons = page.getByRole("list", { name: "Por qué es candidato" });
     await expect(reasons.getByText("Fallas repetidas")).toBeVisible();
     await expect(reasons.getByText("Reparaciones caras")).toBeVisible();

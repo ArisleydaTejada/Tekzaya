@@ -65,10 +65,15 @@ describe("alertas de equipos (plan A6)", () => {
 
     expect(await runMaintenanceAlerts()).toMatchObject({ warranty: 1 });
     expect(await runMaintenanceAlerts()).toMatchObject({ warranty: 0 });
+    // A toda el área que lo mantiene, no solo al supervisor; Ventas no se entera.
     const sent = await Notification.find({ type: "warranty_expiring" }).lean();
-    expect(sent).toHaveLength(1);
-    expect(String(sent[0]!.userId)).toBe(String(fixture.users.supIt.id));
-    expect(String(sent[0]!.assetId)).toBe(String(asset._id));
+    const recipients = sent.map((item) => String(item.userId));
+    expect(recipients).toEqual(
+      expect.arrayContaining([String(fixture.users.supIt.id), String(fixture.users.agentIt.id)]),
+    );
+    expect(recipients).not.toContain(String(fixture.users.supVentas.id));
+    expect(new Set(recipients).size).toBe(recipients.length);
+    expect(sent.every((item) => String(item.assetId) === String(asset._id))).toBe(true);
 
     // La bandeja enlaza al equipo por su número.
     const inbox = await (await loginAs(fixture.users.supIt.email)).get("/api/v1/notifications");

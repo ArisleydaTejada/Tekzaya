@@ -9,6 +9,8 @@ import {
   formatTicketNumber,
   formatWorkOrderNumber,
   hourlyServiceAmount,
+  isSettledStatus,
+  TICKET_STATUS_LABEL,
   WORK_ORDER_HOLD_REASON_LABEL,
   WORK_ORDER_HOLD_REASONS,
   WORK_ORDER_STATUS_LABEL,
@@ -18,10 +20,10 @@ import {
   type WorkOrderHoldReason,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { assetKeys } from "../api/assets";
-import { attachmentUrl, ticketKeys, uploadAttachment } from "../api/tickets";
+import { attachmentUrl, takeTicket, ticketKeys, updateTicket, uploadAttachment } from "../api/tickets";
 import {
   addExternalCost,
   addWorkOrderPart,
@@ -58,7 +60,20 @@ const secondaryButton =
 const primaryButton =
   "flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim disabled:cursor-not-allowed disabled:opacity-50";
 
-type Dialog = "assign" | "hold" | "complete" | "cancel" | null;
+type Dialog = "assign" | "hold" | "complete" | "cancel" | "resolveTicket" | null;
+
+type OriginTicket = NonNullable<WorkOrderDetail["ticket"]>;
+
+/**
+ * Resuelve el ticket de origen desde la OT. Si quien hizo el trabajo no es
+ * responsable del ticket, primero lo toma: resolver es de los responsables, y
+ * así el ticket dice quién lo resolvió. Devuelve la OT con el ticket al día.
+ */
+async function resolveOriginTicket(order: WorkOrderDetail, ticket: OriginTicket, note: string): Promise<WorkOrderDetail> {
+  if (ticket.takeFirst) await takeTicket(ticket.id);
+  await updateTicket(ticket.id, { status: "resolved", note });
+  return { ...order, ticket: { ...ticket, status: "resolved", canResolve: false, takeFirst: false } };
+}
 
 /**
  * Ficha de la orden de trabajo (plan A3): el trabajo técnico con su costo real.
@@ -213,7 +228,6 @@ export default function OrdenDetailPage() {
             </Plate>
           )}
 
-          <RequiredPartsSection order={order} editable={permissions.work && open} onSaved={saved} />
           <PartsSection order={order} editable={permissions.work && open} onSaved={saved} />
           <ExternalSection order={order} editable={permissions.work && open} onSaved={saved} />
         </div>
@@ -251,8 +265,28 @@ export default function OrdenDetailPage() {
                 <span className="font-display tabular">{formatTicketNumber(order.ticket.number)}</span> · {order.ticket.title}
               </Link>
               <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
-                El solicitante sigue la conversación en el ticket; al completar la orden se le avisa ahí.
+                {TICKET_STATUS_LABEL[order.ticket.status]}
+                {" · "}El solicitante sigue la conversación en el ticket; al completar la orden se le avisa ahí.
               </p>
+              {/* La orden terminó y el ticket sigue abierto: el solicitante lo ve
+                  pendiente hasta que alguien lo resuelva con una nota. */}
+              {order.status === "completed" && !isSettledStatus(order.ticket.status) && (
+                <div role="status" className="mt-2 rounded-lg border border-amber/50 bg-amber/10 px-2.5 py-2 text-xs text-[var(--content-ink)]">
+                  <p>
+                    La orden se completó, pero el ticket sigue abierto.{" "}
+                    {!order.ticket.canResolve && (
+                      <Link to={`/tickets/${formatTicketNumber(order.ticket.number)}`} className="font-semibold text-accent-ink hover:underline">
+                        Recuerda resolverlo.
+                      </Link>
+                    )}
+                  </p>
+                  {order.ticket.canResolve && (
+                    <button onClick={() => setDialog("resolveTicket")} className="mt-1.5 font-semibold text-accent-ink hover:underline">
+                      Resolver el ticket
+                    </button>
+                  )}
+                </div>
+              )}
             </Plate>
           )}
 
@@ -306,7 +340,22 @@ export default function OrdenDetailPage() {
 
       <AssignModal open={dialog === "assign"} order={order} onClose={() => setDialog(null)} onSaved={saved} />
       <HoldModal open={dialog === "hold"} order={order} onClose={() => setDialog(null)} onSaved={saved} />
-      <CompleteModal open={dialog === "complete"} order={order} onClose={() => setDialog(null)} onSaved={saved} />
+      <CompleteModal
+        open={dialog === "complete"}
+        order={order}
+        onClose={() => setDialog(null)}
+        onSaved={saved}
+        onTicketError={setActionError}
+      />
+      {order.ticket?.canResolve && (
+        <ResolveTicketModal
+          open={dialog === "resolveTicket"}
+          order={order}
+          ticket={order.ticket}
+          onClose={() => setDialog(null)}
+          onSaved={saved}
+        />
+      )}
       <CancelModal open={dialog === "cancel"} order={order} onClose={() => setDialog(null)} onSaved={saved} />
     </div>
   );
@@ -443,7 +492,32 @@ function PartOptionGroups({
   );
 }
 
-/** El costo de la pieza se congela al consumirla; quitarla la devuelve al almacén. */
+/** Una fila por pieza: lo previsto y lo usado de ella, juntos. */
+interface PartRow {
+  part: WorkOrderDetail["partsUsed"][number]["part"];
+  required?: WorkOrderDetail["requiredParts"][number];
+  uses: WorkOrderDetail["partsUsed"];
+}
+
+function partRows(order: WorkOrderDetail): PartRow[] {
+  const rows = new Map<string, PartRow>();
+  for (const item of order.requiredParts) rows.set(item.part.id, { part: item.part, required: item, uses: [] });
+  for (const use of order.partsUsed) {
+    const row = rows.get(use.part.id);
+    if (row) row.uses.push(use);
+    else rows.set(use.part.id, { part: use.part, uses: [use] });
+  }
+  return [...rows.values()];
+}
+
+/**
+ * Los repuestos de la orden en una sola lista. **Prever** anota lo que hará falta
+ * sin tocar el almacén, para saber antes de ir si hay; **Usar** lo consume y lo
+ * suma al costo, al costo de ese día. En la base siguen siendo dos cosas
+ * —prever no descuenta—, pero se miran juntas: de cada pieza, cuánto se previó,
+ * cuánto se usó y si alcanza lo que queda. Devolver lo usado y dejar de preverlo
+ * son acciones separadas, para no mezclar "no se usó" con "ya no hace falta".
+ */
 function PartsSection({ order, editable, onSaved }: SectionProps) {
   const [partId, setPartId] = useState("");
   const [qty, setQty] = useState("1");
@@ -454,6 +528,7 @@ function PartsSection({ order, editable, onSaved }: SectionProps) {
   });
   const queryClient = useQueryClient();
   const chosen = options.find((option) => option.id === partId);
+  const rows = partRows(order);
 
   const mutation = useMutation({
     mutationFn: (run: () => Promise<WorkOrderDetail>) => run(),
@@ -467,156 +542,99 @@ function PartsSection({ order, editable, onSaved }: SectionProps) {
     onError: () => void queryClient.invalidateQueries({ queryKey: workOrderKeys.partOptions(order.id) }),
   });
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const amount = Number(qty);
-    if (!partId || !Number.isInteger(amount) || amount < 1) return;
-    mutation.mutate(() => addWorkOrderPart(order.id, { partId, qty: amount }));
+  const amount = Number(qty);
+  const validAmount = Number.isInteger(amount) && amount >= 1;
+  const short = Boolean(chosen && validAmount && chosen.stock < amount);
+
+  function submit(action: "plan" | "use") {
+    if (!partId || !validAmount) return;
+    mutation.mutate(() =>
+      action === "plan"
+        ? setRequiredPart(order.id, { partId, qty: amount })
+        : addWorkOrderPart(order.id, { partId, qty: amount }),
+    );
   }
 
   return (
     <Section title="Repuestos" total={formatMoney(order.cost.parts, order.currency)}>
-      {order.partsUsed.length === 0 ? (
-        <p className="text-sm text-[var(--content-ink-dim)]">Sin repuestos.</p>
-      ) : (
-        <ul className="divide-y divide-[var(--content-border)] text-sm">
-          {order.partsUsed.map((use) => (
-            <li key={use.id} className="flex items-center gap-3 py-2">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[var(--content-ink)]">
-                  <Link
-                    to={`/repuestos/${formatSparePartNumber(use.part.number)}`}
-                    className="font-display text-xs tabular text-accent-ink hover:underline"
-                  >
-                    {formatSparePartNumber(use.part.number)}
-                  </Link>{" "}
-                  {use.part.name}
-                </p>
-                <p className="text-xs text-[var(--content-ink-dim)]">
-                  {formatQuantity(use.qty, use.part.unit)} ×{" "}
-                  {formatMoney(use.unitCost, order.currency)}
-                </p>
-              </div>
-              <span className="tabular text-[var(--content-ink)]">{formatMoney(use.qty * use.unitCost, order.currency)}</span>
-              {editable && (
-                <RemoveButton
-                  label={`Devolver ${use.part.name} al almacén`}
-                  disabled={mutation.isPending}
-                  onClick={() => mutation.mutate(() => removeWorkOrderPart(order.id, use.id))}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {editable && (
-        <form onSubmit={submit} className="mt-3 grid grid-cols-[minmax(0,1fr)_80px] gap-2 border-t border-[var(--content-border)] pt-3 sm:grid-cols-[minmax(0,1fr)_80px_auto] sm:items-end">
-          <label>
-            <span className={labelClass}>Repuesto del almacén de {order.area.name}</span>
-            <select value={partId} onChange={(event) => setPartId(event.target.value)} className={inputClass}>
-              <option value="">Elige un repuesto…</option>
-              <PartOptionGroups
-                options={options}
-                render={(option) => (
-                  <option key={option.id} value={option.id} disabled={option.stock === 0}>
-                    {option.name} · quedan {option.stock} · {formatMoney(option.avgUnitCost, order.currency)}
-                  </option>
-                )}
-              />
-            </select>
-          </label>
-          <label>
-            <span className={labelClass}>Cantidad</span>
-            <input type="number" min={1} max={chosen?.stock ?? 1000} inputMode="numeric" value={qty} onChange={(event) => setQty(event.target.value)} className={inputClass} />
-          </label>
-          <button type="submit" disabled={!partId || mutation.isPending} className={`${primaryButton} col-span-2 justify-center sm:col-span-1`}>
-            <PlusIcon className="h-3.5 w-3.5" /> Agregar
-          </button>
-        </form>
-      )}
-      <FormError message={mutation.error?.message ?? null} />
-    </Section>
-  );
-}
-
-/**
- * Lo que el trabajo va a necesitar, con lo que hay hoy en el almacén. Prever no
- * descuenta nada; "Cargar" consume lo que falta (o lo que quede) como un repuesto más.
- */
-function RequiredPartsSection({ order, editable, onSaved }: SectionProps) {
-  const [partId, setPartId] = useState("");
-  const [qty, setQty] = useState("1");
-  const { data: options = [] } = useQuery({
-    queryKey: workOrderKeys.partOptions(order.id),
-    queryFn: () => listWorkOrderPartOptions(order.id),
-    enabled: editable,
-  });
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: (run: () => Promise<WorkOrderDetail>) => run(),
-    onSuccess: async (next) => {
-      setPartId("");
-      setQty("1");
-      await queryClient.invalidateQueries({ queryKey: workOrderKeys.partOptions(order.id) });
-      await onSaved(next);
-    },
-    onError: () => void queryClient.invalidateQueries({ queryKey: workOrderKeys.partOptions(order.id) }),
-  });
-
-  if (!editable && order.requiredParts.length === 0) return null;
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const amount = Number(qty);
-    if (!partId || !Number.isInteger(amount) || amount < 1) return;
-    mutation.mutate(() => setRequiredPart(order.id, { partId, qty: amount }));
-  }
-
-  return (
-    <Section title="Repuestos requeridos">
-      {order.requiredParts.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-sm text-[var(--content-ink-dim)]">
-          Ninguno previsto. Anota aquí lo que hará falta para saber antes de ir si hay en el almacén.
+          {editable
+            ? "Sin repuestos. Prevé lo que hará falta para saber antes de ir si hay en el almacén, o usa uno ahora."
+            : "Sin repuestos."}
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--content-border)] text-sm">
-          {order.requiredParts.map((item) => {
-            const missing = item.qty - item.used;
-            const loadable = Math.min(missing, item.stock);
+        <ul className="divide-y divide-[var(--content-border)] text-sm" aria-label="Repuestos de la orden">
+          {rows.map(({ part, required, uses }) => {
+            const used = uses.reduce((sum, use) => sum + use.qty, 0);
+            const cost = uses.reduce((sum, use) => sum + use.qty * use.unitCost, 0);
+            const missing = required ? required.qty - required.used : 0;
+            const loadable = required ? Math.min(missing, required.stock) : 0;
             return (
-              <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[var(--content-ink)]">
-                    <Link
-                      to={`/repuestos/${formatSparePartNumber(item.part.number)}`}
-                      className="font-display text-xs tabular text-accent-ink hover:underline"
+              <li key={part.id} className="py-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="min-w-48 flex-1">
+                    <p className="truncate text-[var(--content-ink)]">
+                      <Link
+                        to={`/repuestos/${formatSparePartNumber(part.number)}`}
+                        className="font-display text-xs tabular text-accent-ink hover:underline"
+                      >
+                        {formatSparePartNumber(part.number)}
+                      </Link>{" "}
+                      {part.name}
+                    </p>
+                    <p className="text-xs text-[var(--content-ink-dim)]">
+                      {required
+                        ? `Previstos ${required.qty} · usados ${used}`
+                        : `Usados ${formatQuantity(used, part.unit)} · no previsto`}
+                    </p>
+                  </div>
+                  {required && <RequiredPartStatus item={required} />}
+                  {editable && required && missing > 0 && loadable > 0 && (
+                    <button
+                      type="button"
+                      disabled={mutation.isPending}
+                      onClick={() => mutation.mutate(() => addWorkOrderPart(order.id, { partId: part.id, qty: loadable }))}
+                      className={secondaryButton}
                     >
-                      {formatSparePartNumber(item.part.number)}
-                    </Link>{" "}
-                    {item.part.name}
-                  </p>
-                  <p className="text-xs text-[var(--content-ink-dim)]">
-                    Previstos {item.qty} · cargados {item.used}
-                  </p>
+                      Usar {loadable}
+                    </button>
+                  )}
+                  <span className="min-w-20 text-right tabular text-[var(--content-ink)]">
+                    {used > 0 ? formatMoney(cost, order.currency) : "—"}
+                  </span>
+                  {editable && required && (
+                    <RemoveButton
+                      label={`${part.name}: ya no hace falta`}
+                      disabled={mutation.isPending}
+                      onClick={() => mutation.mutate(() => removeRequiredPart(order.id, required.id))}
+                    />
+                  )}
                 </div>
-                <RequiredPartStatus item={item} />
-                {editable && missing > 0 && loadable > 0 && (
-                  <button
-                    type="button"
-                    disabled={mutation.isPending}
-                    onClick={() => mutation.mutate(() => addWorkOrderPart(order.id, { partId: item.part.id, qty: loadable }))}
-                    className={secondaryButton}
-                  >
-                    Cargar {loadable}
-                  </button>
-                )}
-                {editable && (
-                  <RemoveButton
-                    label={`Quitar ${item.part.name} de los requeridos`}
-                    disabled={mutation.isPending}
-                    onClick={() => mutation.mutate(() => removeRequiredPart(order.id, item.id))}
-                  />
+                {uses.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 pl-3 text-xs text-[var(--content-ink-dim)]" aria-label={`Lo usado de ${part.name}`}>
+                    {uses.map((use) => (
+                      <li key={use.id} className="flex items-center gap-2">
+                        <span className="flex-1">
+                          {formatQuantity(use.qty, part.unit)} × {formatMoney(use.unitCost, order.currency)} ·{" "}
+                          <time dateTime={use.at} title={formatDateTime(use.at)}>
+                            {formatWhen(use.at)}
+                          </time>
+                        </span>
+                        {editable && (
+                          <button
+                            type="button"
+                            disabled={mutation.isPending}
+                            onClick={() => mutation.mutate(() => removeWorkOrderPart(order.id, use.id))}
+                            aria-label={`Devolver ${part.name} al almacén`}
+                            className="font-medium text-accent-ink hover:underline disabled:opacity-50"
+                          >
+                            Devolver
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </li>
             );
@@ -624,28 +642,54 @@ function RequiredPartsSection({ order, editable, onSaved }: SectionProps) {
         </ul>
       )}
       {editable && (
-        <form onSubmit={submit} className="mt-3 grid grid-cols-[minmax(0,1fr)_80px] gap-2 border-t border-[var(--content-border)] pt-3 sm:grid-cols-[minmax(0,1fr)_80px_auto] sm:items-end">
-          <label>
-            <span className={labelClass}>Repuesto que hará falta</span>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit("use");
+          }}
+          className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--content-border)] pt-3 sm:grid-cols-[minmax(0,1fr)_80px_auto_auto] sm:items-end"
+        >
+          <label className="col-span-2 sm:col-span-1">
+            <span className={labelClass}>Repuesto del almacén de {order.area.name}</span>
             <select value={partId} onChange={(event) => setPartId(event.target.value)} className={inputClass}>
               <option value="">Elige un repuesto…</option>
               <PartOptionGroups
                 options={options}
                 render={(option) => (
                   <option key={option.id} value={option.id}>
-                    {option.name} · {option.stock === 0 ? "sin existencias" : `quedan ${option.stock}`}
+                    {option.name} · {option.stock === 0 ? "sin existencias" : `quedan ${option.stock}`} ·{" "}
+                    {formatMoney(option.avgUnitCost, order.currency)}
                   </option>
                 )}
               />
             </select>
           </label>
-          <label>
-            <span className={labelClass}>Unidades previstas</span>
+          <label className="col-span-2 sm:col-span-1">
+            <span className={labelClass}>Cantidad</span>
             <input type="number" min={1} max={1000} inputMode="numeric" value={qty} onChange={(event) => setQty(event.target.value)} className={inputClass} />
           </label>
-          <button type="submit" disabled={!partId || mutation.isPending} className={`${secondaryButton} col-span-2 justify-center sm:col-span-1`}>
+          <button
+            type="button"
+            onClick={() => submit("plan")}
+            disabled={!partId || !validAmount || mutation.isPending}
+            title="Anotar que hará falta, sin descontarlo del almacén"
+            className={`${secondaryButton} justify-center`}
+          >
             <PlusIcon className="h-3.5 w-3.5" /> Prever
           </button>
+          <button
+            type="submit"
+            disabled={!chosen || !validAmount || short || mutation.isPending}
+            title="Descontarlo del almacén y sumarlo al costo"
+            className={`${primaryButton} justify-center`}
+          >
+            <PlusIcon className="h-3.5 w-3.5" /> Usar ahora
+          </button>
+          {short && chosen && (
+            <p className="col-span-2 text-xs text-[var(--content-ink-dim)] sm:col-span-4">
+              {chosen.stock === 0 ? "No hay existencias" : `Solo quedan ${chosen.stock}`}: puedes preverlo para pedirlo.
+            </p>
+          )}
         </form>
       )}
       <FormError message={mutation.error?.message ?? null} />
@@ -990,14 +1034,47 @@ function HoldModal({ open, order, onClose, onSaved }: DialogProps) {
   );
 }
 
-function CompleteModal({ open, order, onClose, onSaved }: DialogProps) {
+/**
+ * Completar puede resolver también el ticket de origen, en el mismo paso: si no,
+ * el ticket se queda abierto y el solicitante lo sigue viendo pendiente. Son dos
+ * peticiones —la orden y luego el ticket, con sus propias reglas—, así que si la
+ * segunda falla la orden queda completada y se dice qué pasó con el ticket.
+ */
+function CompleteModal({
+  open,
+  order,
+  onClose,
+  onSaved,
+  onTicketError,
+}: DialogProps & { onTicketError: (message: string) => void }) {
   const [notes, setNotes] = useState("");
   const [retire, setRetire] = useState(false);
+  const [resolve, setResolve] = useState(false);
+  // La nota para el solicitante copia el trabajo realizado hasta que se edita.
+  const [ticketNote, setTicketNote] = useState<string | null>(null);
+  const ticket = order.ticket?.canResolve ? order.ticket : undefined;
   useOnOpen(open, () => {
     setNotes("");
     setRetire(false);
+    setResolve(Boolean(ticket));
+    setTicketNote(null);
   });
+  const note = (ticketNote ?? notes).trim();
   const save = useDialogMutation(onSaved, onClose);
+
+  async function complete(): Promise<WorkOrderDetail> {
+    const next = await completeWorkOrder(order.id, { completionNotes: notes.trim(), retireAsset: retire });
+    if (!ticket || !resolve || !next.ticket) return next;
+    try {
+      return await resolveOriginTicket(next, ticket, note);
+    } catch (cause) {
+      onTicketError(
+        `La orden se completó, pero el ticket ${formatTicketNumber(ticket.number)} no se pudo resolver: ` +
+          (cause instanceof Error ? cause.message : "inténtalo desde el ticket."),
+      );
+      return next;
+    }
+  }
   return (
     <Modal
       open={open}
@@ -1009,8 +1086,8 @@ function CompleteModal({ open, order, onClose, onSaved }: DialogProps) {
           onClose={onClose}
           label={retire ? "Completar y dar de baja" : "Completar"}
           danger={retire}
-          disabled={notes.trim().length < 5 || save.isPending}
-          onConfirm={() => save.mutate(() => completeWorkOrder(order.id, { completionNotes: notes.trim(), retireAsset: retire }))}
+          disabled={notes.trim().length < 5 || (resolve && Boolean(ticket) && note.length < 3) || save.isPending}
+          onConfirm={() => save.mutate(complete)}
         />
       }
     >
@@ -1018,7 +1095,7 @@ function CompleteModal({ open, order, onClose, onSaved }: DialogProps) {
         {order.outOfService
           ? "El equipo vuelve a estar operativo, salvo que otra orden abierta lo tenga parado."
           : "El equipo siguió funcionando durante la orden."}
-        {order.ticket && " El ticket de origen recibe el aviso; resolverlo sigue siendo cosa del ticket."}
+        {order.ticket && !ticket && " El ticket de origen recibe el aviso; resolverlo sigue siendo cosa del ticket."}
       </p>
       {save.error && (
         <p role="alert" className="mb-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
@@ -1044,6 +1121,71 @@ function CompleteModal({ open, order, onClose, onSaved }: DialogProps) {
           </span>
         </label>
       )}
+      {ticket && (
+        <div className="mt-3 rounded-lg border border-[var(--content-border)] p-3">
+          <label className="flex items-start gap-2 text-sm text-[var(--content-ink)]">
+            <input type="checkbox" checked={resolve} onChange={(event) => setResolve(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+            <span>
+              Resolver también el ticket {formatTicketNumber(ticket.number)}
+              <span className="block text-xs text-[var(--content-ink-dim)]">
+                {resolve
+                  ? `${ticket.takeFirst ? "Quedas como responsable del ticket. " : ""}El solicitante recibe la nota y confirma si el problema desapareció.`
+                  : "El ticket queda como está; el solicitante lo seguirá viendo abierto."}
+              </span>
+            </span>
+          </label>
+          {resolve && (
+            <label className="mt-2 block">
+              <span className={labelClass}>Nota para el solicitante</span>
+              <textarea
+                value={ticketNote ?? notes}
+                onChange={(event) => setTicketNote(event.target.value)}
+                rows={3}
+                placeholder="Qué se arregló, en palabras del solicitante…"
+                className={inputClass}
+              />
+            </label>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** Para una orden ya completada cuyo ticket quedó abierto. */
+function ResolveTicketModal({ open, order, ticket, onClose, onSaved }: DialogProps & { ticket: OriginTicket }) {
+  const [note, setNote] = useState("");
+  useOnOpen(open, () => setNote(order.completionNotes ?? ""));
+  const save = useDialogMutation(onSaved, onClose);
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Resolver ${formatTicketNumber(ticket.number)}`}
+      footer={
+        <DialogFooter
+          onClose={onClose}
+          label="Marcar como resuelto"
+          disabled={note.trim().length < 3 || save.isPending}
+          onConfirm={() => save.mutate(() => resolveOriginTicket(order, ticket, note.trim()))}
+        />
+      }
+    >
+      <p className="mb-3 text-sm text-[var(--content-ink-dim)]">
+        {ticket.takeFirst && "Quedas como responsable del ticket. "}
+        El solicitante recibe la nota y confirma si el problema desapareció.
+      </p>
+      {save.error && <FormError message={save.error.message} />}
+      <label className="block">
+        <span className={labelClass}>Nota para el solicitante</span>
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          rows={4}
+          placeholder="Qué se arregló, en palabras del solicitante…"
+          className={inputClass}
+        />
+      </label>
     </Modal>
   );
 }

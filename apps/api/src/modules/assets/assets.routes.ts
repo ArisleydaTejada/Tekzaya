@@ -34,7 +34,7 @@ import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
 import { csvFile, csvRow, sendCsv } from "../tickets/ticket.csv";
 import { routeParam } from "../tickets/ticket.access";
-import { assetRefOf, assetScopeFilter, loadVisibleAsset, photoIdsOf, type LeanAsset } from "./asset.access";
+import { assetRefOf, assetScopeFilter, custodianSearch, loadVisibleAsset, photoIdsOf, type LeanAsset } from "./asset.access";
 import { hydrateAssets, todayKey, toAssetView } from "./asset.view";
 
 const router = Router();
@@ -102,6 +102,7 @@ async function listFilter(actor: Actor, query: AssetListQuery, withStatus = true
         { brand: pattern },
         { model: pattern },
         { serial: pattern },
+        ...(await custodianSearch(pattern)),
       ],
     });
   }

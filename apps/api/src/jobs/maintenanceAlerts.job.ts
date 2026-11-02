@@ -1,8 +1,9 @@
 import { formatAssetNumber } from "@tekzaya/shared";
+import type { Types } from "mongoose";
 import { Asset } from "../models/maintenance.models";
 import { todayKey } from "../modules/assets/asset.view";
 import { failureWindowStart, repeatedFailures, warrantyExpiring } from "../modules/maintenance/alerts";
-import { notify, supervisorsOf } from "../modules/notifications/notifications.service";
+import { areaMembersExcept, availableAmong, notify, supervisorsOf } from "../modules/notifications/notifications.service";
 import { getSettings } from "../modules/settings/settings.service";
 
 export interface MaintenanceAlertsSummary {
@@ -18,9 +19,18 @@ export interface MaintenanceAlertsSummary {
  * vez no mandan dos avisos, y el planificador puede llamarla cada hora.
  *
  * - **Garantía**: una vez por fecha de vencimiento; editar la garantía la rearma.
+ *   Le llega a toda el área que mantiene el equipo, no solo al supervisor: quien
+ *   lo repara es quien tiene que saber si la reparación aún la cubre el proveedor.
  * - **Fallas repetidas**: una vez por ventana. Si pasada la ventana el equipo sigue
  *   fallando, es un problema nuevo y vuelve a avisar.
  */
+/** Supervisores siempre; el resto del área, si no está ausente (spec §7.7). */
+async function wholeArea(areaId: Types.ObjectId): Promise<string[]> {
+  const supervisors = await supervisorsOf(areaId);
+  const members = await availableAmong(await areaMembersExcept(areaId, supervisors));
+  return [...supervisors, ...members];
+}
+
 export async function runMaintenanceAlerts(now = new Date()): Promise<MaintenanceAlertsSummary> {
   const settings = await getSettings();
   const rules = settings.maintenance;
@@ -34,7 +44,7 @@ export async function runMaintenanceAlerts(now = new Date()): Promise<Maintenanc
       { $set: { warrantyNotifiedAt: now } },
     );
     if (marked.modifiedCount === 0) continue;
-    await notify(await supervisorsOf(asset.areaId), {
+    await notify(await wholeArea(asset.areaId), {
       type: "warranty_expiring",
       title: "Garantía por vencer",
       body: `${formatAssetNumber(asset.number)} · ${asset.name} · vence el ${asset.warrantyUntil}`,

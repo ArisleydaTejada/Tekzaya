@@ -195,7 +195,7 @@ export function AssetFormModal({
       <div className="grid gap-3 sm:grid-cols-2">
         <Labeled label="Nombre" className="sm:col-span-2">
           {(id) => (
-            <input id={id} value={draft.name} onChange={(e) => set("name", e.target.value)} placeholder="Laptop de Diego, Impresora de Ventas…" className={INPUT} />
+            <input id={id} value={draft.name} onChange={(e) => set("name", e.target.value)} placeholder="Laptop Dell Latitude 5440, Impresora de Ventas…" className={INPUT} />
           )}
         </Labeled>
         <Labeled label="Tipo">

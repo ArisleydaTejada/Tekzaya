@@ -554,7 +554,7 @@ function Overview({
       </div>
       <div className="space-y-4">
         <RecurringFailure events={events} onShow={() => onShow("historial")} />
-        <ReplacementAdviceCard assetId={asset.id} />
+        <ReplacementAdviceCard asset={asset} />
         <RecentActivity events={events} loading={isLoading} onShow={() => onShow("historial")} />
         <ServiceHistory events={events} loading={isLoading} onShow={() => onShow("historial")} />
       </div>
@@ -674,7 +674,7 @@ function RecurringFailure({ events, onShow }: { events: readonly AssetEventView[
   return (
     <button
       onClick={onShow}
-      className="flex w-full items-start gap-3 rounded-2xl border border-amber/50 bg-amber/10 p-4 text-left hover:bg-amber/15"
+      className="flex w-full items-start gap-3 rounded-2xl border border-amber/50 bg-amber/10 p-4 text-left hover:border-amber"
     >
       <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber" aria-hidden="true" />
       <span className="min-w-0 flex-1 text-sm">

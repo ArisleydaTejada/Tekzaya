@@ -56,7 +56,14 @@ test("abrir, tomar, cargar repuesto y externo, completar: el costo cuadra", asyn
   // La opción lleva el stock y el costo del momento: se elige por su nombre.
   const rollers = await partPicker.locator("option", { hasText: "Kit de rodillos de alimentación" }).getAttribute("value");
   await partPicker.selectOption(rollers!);
-  await page.getByRole("button", { name: "Agregar", exact: true }).click();
+  // Prever no descuenta: la pieza queda en la lista con lo que hay en el almacén…
+  await page.getByRole("button", { name: "Prever", exact: true }).click();
+  const partRows = page.getByRole("list", { name: "Repuestos de la orden" });
+  await expect(partRows.getByText("Previstos 1 · usados 0")).toBeVisible();
+  // …y en la misma fila se usa cuando llega el momento.
+  await partRows.getByRole("button", { name: "Usar 1" }).click();
+  await expect(partRows.getByText("Previstos 1 · usados 1")).toBeVisible();
+  await expect(partRows.getByText("Cargado")).toBeVisible();
   await expect(page.getByRole("button", { name: "Devolver Kit de rodillos de alimentación al almacén" })).toBeVisible();
 
   // El técnico de fuera cobra por hora: 1 h 30 min a 30,00 son 45,00.
