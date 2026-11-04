@@ -63,6 +63,37 @@ describe("adjuntos", () => {
     expect(denegado.status).toBe(404);
   });
 
+  it("la nota con la que se resuelve puede llevar adjuntos", async () => {
+    const ticket = await seedTicket({
+      areaId: fixture.areas.it,
+      requesterId: fixture.users.employeeVentas.id,
+      assigneeIds: [fixture.users.agentIt.id],
+      status: "in_progress",
+    });
+
+    const agente = await loginAs(fixture.users.agentIt.email);
+    const subida = await agente
+      .post("/api/v1/attachments")
+      .attach("file", PNG, { filename: "arreglado.png", contentType: "image/png" });
+
+    const resuelto = await agente
+      .patch(`/api/v1/tickets/${String(ticket._id)}`)
+      .send({ status: "resolved", note: "Cambié el cable; adjunto la prueba.", attachmentIds: [subida.body.id] });
+    expect(resuelto.status).toBe(200);
+    expect(resuelto.body.status).toBe("resolved");
+
+    const mensajes = await agente.get(`/api/v1/tickets/${String(ticket._id)}/messages`);
+    const nota = mensajes.body.items.find((m: { body: string }) => m.body === "Cambié el cable; adjunto la prueba.");
+    expect(nota.attachments).toHaveLength(1);
+    expect(nota.attachments[0].fileName).toBe("arreglado.png");
+
+    // Sin nota no hay dónde colgarlos.
+    const sinNota = await agente
+      .patch(`/api/v1/tickets/${String(ticket._id)}`)
+      .send({ attachmentIds: [subida.body.id] });
+    expect(sinNota.status).toBe(422);
+  });
+
   it("rechaza un archivo cuyo contenido no es de un tipo admitido", async () => {
     const agente = await loginAs(fixture.users.agentIt.email);
     const response = await agente

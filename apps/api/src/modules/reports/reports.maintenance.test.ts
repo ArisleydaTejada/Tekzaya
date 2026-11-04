@@ -216,3 +216,48 @@ describe("fuente de mantenimiento (plan A6)", () => {
     expect(sales.body.templates.map((item: { templateId: string }) => item.templateId)).not.toContain("availability-by-type");
   });
 });
+
+describe("órdenes de trabajo del período (plan A6)", () => {
+  async function list(user: keyof Fixture["users"], params: Record<string, string>) {
+    const agent = await loginAs(fixture.users[user].email);
+    return agent.get("/api/v1/reports/work-orders").query({ scope: "area", ...RANGE, ...params });
+  }
+
+  it("lista lo que tocó la ventana, con los mismos filtros que las gráficas", async () => {
+    // Una orden de febrero, ya cerrada: no toca marzo y no sale.
+    await WorkOrder.collection.insertOne({
+      areaId: fixture.areas.it,
+      assigneeIds: [],
+      checklist: [],
+      partsUsed: [],
+      externalCosts: [],
+      statusHistory: [],
+      number: 4,
+      type: "corrective",
+      title: "Atasco de papel",
+      assetId: printerA,
+      status: "completed",
+      outOfService: false,
+      costTotal: 0,
+      createdAt: at("2026-02-10T10:00:00"),
+      completedAt: at("2026-02-11T10:00:00"),
+      updatedAt: new Date(),
+    });
+
+    const all = await list("supIt", {});
+    expect(all.status, JSON.stringify(all.body)).toBe(200);
+    expect(all.body.items.map((item: { number: number }) => item.number).sort()).toEqual([1, 2, 3]);
+    expect(all.body.statusCounts.completed).toBe(3);
+
+    const preventive = await list("supIt", { type: "preventive" });
+    expect(preventive.body.total).toBe(2);
+  });
+
+  it("en el alcance personal, solo las suyas; un área que no mantiene equipos recibe 403", async () => {
+    const mine = await list("agentIt", { scope: "me" });
+    expect(mine.status).toBe(200);
+    expect(mine.body.total).toBe(3);
+    const sales = await list("supVentas", {});
+    expect(sales.status).toBe(403);
+  });
+});

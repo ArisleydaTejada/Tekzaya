@@ -79,6 +79,107 @@ import { Plate } from "../components/Plate";
 import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
 
 /** Estados a los que se puede saltar desde el desplegable; el servidor valida el resto. */
+/**
+ * Estados a los que se puede pasar al enviar. Repite, para estos tres destinos,
+ * las transiciones de `ALLOWED_TRANSITIONS` en la API (`ticket.lifecycle.ts`):
+ * así el menú no ofrece lo que el servidor rechazaría.
+ */
+const SEND_AS_TARGETS = ["in_progress", "on_hold", "resolved"] as const satisfies readonly TicketStatus[];
+const SEND_AS_FROM: Partial<Record<TicketStatus, readonly TicketStatus[]>> = {
+  open: ["in_progress", "on_hold"],
+  assigned: ["in_progress", "on_hold", "resolved"],
+  in_progress: ["on_hold", "resolved"],
+  on_hold: ["in_progress", "resolved"],
+  reopened: ["in_progress", "on_hold", "resolved"],
+};
+
+function sendAsTargets(current: TicketStatus): TicketStatus[] {
+  const allowed = SEND_AS_FROM[current] ?? [];
+  return SEND_AS_TARGETS.filter((status) => allowed.includes(status));
+}
+
+/** «Enviar» con un desplegable para enviar y cambiar el estado a la vez. */
+function SendButton({
+  disabled,
+  pending,
+  targets,
+  onSend,
+  onSendAs,
+}: {
+  disabled: boolean;
+  pending: boolean;
+  targets: TicketStatus[];
+  onSend: () => void;
+  onSendAs: (status: TicketStatus) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const base = "bg-accent text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50";
+
+  if (targets.length === 0) {
+    return (
+      <button onClick={onSend} disabled={disabled} className={`rounded-lg px-3 py-1.5 ${base}`}>
+        {pending ? "Enviando…" : "Enviar"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative flex">
+      <button onClick={onSend} disabled={disabled} className={`rounded-l-lg px-3 py-1.5 ${base}`}>
+        {pending ? "Enviando…" : "Enviar"}
+      </button>
+      <button
+        onClick={() => setMenuOpen((v) => !v)}
+        disabled={disabled}
+        aria-label="Enviar y cambiar el estado"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        className={`flex items-center rounded-r-lg border-l border-white/25 px-1.5 ${base}`}
+      >
+        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
+      </button>
+      {menuOpen && (
+        <>
+          <button
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Cerrar menú"
+            tabIndex={-1}
+          />
+          <div
+            role="menu"
+            className="absolute bottom-full right-0 z-50 mb-2 w-56 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-1.5 shadow-[var(--content-shadow)]"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setMenuOpen(false);
+            }}
+          >
+            {targets.map((status) => (
+              <button
+                key={status}
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSendAs(status);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+              >
+                <span
+                  className="h-3 w-3 shrink-0 rounded-[3px] border"
+                  style={{ background: `var(--st-${status}-ink)`, borderColor: `var(--st-${status}-border)` }}
+                  aria-hidden="true"
+                />
+                <span>
+                  Enviar como <span className="font-semibold">{TICKET_STATUS_LABEL[status]}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const STATUS_OPTIONS: TicketStatus[] = [
   "open",
   "assigned",
@@ -162,6 +263,47 @@ export default function TicketDetailPage() {
       await refresh();
     },
     onError: (error) => setActionError(error.message),
+  });
+
+  /*
+   * «Enviar como …»: manda la respuesta y mueve el ticket en un solo gesto.
+   * Resolver exige una nota pública; si lo escrito sirve (pública, con al menos
+   * 3 letras) esa misma respuesta —con sus adjuntos— es la nota y no se
+   * duplica. Si no, se envía el mensaje y se abre el modal para escribirla.
+   */
+  const sendAs = useMutation({
+    mutationFn: async (status: TicketStatus): Promise<"done" | "needs-note"> => {
+      const body = draft.trim();
+      if (status === "resolved" && composerTab === "public" && body.length >= 3) {
+        await updateTicket(ticket!.id, {
+          status,
+          note: body,
+          ...(files.length ? { attachmentIds: files.map((file) => file.id) } : {}),
+        });
+        return "done";
+      }
+      await createMessage(ticket!.id, {
+        type: composerTab,
+        body,
+        attachmentIds: files.map((file) => file.id),
+      });
+      if (status === "resolved") return "needs-note";
+      await updateTicket(ticket!.id, { status });
+      return "done";
+    },
+    onSuccess: async (result) => {
+      setDraft("");
+      setGhostFor(null);
+      setFiles([]);
+      setActionError(null);
+      await refresh();
+      if (result === "needs-note") setResolveOpen(true);
+    },
+    onError: async (error) => {
+      setActionError(error.message);
+      // El mensaje pudo salir aunque fallara el cambio de estado.
+      await refresh();
+    },
   });
 
   const patch = useMutation({
@@ -609,13 +751,13 @@ export default function TicketDetailPage() {
                       }}
                     />
                   </label>
-                  <button
-                    onClick={() => send.mutate()}
-                    disabled={draft.trim().length === 0 || send.isPending}
-                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50"
-                  >
-                    {send.isPending ? "Enviando…" : "Enviar"}
-                  </button>
+                  <SendButton
+                    disabled={draft.trim().length === 0 || send.isPending || sendAs.isPending}
+                    pending={send.isPending || sendAs.isPending}
+                    targets={permissions.changeStatus ? sendAsTargets(ticket.status) : []}
+                    onSend={() => send.mutate()}
+                    onSendAs={(status) => sendAs.mutate(status)}
+                  />
                 </div>
               </div>
             </div>

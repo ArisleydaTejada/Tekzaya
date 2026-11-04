@@ -53,6 +53,8 @@ export const asset = z.object({
 export type Asset = z.infer<typeof asset>;
 
 export const MAX_ASSET_PHOTOS = 12;
+/** Fotos de un repuesto: con unas pocas basta para reconocer la pieza. */
+export const MAX_PART_PHOTOS = 6;
 
 export const createAssetInput = z.object({
   name: text(120),
@@ -223,6 +225,8 @@ export const sparePart = z.object({
   avgUnitCost: money,
   isActive: z.boolean(),
   assetIds: z.array(objectId),
+  /** Fotos de la pieza; la primera es la portada. */
+  photoIds: z.array(objectId),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });

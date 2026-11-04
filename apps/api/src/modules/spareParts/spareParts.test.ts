@@ -274,3 +274,54 @@ describe("equipos en los que se usa", () => {
     expect(unlinked.body.assets).toEqual([]);
   });
 });
+
+describe("fotos del repuesto", () => {
+  /** PNG mínimo válido: basta para la comprobación de bytes de la subida. */
+  const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 1)]);
+
+  async function upload(agent: Agent, filename = "pieza.png") {
+    const response = await agent.post("/api/v1/attachments").attach("file", PNG, { filename, contentType: "image/png" });
+    expect(response.status).toBe(201);
+    return response.body.id as string;
+  }
+
+  it("se dan de alta con la pieza, se reordenan y las ve quien ve el almacén", async () => {
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    const [first, second] = [await upload(supervisor), await upload(supervisor, "otra.png")];
+
+    const part = await createPart(supervisor, { photoIds: [first, second] });
+    const detail = await supervisor.get(`/api/v1/spare-parts/${part.id}`);
+    expect(detail.body.photoIds).toEqual([first, second]);
+
+    // Cambiar la portada guarda la lista entera en el nuevo orden.
+    const reordered = await supervisor.patch(`/api/v1/spare-parts/${part.id}`).send({ photoIds: [second, first] });
+    expect(reordered.status).toBe(200);
+    expect(reordered.body.photoIds).toEqual([second, first]);
+
+    expect((await supervisor.get(`/api/v1/attachments/${first}`)).status).toBe(200);
+    // Otro almacén no llega a la foto aunque conozca su id.
+    const ventas = await loginAs(fixture.users.supVentas.email);
+    expect((await ventas.get(`/api/v1/attachments/${first}`)).status).toBe(404);
+  });
+
+  it("no se puede colgar la foto de otra persona ni la de otro repuesto", async () => {
+    const supervisor = await loginAs(fixture.users.supIt.email);
+    const agent = await loginAs(fixture.users.agentIt.email);
+    const foreign = await upload(agent);
+
+    const rejected = await supervisor.post("/api/v1/spare-parts").send({
+      name: "Fusor",
+      areaId: String(fixture.areas.it),
+      unit: "unit",
+      minStock: 0,
+      photoIds: [foreign],
+    });
+    expect(rejected.status).toBe(422);
+
+    const own = await upload(supervisor);
+    await createPart(supervisor, { photoIds: [own] });
+    const other = await createPart(supervisor, { name: "Rodillo" });
+    const stolen = await supervisor.patch(`/api/v1/spare-parts/${other.id}`).send({ photoIds: [own] });
+    expect(stolen.status).toBe(422);
+  });
+});

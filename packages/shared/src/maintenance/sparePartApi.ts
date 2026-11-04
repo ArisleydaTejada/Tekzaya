@@ -4,7 +4,7 @@ import { isoDateTime, objectId, paginated, paginationQuery } from "../common";
 import { assetPerson } from "./assetApi";
 import { assetStatus, partUnit, stockMovementKind } from "./enums";
 import { currencyCode, money } from "./money";
-import { sparePart } from "./schemas";
+import { MAX_PART_PHOTOS, sparePart } from "./schemas";
 
 // Plan A4: saber qué hay, qué se gasta y cuándo reponer. El stock es un libro
 // de movimientos y el campo `stock` su suma en caché (plan §2.3).
@@ -119,6 +119,8 @@ export const createSparePartInput = z.object({
   minStock: z.number().int().min(0).max(100_000),
   /** Equipos del área en los que se usa. */
   assetIds: z.array(objectId).max(MAX_PART_ASSETS).default([]),
+  /** Fotos ya subidas con `POST /attachments`; la primera es la portada. */
+  photoIds: z.array(objectId).max(MAX_PART_PHOTOS).default([]),
   /** Existencias con las que llega al almacén; se registran como una entrada. */
   initialStock: z
     .object({ qty: units.min(1), unitCost: money })
@@ -136,6 +138,8 @@ export const updateSparePartInput = z.object({
   minStock: z.number().int().min(0).max(100_000).optional(),
   isActive: z.boolean().optional(),
   assetIds: z.array(objectId).max(MAX_PART_ASSETS).optional(),
+  /** La galería entera, en orden; sustituye a la anterior. */
+  photoIds: z.array(objectId).max(MAX_PART_PHOTOS).optional(),
 });
 export type UpdateSparePartInput = z.infer<typeof updateSparePartInput>;
 

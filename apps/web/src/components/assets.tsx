@@ -97,21 +97,25 @@ export function AssetPhotosField({
   onChange,
   onUploading,
   onError,
+  max = MAX_ASSET_PHOTOS,
+  limitMessage = `Caben ${MAX_ASSET_PHOTOS} fotos por equipo`,
 }: {
   id: string;
+  max?: number;
+  limitMessage?: string;
   value: readonly string[];
   onChange: (photoIds: string[]) => void;
   onUploading: (uploading: boolean) => void;
   onError: (message: string | null) => void;
 }) {
   const [uploading, setUploading] = useState(false);
-  const room = MAX_ASSET_PHOTOS - value.length;
+  const room = max - value.length;
 
   async function pick(list: FileList | null) {
     const files = [...(list ?? [])];
     if (!files.length) return;
     if (files.length > room) {
-      onError(`Caben ${MAX_ASSET_PHOTOS} fotos por equipo`);
+      onError(limitMessage);
       return;
     }
     setUploading(true);

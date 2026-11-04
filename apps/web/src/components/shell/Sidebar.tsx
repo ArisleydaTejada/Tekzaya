@@ -18,6 +18,7 @@ import {
 import { ACTIVE_TICKET_STATUSES, canManageSettings, canManageUsers } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { listTickets, ticketKeys } from "../../api/tickets";
+import { listWorkOrders, workOrderKeys } from "../../api/workOrders";
 import { useAuth } from "../../auth/AuthContext";
 import { LogoLockup, LogoMark } from "../Logo";
 
@@ -102,6 +103,22 @@ function useMyOpenCount(): number {
   return data?.total ?? 0;
 }
 
+/**
+ * Órdenes de trabajo asignadas a esta persona que siguen abiertas: el alcance
+ * `mine` del listado ya deja fuera las completadas y canceladas. Solo se pide a
+ * quien ve las órdenes; al resto la API le respondería 404.
+ */
+function useMyOpenWorkOrderCount(enabled: boolean): number {
+  const query = { scope: "mine" as const, limit: 1 };
+  const { data } = useQuery({
+    queryKey: [...workOrderKeys.list(query), "count"],
+    queryFn: () => listWorkOrders(query),
+    staleTime: 30_000,
+    enabled,
+  });
+  return data?.total ?? 0;
+}
+
 function NavItem({
   to,
   label,
@@ -168,6 +185,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
   // Las OT son del área que mantiene el equipo (plan A3): quien no mantiene nada
   // no ve la entrada, igual que Configuración.
   const seesWorkOrders = Boolean(me && (isAdmin || me.hasGlobalReadAccess || me.maintainsAssets));
+  const myOpenOrders = useMyOpenWorkOrderCount(seesWorkOrders);
   const navigate = useNavigate();
 
   return (
@@ -226,7 +244,14 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <NavItem to="/mantenimiento" label="Panel de mantenimiento" icon={ChartIcon} collapsed={collapsed} />
         )}
         {seesWorkOrders && (
-          <NavItem to="/ordenes" label="Órdenes de trabajo" icon={ClipboardIcon} collapsed={collapsed} />
+          <NavItem
+            to="/ordenes"
+            label="Órdenes de trabajo"
+            icon={ClipboardIcon}
+            badge
+            count={myOpenOrders}
+            collapsed={collapsed}
+          />
         )}
         {/* El almacén es del área que mantiene equipos, igual que sus órdenes. */}
         {seesWorkOrders && <NavItem to="/repuestos" label="Repuestos" icon={BoxIcon} collapsed={collapsed} />}

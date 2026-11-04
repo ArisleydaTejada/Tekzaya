@@ -3,6 +3,7 @@ import {
   formatMoney,
   formatSparePartNumber,
   formatWorkOrderNumber,
+  MAX_PART_PHOTOS,
   PART_UNIT_LABEL,
   STOCK_MOVEMENT_LABEL,
   type SparePartDetail,
@@ -14,7 +15,8 @@ import { getSparePart, listStockMovements, sparePartKeys, updateSparePart } from
 import { workOrderKeys } from "../api/workOrders";
 import { AssetStatusBadge } from "../components/assets";
 import { AreaTag } from "../components/badges";
-import { PencilIcon, PlusIcon, SlidersIcon } from "../components/icons";
+import { BoxIcon, PencilIcon, PlusIcon, SlidersIcon } from "../components/icons";
+import { PhotoGallery } from "../components/PhotoGallery";
 import { Plate } from "../components/Plate";
 import { LowStockBadge, SparePartFormModal, StockMovementModal } from "../components/spareParts";
 import { formatDateTime, formatQuantity, formatWhen } from "../lib/format";
@@ -83,17 +85,20 @@ export default function RepuestoDetailPage() {
       </Link>
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">{formatSparePartNumber(part.number)}</p>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--content-ink)]">{part.name}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {part.low && <LowStockBadge />}
-            {!part.isActive && (
-              <span className="rounded-md border border-[var(--content-border)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">Desactivado</span>
-            )}
-            <span className="flex items-center gap-1.5 text-sm text-[var(--content-ink-dim)]">
-              Almacén de <AreaTag area={part.area} />
-            </span>
+        <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start">
+          <PartPhotos part={part} onSaved={saved} />
+          <div className="min-w-0">
+            <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">{formatSparePartNumber(part.number)}</p>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--content-ink)]">{part.name}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {part.low && <LowStockBadge />}
+              {!part.isActive && (
+                <span className="rounded-md border border-[var(--content-border)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">Desactivado</span>
+              )}
+              <span className="flex items-center gap-1.5 text-sm text-[var(--content-ink-dim)]">
+                Almacén de <AreaTag area={part.area} />
+              </span>
+            </div>
           </div>
         </div>
         {manage && (
@@ -191,6 +196,29 @@ export default function RepuestoDetailPage() {
         onSaved={saved}
       />
     </div>
+  );
+}
+
+/** Las fotos de la pieza; cada cambio guarda la lista entera. */
+function PartPhotos({ part, onSaved }: { part: SparePartDetail; onSaved: (saved: SparePartDetail) => Promise<void> }) {
+  const save = useMutation({
+    mutationFn: (photoIds: string[]) => updateSparePart(part.id, { photoIds }),
+    onSuccess: onSaved,
+  });
+  return (
+    <PhotoGallery
+      name={part.name}
+      photos={part.photoIds}
+      max={MAX_PART_PHOTOS}
+      canEdit={part.permissions.manage}
+      saving={save.isPending}
+      saveError={save.error?.message ?? null}
+      onSave={(photoIds) => {
+        save.reset();
+        save.mutate(photoIds);
+      }}
+      placeholderIcon={BoxIcon}
+    />
   );
 }
 

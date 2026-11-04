@@ -50,7 +50,7 @@ export default function MantenimientoPage() {
               </select>
             )}
             <Link
-              to="/reportes"
+              to="/reportes?modulo=mantenimiento"
               className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
             >
               <ChartIcon className="h-3.5 w-3.5" aria-hidden="true" /> Reportes de mantenimiento

@@ -201,6 +201,8 @@ const sparePartSchema = new Schema(
     isActive: { type: Boolean, default: true },
     /** Equipos del área en los que se usa: la ficha del activo los lista con su existencia. */
     assetIds: [{ type: Schema.Types.ObjectId, ref: "Asset" }],
+    /** Fotos de la pieza; la primera es la portada. */
+    photoIds: { type: [{ type: Schema.Types.ObjectId, ref: "Attachment" }], default: [] },
     /** Marca del aviso de stock bajo; se borra al volver a superar el mínimo. */
     lowStockNotifiedAt: { type: Date },
   },

@@ -2,7 +2,9 @@ import { z } from "zod";
 import { areaRef } from "./area";
 import { isoDateTime, objectId, paginationQuery } from "./common";
 import { priority, slaState, ticketStatus } from "./enums";
-import { assetType, workOrderType } from "./maintenance/enums";
+import { assetType, workOrderStatus, workOrderType } from "./maintenance/enums";
+import { workOrderListResponse, workOrderSort } from "./maintenance/workOrderApi";
+import { commaSeparated } from "./ticket";
 import { statsPeriod, statsQueryFields, statsRange, statsScope, scopeRangeRules } from "./stats";
 import { userSummary } from "./user";
 
@@ -1219,6 +1221,32 @@ export type ReportTicketsResponse = z.infer<typeof reportTicketsResponse>;
 
 /** Techo de filas por consulta y por descarga (spec §7.8.9). */
 export const REPORT_ROW_CAP = 10_000;
+
+// ── Órdenes de trabajo del período (plan A6) ──────────────────
+
+/**
+ * La lista de debajo de un reporte de mantenimiento: lo mismo que "Tickets del
+ * período", pero con las órdenes que tocaron la ventana. Comparte alcance y
+ * período con las gráficas, así que lo que se ve abajo es lo que se cuenta arriba.
+ */
+export const reportWorkOrdersQuery = statsQueryFields
+  .extend(paginationQuery.shape)
+  .extend({
+    /** Número (`OT-0012` o `12`) o título. */
+    q: z.string().trim().max(120).optional(),
+    status: commaSeparated(workOrderStatus).optional(),
+    type: workOrderType.optional(),
+    sort: workOrderSort.default("number"),
+    dir: z.enum(["asc", "desc"]).default("desc"),
+  })
+  .superRefine(scopeRangeRules);
+export type ReportWorkOrdersQuery = z.infer<typeof reportWorkOrdersQuery>;
+
+export const reportWorkOrdersResponse = workOrderListResponse.extend({
+  range: statsRange,
+  scope: statsScope,
+});
+export type ReportWorkOrdersResponse = z.infer<typeof reportWorkOrdersResponse>;
 
 // ── Reportes guardados (spec §7.8.8, §11) ─────────────────────
 

@@ -2,11 +2,13 @@ import {
   createReportInput,
   reportQueryInput,
   reportTicketsQuery,
+  reportWorkOrdersQuery,
   updateReportInput,
   type Actor,
   type CreateReportInput,
   type ReportQueryInput,
   type ReportTicketsQuery,
+  type ReportWorkOrdersQuery,
   type SavedReportList,
   type UpdateReportInput,
 } from "@tekzaya/shared";
@@ -28,7 +30,10 @@ import {
   updateReport,
 } from "./reports.saved";
 import { effectivePerspective, resolveListScope, resolveScope } from "./reports.scope";
+import { canReportMaintenance } from "./reports.maintenance";
 import { buildResponse, listTicketsOfPeriod } from "./reports.tickets";
+import { listWorkOrdersOfPeriod } from "./reports.workOrders";
+import { AppError } from "../../middleware/errors";
 
 const router = Router();
 
@@ -106,6 +111,23 @@ router.get("/reports/tickets", validateQuery(reportTicketsQuery), async (_req, r
 
   const result = await listTicketsOfPeriod(query, scope, perspective, actor, range, now);
   res.json(buildResponse(result, query, scope, range));
+});
+
+// ── Órdenes de trabajo del período (plan A6) ──────────────────
+
+/**
+ * La lista de debajo de un reporte de mantenimiento. Usa el alcance de las
+ * gráficas, no el de la lista de tickets: no hay conversaciones que leer por
+ * ser del área, y lo que se cuenta arriba es lo que se lista abajo.
+ */
+router.get("/reports/work-orders", validateQuery(reportWorkOrdersQuery), async (_req, res) => {
+  const actor = res.locals.actor as Actor;
+  if (!(await canReportMaintenance(actor))) {
+    throw new AppError(403, "forbidden", "Los reportes de mantenimiento son de las áreas que mantienen equipos");
+  }
+  const query = res.locals.query as ReportWorkOrdersQuery;
+  const { scope, range } = await context(query as never, actor);
+  res.json(await listWorkOrdersOfPeriod(query, scope, range, actor));
 });
 
 /**

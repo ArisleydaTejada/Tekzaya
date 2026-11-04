@@ -13,6 +13,8 @@ const attachmentSchema = new Schema(
     assetId: { type: Schema.Types.ObjectId, ref: "Asset" },
     /** Factura de un costo externo de una OT (plan A3): la ve quien ve la orden. */
     workOrderId: { type: Schema.Types.ObjectId, ref: "WorkOrder" },
+    /** Foto de un repuesto: la ve quien puede ver ese almacén. */
+    sparePartId: { type: Schema.Types.ObjectId, ref: "SparePart" },
     uploaderId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     fileName: { type: String, required: true },
     mimeType: { type: String, required: true },

@@ -17,12 +17,11 @@ import {
   type WorkOrderStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { assetKeys, getAsset, listAssetEvents, retireAsset, updateAsset } from "../api/assets";
 import { listPlans, planKeys } from "../api/plans";
 import { listSpareParts, sparePartKeys } from "../api/spareParts";
-import { attachmentUrl } from "../api/tickets";
 import { getWorkOrder, listWorkOrders, updateWorkOrder, workOrderKeys } from "../api/workOrders";
 import { AssetFormModal } from "../components/AssetFormModal";
 import { AssetStatusBadge, WarrantyBadge } from "../components/assets";
@@ -30,12 +29,12 @@ import { Avatar, AvatarStack } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
 import { AlertIcon, ArrowRightIcon, PencilIcon, PlusIcon, WrenchIcon, XIcon } from "../components/icons";
 import { Modal } from "../components/Modal";
+import { PhotoGallery } from "../components/PhotoGallery";
 import { ReplacementAdviceCard } from "../components/maintenanceAi";
 import { NewWorkOrderModal } from "../components/NewWorkOrderModal";
 import { Plate } from "../components/Plate";
 import { PlanFormModal } from "../components/plans";
 import { RequiredPartStatus, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
-import { PHOTO_ACCEPT, uploadAssetPhotos } from "../lib/assetPhotos";
 import { formatDateTime, formatDay, formatQuantity, formatWhen, warrantyCountdown } from "../lib/format";
 
 const VIEWS = ["resumen", "historial", "ordenes"] as const;
@@ -324,157 +323,26 @@ function WarrantyAlert({ asset }: { asset: AssetDetail }) {
 
 // ── Fotos ─────────────────────────────────────────────────────
 
-/**
- * La portada y, debajo, el resto de las fotos. Quien gestiona el equipo agrega
- * fotos desde aquí sin abrir el formulario; al abrir una en grande puede
- * quitarla o hacerla portada. Cada cambio guarda la lista entera.
- */
+/** Las fotos del equipo; cada cambio guarda la lista entera. */
 function AssetPhotos({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: AssetDetail) => Promise<void> }) {
-  const [viewing, setViewing] = useState<number | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const inputId = useId();
-  const photos = asset.photoIds;
-  const canEdit = asset.permissions.manage;
-  const room = MAX_ASSET_PHOTOS - photos.length;
-
   const save = useMutation({
     mutationFn: (photoIds: string[]) => updateAsset(asset.id, { photoIds }),
     onSuccess: onSaved,
   });
-  const error = uploadError ?? save.error?.message ?? null;
-  const busy = uploading || save.isPending;
-
-  async function add(list: FileList | null) {
-    const files = [...(list ?? [])].slice(0, room);
-    if (!files.length) return;
-    setUploading(true);
-    setUploadError(null);
-    save.reset();
-    try {
-      save.mutate([...photos, ...(await uploadAssetPhotos(files))]);
-    } catch (cause) {
-      setUploadError(cause instanceof Error ? cause.message : "No se pudo subir la foto");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const current = viewing !== null ? photos[viewing] : undefined;
-
   return (
-    <div className="flex w-full flex-col gap-2 md:w-40">
-      {photos[0] ? (
-        <button onClick={() => setViewing(0)} className="overflow-hidden rounded-xl" aria-label="Ver las fotos en grande">
-          <img src={attachmentUrl(photos[0])} alt={`Foto de ${asset.name}`} className="h-28 w-full object-cover" />
-        </button>
-      ) : (
-        <div className="flex h-28 w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-[var(--content-bg)] text-[var(--content-ink-dim)]">
-          <WrenchIcon className="h-6 w-6" />
-          <span className="text-xs">Sin foto</span>
-        </div>
-      )}
-      {(photos.length > 1 || (canEdit && room > 0)) && (
-        <div className="flex flex-wrap gap-1.5">
-          {photos.slice(1).map((photoId, index) => (
-            <button
-              key={photoId}
-              onClick={() => setViewing(index + 1)}
-              aria-label={`Ver la foto ${index + 2}`}
-              className="overflow-hidden rounded-md border border-[var(--content-border)]"
-            >
-              <img src={attachmentUrl(photoId)} alt="" className="h-9 w-9 object-cover" />
-            </button>
-          ))}
-          {canEdit && room > 0 && (
-            <label
-              htmlFor={inputId}
-              className="flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--content-border)] px-2 text-[11px] text-[var(--content-ink-dim)] hover:border-accent hover:text-[var(--content-ink)] has-[:focus-visible]:border-accent"
-            >
-              <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              {busy ? "Subiendo…" : "Agregar fotos"}
-              <input
-                id={inputId}
-                type="file"
-                multiple
-                accept={PHOTO_ACCEPT}
-                disabled={busy}
-                onChange={(e) => {
-                  void add(e.target.files);
-                  e.target.value = "";
-                }}
-                className="sr-only"
-              />
-            </label>
-          )}
-        </div>
-      )}
-      {error && (
-        <p role="alert" className="text-xs text-red">
-          {error}
-        </p>
-      )}
-
-      <Modal
-        open={current !== undefined}
-        onClose={() => setViewing(null)}
-        title={`Fotos de ${asset.name}`}
-        wide
-        footer={
-          canEdit && current ? (
-            <>
-              {viewing !== 0 && (
-                <button
-                  onClick={() => {
-                    save.mutate([current, ...photos.filter((other) => other !== current)]);
-                    setViewing(0);
-                  }}
-                  disabled={save.isPending}
-                  className="rounded-lg border border-[var(--content-border)] px-3 py-2 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
-                >
-                  Usar de portada
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  save.mutate(photos.filter((other) => other !== current));
-                  setViewing(null);
-                }}
-                disabled={save.isPending}
-                className="rounded-lg border border-red/40 px-3 py-2 text-sm font-medium text-red hover:bg-red/10 disabled:opacity-50"
-              >
-                Quitar foto
-              </button>
-            </>
-          ) : undefined
-        }
-      >
-        {current && viewing !== null && (
-          <div className="space-y-3">
-            <img
-              src={attachmentUrl(current)}
-              alt={`Foto ${viewing + 1} de ${asset.name}`}
-              className="max-h-[55vh] w-full rounded-xl object-contain"
-            />
-            {photos.length > 1 && (
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {photos.map((photoId, index) => (
-                  <button
-                    key={photoId}
-                    onClick={() => setViewing(index)}
-                    aria-label={`Foto ${index + 1}`}
-                    aria-current={index === viewing}
-                    className={`overflow-hidden rounded-md border-2 ${index === viewing ? "border-accent" : "border-transparent opacity-70 hover:opacity-100"}`}
-                  >
-                    <img src={attachmentUrl(photoId)} alt="" className="h-12 w-12 object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-    </div>
+    <PhotoGallery
+      name={asset.name}
+      photos={asset.photoIds}
+      max={MAX_ASSET_PHOTOS}
+      canEdit={asset.permissions.manage}
+      saving={save.isPending}
+      saveError={save.error?.message ?? null}
+      onSave={(photoIds) => {
+        save.reset();
+        save.mutate(photoIds);
+      }}
+      placeholderIcon={WrenchIcon}
+    />
   );
 }
 
@@ -594,30 +462,71 @@ function CurrentState({ asset, events, loading }: { asset: AssetDetail; events: 
   return (
     <Plate className="p-4 text-sm">
       <CardTitle title="Estado actual" />
-      <div className="flex items-start gap-2.5">
-        <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${STATUS_DOT[asset.status]}`} aria-hidden="true" />
-        <div>
-          <p className="font-semibold text-[var(--content-ink)]">{ASSET_STATUS_LABEL[asset.status]}</p>
-          {lastChange && (
-            <p className="text-xs text-[var(--content-ink-dim)]">
-              Desde <time dateTime={lastChange.at}>{formatDateTime(lastChange.at)}</time>
-            </p>
-          )}
-        </div>
+      <AvailabilityRing share={loading ? undefined : share} status={asset.status} />
+      <div className="mt-3 flex flex-col items-center text-center">
+        <p className="flex items-center gap-2 font-semibold text-[var(--content-ink)]">
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[asset.status]}`} aria-hidden="true" />
+          {ASSET_STATUS_LABEL[asset.status]}
+        </p>
+        {lastChange && (
+          <p className="text-xs text-[var(--content-ink-dim)]">
+            Desde <time dateTime={lastChange.at}>{formatDateTime(lastChange.at)}</time>
+          </p>
+        )}
       </div>
       <dl className="mt-3 divide-y divide-[var(--content-border)] border-t border-[var(--content-border)]">
-        <StatRow
-          label="Disponibilidad (30 días)"
-          hint="Parte del último mes en que el equipo no estuvo en reparación, en tiempo de calendario."
-        >
-          {loading ? "…" : share === null ? "—" : `${(Math.floor(share * 1000) / 10).toLocaleString("es-MX")} %`}
-        </StatRow>
         <StatRow label="Fallas (90 días)">{loading ? "…" : failures90}</StatRow>
         <StatRow label="Última falla">
           {loading ? "…" : lastFailure ? <time dateTime={lastFailure.at} title={formatDateTime(lastFailure.at)}>{formatWhen(lastFailure.at)}</time> : "Ninguna"}
         </StatRow>
       </dl>
     </Plate>
+  );
+}
+
+const STATUS_RING: Record<AssetStatus, string> = {
+  operational: "var(--status-green)",
+  in_repair: "var(--status-amber)",
+  retired: "var(--content-ink-dim)",
+};
+
+/** Anillo con la disponibilidad de los últimos 30 días; `undefined` mientras carga. */
+function AvailabilityRing({ share, status }: { share: number | null | undefined; status: AssetStatus }) {
+  const r = 52;
+  const circumference = 2 * Math.PI * r;
+  const filled = share ?? 0;
+  const label =
+    share === undefined ? "…" : share === null ? "—" : `${(Math.floor(share * 1000) / 10).toLocaleString("es-MX")}%`;
+
+  return (
+    <figure
+      className="flex flex-col items-center"
+      title="Parte del último mes en que el equipo no estuvo en reparación, en tiempo de calendario."
+    >
+      <div className="relative h-36 w-36">
+        <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden="true">
+          <circle cx={60} cy={60} r={r} fill="none" stroke="var(--content-border)" strokeWidth={9} />
+          {share != null && (
+            <circle
+              cx={60}
+              cy={60}
+              r={r}
+              fill="none"
+              stroke={STATUS_RING[status]}
+              strokeWidth={9}
+              strokeLinecap={filled >= 0.999 ? "butt" : "round"}
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - filled)}
+              className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
+            />
+          )}
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center font-display text-2xl font-bold tabular text-[var(--content-ink)]">
+          {label}
+        </span>
+      </div>
+      <figcaption className="mt-1 text-xs text-[var(--content-ink-dim)]">Disponibilidad (30 días)</figcaption>
+    </figure>
   );
 }
 

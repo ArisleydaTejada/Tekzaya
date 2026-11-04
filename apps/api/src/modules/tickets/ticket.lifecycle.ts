@@ -34,7 +34,9 @@ export const ALLOWED_TRANSITIONS: Record<TicketStatus, readonly TicketStatus[]> 
   // "closed" desde En espera es el abandono: el solicitante nunca contestó. Lo
   // usa el cierre automático a los 10 días hábiles y también el supervisor a mano.
   on_hold: ["assigned", "in_progress", "resolved", "cancelled", "closed"],
-  resolved: ["closed", "reopened", "in_progress"],
+  // Volver a trabajarlo es reabrirlo: así queda en el historial que no quedó
+  // bien, en vez de pasar en silencio de "Resuelto" a "En progreso".
+  resolved: ["closed", "reopened"],
   closed: ["reopened"],
   reopened: ["assigned", "in_progress", "on_hold", "resolved", "cancelled"],
   cancelled: [],

@@ -1,11 +1,14 @@
 import {
   PERSPECTIVE_LABEL,
   PERSPECTIVES,
+  REPORT_SOURCE_LABEL,
+  REPORT_SOURCES,
   STATS_PERIOD_LABEL,
   STATS_PERIODS,
   type Perspective,
   type ReportCatalog,
   type ReportDefinition,
+  type ReportSource,
   type ReportTemplate,
   type ReportWidget,
   type SavedReport,
@@ -13,6 +16,7 @@ import {
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   createSavedReport,
   deleteSavedReport,
@@ -31,6 +35,7 @@ import { ChevronDownIcon, DownloadIcon, ChartIcon, PlusIcon, XIcon } from "../co
 import { TicketsOfPeriod } from "./reportes/TicketsOfPeriod";
 import { WidgetCard } from "./reportes/WidgetCard";
 import { WidgetEditor } from "./reportes/WidgetEditor";
+import { WorkOrdersOfPeriod, type WorkOrderListFilters } from "./reportes/WorkOrdersOfPeriod";
 
 /** Reporte que se está viendo: una plantilla abierta, uno guardado o un lienzo nuevo. */
 interface Draft extends ReportDefinition {
@@ -78,6 +83,18 @@ export default function ReportesPage() {
    * alguien elige una, manda su elección.
    */
   const [railTab, setRailTab] = useState<RailTab | null>(null);
+  /**
+   * Módulo con el que se trabaja: decide qué plantillas y qué reportes propios
+   * lista el panel. Se puede pedir en la dirección (`?modulo=mantenimiento`), que
+   * es como enlaza el panel de mantenimiento. Sin pedirlo, `null` = el de lo que
+   * esté abierto: quien abre una plantilla de mantenimiento no tiene que volver a
+   * elegir "Mantenimiento" para ver las hermanas.
+   */
+  const [searchParams] = useSearchParams();
+  const [railSource, setRailSource] = useState<ReportSource | null>(() =>
+    searchParams.get("modulo") === "mantenimiento" ? "maintenance" : null,
+  );
+  const [workOrderFilters, setWorkOrderFilters] = useState<WorkOrderListFilters>({});
   const [edited, setEdited] = useState<Draft | null>(null);
   const [editing, setEditing] = useState<ReportWidget | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -101,11 +118,22 @@ export default function ReportesPage() {
    * tablero promete al enlazar "Ver gráficas en Reportes". En cuanto se abre o se edita
    * algo, `edited` manda.
    */
-  const fallback = useMemo(
-    () => (catalog.data?.templates.length ? fromTemplate(catalog.data.templates[0]!) : null),
-    [catalog.data],
-  );
+  const fallback = useMemo(() => {
+    const templates = catalog.data?.templates ?? [];
+    // Si se llegó pidiendo un módulo, se abre la primera plantilla de ese módulo.
+    const first =
+      (railSource && templates.find((template) => reportSourceOf(template.widgets) === railSource)) || templates[0];
+    return first ? fromTemplate(first) : null;
+  }, [catalog.data, railSource]);
   const draft = edited ?? fallback;
+  /**
+   * Módulo del reporte abierto. Un lienzo vacío todavía no tiene gráficas que lo
+   * digan, así que toma el del panel: quien pulsa "Nuevo reporte" mirando las
+   * plantillas de mantenimiento está empezando uno de mantenimiento.
+   */
+  const draftSource: ReportSource =
+    draft && draft.widgets.length > 0 ? reportSourceOf(draft.widgets) : (railSource ?? "tickets");
+  const shownRailSource: ReportSource = railSource ?? (draft ? draftSource : "tickets");
   const setDraft = setEdited;
 
   const scope: ReportScopeRequest = useMemo(
@@ -198,7 +226,16 @@ export default function ReportesPage() {
    * no tienen filtro equivalente en la lista —el tiempo, el resultado de la IA— no
    * hacen nada en vez de llevar a una lista que no corresponde con lo que se pulsó.
    */
-  const drillInto = (dimension: string, key: string) => {
+  const drillInto = (dimension: string, key: string, source: ReportSource) => {
+    // Cada gráfica filtra la lista de su propio módulo, y solo si es la que se ve.
+    if (source !== draftSource) return;
+    if (source === "maintenance") {
+      const filter = WORK_ORDER_DRILL_FILTERS[dimension]?.(key);
+      if (!filter) return;
+      setWorkOrderFilters({ ...workOrderFilters, ...filter });
+      document.getElementById("ordenes-del-periodo")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
     const filter = DRILL_FILTERS[dimension]?.(key);
     if (!filter) return;
     setTicketFilters({ ...ticketFilters, ...filter });
@@ -214,7 +251,7 @@ export default function ReportesPage() {
         subtitle="Análisis del servicio, el desempeño y la carga de trabajo."
         actions={
           <div className="no-print flex flex-wrap items-center gap-2">
-            <ScopeSelector catalog={catalog.data} draft={draft} onChange={update} />
+            <ScopeSelector catalog={catalog.data} draft={draft} myAreaId={me.areaId} onChange={update} />
             <div className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
               {STATS_PERIODS.filter((item) => item !== "range").map((item) => (
                 <button
@@ -291,7 +328,7 @@ export default function ReportesPage() {
                 </div>
               )}
               <button
-                onClick={() => setEditing(blankWidget(draft.widgets.length))}
+                onClick={() => setEditing(blankWidget(draft.widgets.length, draftSource))}
                 disabled={draft.widgets.length >= catalog.data.limits.maxWidgetsPerReport}
                 className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-40"
               >
@@ -335,7 +372,7 @@ export default function ReportesPage() {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditing(blankWidget(0))}
+                  onClick={() => setEditing(blankWidget(0, draftSource))}
                   className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
                 >
                   Añade la primera
@@ -369,18 +406,37 @@ export default function ReportesPage() {
             </div>
           )}
 
-          <a
-            href="#tickets-del-periodo"
-            className="no-print mt-4 inline-block text-xs font-medium text-accent-ink hover:underline"
-          >
-            Ir a la lista de tickets ↓
-          </a>
-
-          <TicketsOfPeriod
-            scope={listScope}
-            filters={ticketFilters}
-            onFiltersChange={setTicketFilters}
-          />
+          {/* La lista es la del módulo del reporte: debajo de un MTBF no
+              explica nada una lista de tickets. */}
+          {draftSource === "maintenance" ? (
+            <>
+              <a
+                href="#ordenes-del-periodo"
+                className="no-print mt-4 inline-block text-xs font-medium text-accent-ink hover:underline"
+              >
+                Ir a la lista de órdenes de trabajo ↓
+              </a>
+              <WorkOrdersOfPeriod
+                scope={scope}
+                filters={workOrderFilters}
+                onFiltersChange={setWorkOrderFilters}
+              />
+            </>
+          ) : (
+            <>
+              <a
+                href="#tickets-del-periodo"
+                className="no-print mt-4 inline-block text-xs font-medium text-accent-ink hover:underline"
+              >
+                Ir a la lista de tickets ↓
+              </a>
+              <TicketsOfPeriod
+                scope={listScope}
+                filters={ticketFilters}
+                onFiltersChange={setTicketFilters}
+              />
+            </>
+          )}
             </>
           )}
         </div>
@@ -393,12 +449,19 @@ export default function ReportesPage() {
           onToggle={() => setRailOpen((value) => !value)}
           tab={railTab ?? ((saved.data?.length ?? 0) > 0 ? "saved" : "templates")}
           onTabChange={setRailTab}
+          source={shownRailSource}
+          onSourceChange={setRailSource}
           templates={catalog.data.templates}
           reports={saved.data ?? []}
           loadingReports={saved.isPending}
           activeTemplate={draft?.id ? undefined : draft?.title}
           activeReportId={draft?.id}
-          onNew={() => setDraft({ ...EMPTY, scope: catalog.data!.maxScope, dirty: false })}
+          onNew={() => {
+            // El lienzo vacío hereda el módulo que se estaba mirando; se fija para
+            // que el panel no salte a tickets al quedarse sin gráficas.
+            setRailSource(shownRailSource);
+            setDraft({ ...EMPTY, scope: catalog.data!.maxScope, dirty: false });
+          }}
           onOpenTemplate={(template) => setDraft(fromTemplate(template))}
           onOpenReport={(report) => setDraft(fromSaved(report))}
           onDuplicate={async (id) => {
@@ -444,10 +507,13 @@ export default function ReportesPage() {
 function ScopeSelector({
   catalog,
   draft,
+  myAreaId,
   onChange,
 }: {
   catalog: ReportCatalog;
   draft: Draft | null;
+  /** Área de quien mira: la de "Una persona de mi área" cuando no se eligió otra. */
+  myAreaId: string;
   onChange: (patch: Partial<Draft>) => void;
 }) {
   const areas = useQuery({
@@ -455,10 +521,17 @@ function ScopeSelector({
     queryFn: listAreas,
     enabled: catalog.maxScope === "global",
   });
+  /*
+   * El supervisor no tiene selector de área —solo puede mirar la suya—, así que
+   * el reporte nunca trae `areaId` y la lista de personas se quedaba sin pedir.
+   * Sin área elegida, las personas son las de la propia área. Quien ve todas las
+   * áreas elige primero el área y por eso no cae en este caso.
+   */
+  const memberAreaId = draft?.areaId ?? (catalog.maxScope === "global" ? undefined : myAreaId);
   const members = useQuery({
-    queryKey: areaKeys.members(draft?.areaId ?? ""),
-    queryFn: () => listAreaMembers(draft!.areaId!),
-    enabled: draft?.scope === "user" && Boolean(draft?.areaId),
+    queryKey: areaKeys.members(memberAreaId ?? ""),
+    queryFn: () => listAreaMembers(memberAreaId!),
+    enabled: draft?.scope === "user" && Boolean(memberAreaId),
   });
 
   if (catalog.scopes.length <= 1) return null;
@@ -653,6 +726,8 @@ function ReportsRail({
   onToggle,
   tab,
   onTabChange,
+  source,
+  onSourceChange,
   templates,
   reports,
   loadingReports,
@@ -668,6 +743,8 @@ function ReportsRail({
   onToggle: () => void;
   tab: RailTab;
   onTabChange: (tab: RailTab) => void;
+  source: ReportSource;
+  onSourceChange: (source: ReportSource) => void;
   templates: ReportTemplate[];
   reports: SavedReport[];
   loadingReports: boolean;
@@ -686,6 +763,26 @@ function ReportsRail({
    * justo donde se había pedido ancho.
    */
   if (!open) return null;
+
+  /*
+   * Lo de tickets y lo de mantenimiento responde a preguntas de módulos
+   * distintos, y mezclado en una lista de dieciocho no se encuentra nada. Se
+   * separa por la fuente de las gráficas, con un mismo selector para las
+   * plantillas y los reportes propios: quien está mirando mantenimiento lo
+   * sigue mirando al cambiar de pestaña.
+   *
+   * El selector existe si el rol tiene plantillas de los dos módulos (las de
+   * mantenimiento solo llegan a quien puede consultarlo). Sin él, no hay nada
+   * que separar y se lista todo.
+   */
+  const templatesOf = (key: ReportSource) => templates.filter((item) => reportSourceOf(item.widgets) === key);
+  const reportsOf = (key: ReportSource) => reports.filter((item) => reportSourceOf(item.widgets) === key);
+  const sourceGroups = REPORT_SOURCES.filter((key) => templatesOf(key).length > 0);
+  const split = sourceGroups.length > 1;
+  const shownSource = sourceGroups.includes(source) ? source : (sourceGroups[0] ?? "tickets");
+  const shownTemplates = split ? templatesOf(shownSource) : templates;
+  const shownReports = split ? reportsOf(shownSource) : reports;
+  const sourceLabel = REPORT_SOURCE_LABEL[shownSource].toLowerCase();
 
   /*
    * En pantalla ancha el panel se queda quieto mientras el lienzo baja: un
@@ -724,14 +821,37 @@ function ReportsRail({
           <PlusIcon className="h-3.5 w-3.5" /> Nuevo reporte
         </button>
 
+        {split && (
+          <div
+            role="group"
+            aria-label="Módulo"
+            className="mb-3 flex shrink-0 gap-1 border-b border-[var(--content-border)]"
+          >
+            {sourceGroups.map((key) => (
+              <button
+                key={key}
+                aria-pressed={shownSource === key}
+                onClick={() => onSourceChange(key)}
+                className={`-mb-px flex-1 border-b-2 px-2 pb-1.5 pt-0.5 text-xs font-medium transition-colors ${
+                  shownSource === key
+                    ? "border-accent text-[var(--content-ink)]"
+                    : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                }`}
+              >
+                {REPORT_SOURCE_LABEL[key]}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div
           role="tablist"
           className="mb-3 flex shrink-0 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-0.5"
         >
           {(
             [
-              { id: "templates", label: "Plantillas", count: templates.length },
-              { id: "saved", label: "Mis reportes", count: reports.length },
+              { id: "templates", label: "Plantillas", count: shownTemplates.length },
+              { id: "saved", label: "Mis reportes", count: shownReports.length },
             ] as const
           ).map((item) => (
             <button
@@ -763,7 +883,7 @@ function ReportsRail({
         >
           <ul className="flex min-h-0 flex-1 flex-col xl:overflow-y-auto">
             {tab === "templates" &&
-              templates.map((template) => (
+              shownTemplates.map((template) => (
                 <RailRow
                   key={template.templateId}
                   active={activeTemplate === template.title}
@@ -777,9 +897,9 @@ function ReportsRail({
             {tab === "saved" && loadingReports && (
               <li className="px-2 py-2 text-xs text-[var(--content-ink-dim)]">Cargando…</li>
             )}
-            {tab === "saved" && !loadingReports && reports.length === 0 && (
+            {tab === "saved" && !loadingReports && shownReports.length === 0 && (
               <li className="px-2 py-2 text-xs leading-snug text-[var(--content-ink-dim)]">
-                Aún no has guardado ninguno.{" "}
+                {split ? `Aún no has guardado ninguno de ${sourceLabel}.` : "Aún no has guardado ninguno."}{" "}
                 <button onClick={() => onTabChange("templates")} className="text-accent-ink hover:underline">
                   Abre una plantilla
                 </button>
@@ -787,7 +907,7 @@ function ReportsRail({
               </li>
             )}
             {tab === "saved" &&
-              reports.map((report) => (
+              shownReports.map((report) => (
                 <RailRow
                   key={report.id}
                   active={activeReportId === report.id}
@@ -878,6 +998,17 @@ function RailRow({
 
 // ── Conversiones ──────────────────────────────────────────────
 
+/**
+ * Módulo de un reporte, deducido de sus gráficas: es de mantenimiento si todas
+ * lo son. Un lienzo vacío o uno mezclado cuenta como de tickets, que es el
+ * módulo de siempre.
+ */
+function reportSourceOf(widgets: ReportWidget[]): ReportSource {
+  return widgets.length > 0 && widgets.every((widget) => widget.source === "maintenance")
+    ? "maintenance"
+    : "tickets";
+}
+
 /** Una plantilla se abre como un reporte editable, sin dueño todavía (spec §7.8.7). */
 function fromTemplate(template: ReportTemplate): Draft {
   return {
@@ -928,17 +1059,32 @@ const DRILL_FILTERS: Record<
   created_on_behalf: (key) => ({ onBehalf: key === "on_behalf" }),
 };
 
+/**
+ * Lo mismo para la lista de órdenes. Solo el tipo de orden tiene filtro en ella;
+ * un clic en un equipo o un técnico no hace nada antes que llevar a una lista
+ * que no corresponde.
+ */
+const WORK_ORDER_DRILL_FILTERS: Record<string, ((key: string) => WorkOrderListFilters) | undefined> = {
+  work_order_type: (key) => (key === "corrective" || key === "preventive" ? { type: key } : {}),
+};
+
 let widgetCounter = 0;
 
-function blankWidget(position: number): ReportWidget {
+/**
+ * Gráfica nueva, ya en el módulo del reporte: en uno de mantenimiento empieza
+ * con las órdenes por tipo, no con tickets por categoría que habría que deshacer.
+ */
+function blankWidget(position: number, source: ReportSource = "tickets"): ReportWidget {
   widgetCounter += 1;
+  const start: Pick<ReportWidget, "source" | "measures" | "groupBy"> =
+    source === "maintenance"
+      ? { source, measures: [{ key: "wo_created" }], groupBy: "work_order_type" }
+      : { source, measures: [{ key: "created" }], groupBy: "category" };
   return {
     id: `w${position}-${widgetCounter}`,
     title: "Nueva gráfica",
-    source: "tickets",
     chart: "bar",
-    measures: [{ key: "created" }],
-    groupBy: "category",
+    ...start,
     filters: {},
     sort: "value_desc",
     showValues: true,

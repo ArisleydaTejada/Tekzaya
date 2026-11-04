@@ -8,6 +8,8 @@ import { Avatar } from "../Avatar";
 import { Link } from "react-router-dom";
 import { ChevronDownIcon, MoonIcon, SunIcon, UserIcon } from "../icons";
 import { NotificationBell } from "./NotificationBell";
+import { TicketTabs } from "./TicketTabs";
+import { WorkOrderTabs } from "./WorkOrderTabs";
 import { useTheme } from "../../theme/ThemeContext";
 
 interface TopbarProps {
@@ -49,7 +51,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </svg>
       </button>
 
-      <div className="ml-auto flex items-center gap-2 sm:gap-3">
+      {/* Cada una solo se pinta dentro de su sección. */}
+      <TicketTabs />
+      <WorkOrderTabs />
+
+      <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         <NotificationBell />
 
         <div className="relative">

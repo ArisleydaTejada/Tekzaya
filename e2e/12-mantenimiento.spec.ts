@@ -27,6 +27,7 @@ test.describe("supervisor de IT", () => {
   test("la plantilla de disponibilidad pinta MTBF y MTTR en horas laborables", async ({ page }) => {
     await page.goto("/reportes");
     await page.getByRole("tab", { name: /^Plantillas/ }).click();
+    await page.getByRole("group", { name: "Módulo" }).getByRole("button", { name: /^Mantenimiento/ }).click();
     await page.getByRole("tabpanel").getByRole("button", { name: /Disponibilidad por tipo de equipo/ }).click();
     await expect(page.getByLabel("Cargando gráfica")).toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByText("MTBF", { exact: true }).first()).toBeVisible();

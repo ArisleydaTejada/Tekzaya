@@ -3,6 +3,7 @@ import {
   reportCatalog,
   reportQueryResult,
   reportTicketsResponse,
+  reportWorkOrdersResponse,
   savedReport,
   savedReportList,
   updateReportInput as updateReportInputSchema,
@@ -10,6 +11,7 @@ import {
   type ReportCatalog,
   type ReportQueryResult,
   type ReportTicketsResponse,
+  type ReportWorkOrdersResponse,
   type ReportWidget,
   type SavedReport,
   type StatsQueryFields,
@@ -31,6 +33,7 @@ export const reportKeys = {
   widget: (scope: ReportScopeRequest, widget: ReportWidget) =>
     [...reportKeys.all, "widget", scope, widget] as const,
   tickets: (query: Record<string, unknown>) => [...reportKeys.all, "tickets", query] as const,
+  workOrders: (query: Record<string, unknown>) => [...reportKeys.all, "work-orders", query] as const,
 };
 
 export function getReportCatalog(): Promise<ReportCatalog> {
@@ -55,6 +58,13 @@ export function listReportTickets(
   query: Record<string, unknown>,
 ): Promise<ReportTicketsResponse> {
   return apiFetch(`/reports/tickets${queryString(query)}`, reportTicketsResponse);
+}
+
+/** Órdenes que tocaron el período, con el alcance de las gráficas (plan A6). */
+export function listReportWorkOrders(
+  query: Record<string, unknown>,
+): Promise<ReportWorkOrdersResponse> {
+  return apiFetch(`/reports/work-orders${queryString(query)}`, reportWorkOrdersResponse);
 }
 
 // ── Reportes guardados ────────────────────────────────────────

@@ -44,7 +44,11 @@ export function WidgetCard({
   onEdit?: () => void;
   onRemove?: () => void;
   /** Pulsar una barra o una porción filtra la lista de abajo (spec §7.8.2). */
-  onDrill?: (dimension: NonNullable<ReportWidget["groupBy"]>, key: string) => void;
+  onDrill?: (
+    dimension: NonNullable<ReportWidget["groupBy"]>,
+    key: string,
+    source: NonNullable<ReportWidget["source"]>,
+  ) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -108,13 +112,14 @@ export function WidgetCard({
       <div ref={chartRef} className="flex-1">
         {query.isPending && <Skeleton />}
         {query.isError && <Failed />}
-        {/* La lista de abajo es de tickets: una gráfica de mantenimiento no la filtra. */}
+        {/* La lista de abajo es la del módulo del reporte; la página decide qué
+            dimensiones de cada fuente sabe filtrar. */}
         {query.data && (
           <ReportChart
             widget={widget}
             result={query.data}
-            {...(onDrill && widget.groupBy && widget.source !== "maintenance"
-              ? { onSelect: (key: string) => onDrill(widget.groupBy!, key) }
+            {...(onDrill && widget.groupBy
+              ? { onSelect: (key: string) => onDrill(widget.groupBy!, key, widget.source ?? "tickets") }
               : {})}
           />
         )}

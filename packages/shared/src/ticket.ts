@@ -123,6 +123,12 @@ export const updateTicketInput = z
     reason: z.string().trim().min(3).max(280).optional(),
     /** Mensaje público que acompaña al cambio; obligatorio al resolver. */
     note: z.string().trim().min(3).max(5000).optional(),
+    /** Adjuntos de esa nota, ya subidos con `POST /attachments`. Sin nota no van. */
+    attachmentIds: z.array(objectId).max(5).optional(),
+  })
+  .refine((v) => !v.attachmentIds?.length || (v.note?.length ?? 0) > 0, {
+    message: "Los adjuntos acompañan a una nota",
+    path: ["attachmentIds"],
   })
   .refine((v) => v.priority === undefined || (v.reason?.length ?? 0) > 0, {
     message: "Cambiar la prioridad requiere un motivo",

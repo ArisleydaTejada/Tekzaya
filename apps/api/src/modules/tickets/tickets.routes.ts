@@ -342,15 +342,21 @@ async function recordPublicNote(
   actor: Actor,
   body: string,
   at: Date,
+  attachmentIds: readonly string[] = [],
 ): Promise<void> {
+  const messageId = new Types.ObjectId();
+  const attached = await bindAttachments(attachmentIds, actor.id, idOf(ticket), messageId);
   await Message.create({
+    _id: messageId,
     ticketId: idOf(ticket),
     authorId: actor.id,
     type: "public",
     body,
+    attachments: [...attachmentIds],
     createdAt: at,
     updatedAt: at,
   });
+  if (attached) ticket.set("attachmentsCount", (ticket.get("attachmentsCount") ?? 0) + attached);
   ticket.set("lastPublicReplyAt", at);
   ticket.set("stats.publicMessageCount", (ticket.get("stats")?.publicMessageCount ?? 0) + 1);
   if (!ticket.get("sla")?.firstResponseAt && !isOwnTicket(actor, refOf(plainOf(ticket)))) {
@@ -414,7 +420,7 @@ router.patch("/tickets/:id", validateBody(updateTicketInput), async (req, res) =
       to: input.status,
       ...(input.note ? { reason: input.note } : {}),
     });
-    if (input.note) await recordPublicNote(ticket, actor, input.note, at);
+    if (input.note) await recordPublicNote(ticket, actor, input.note, at, input.attachmentIds);
   }
 
   if (!events.length) {

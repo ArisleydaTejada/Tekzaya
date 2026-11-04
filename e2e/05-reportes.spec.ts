@@ -32,7 +32,7 @@ const KPI_WIDGET = {
 
 async function expectChartsRendered(page: Page) {
   await page.getByRole("tab", { name: /^Plantillas/ }).click();
-  await page.getByRole("tabpanel").getByRole("button").first().click();
+  await page.getByRole("tabpanel").getByRole("listitem").first().getByRole("button").first().click();
   await expect(page.getByRole("button", { name: /^Opciones de / }).first()).toBeVisible();
   await expect(page.getByLabel("Cargando gráfica")).toHaveCount(0, { timeout: 15_000 });
 }

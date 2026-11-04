@@ -11,7 +11,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listSpareParts, sparePartKeys, sparePartsCsvUrl } from "../api/spareParts";
 import { AreaTag } from "../components/badges";
-import { AlertIcon, DownloadIcon, PlusIcon, SearchIcon } from "../components/icons";
+import { attachmentUrl } from "../api/tickets";
+import { AlertIcon, BoxIcon, DownloadIcon, PlusIcon, SearchIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { LowStockBadge, SparePartFormModal } from "../components/spareParts";
@@ -261,6 +262,23 @@ function Th({
 }
 
 /** Barra de existencias frente al mínimo: llena a partir del doble del mínimo. */
+/** La portada en pequeño; sin foto, el icono de la caja para que la columna no baile. */
+function PartThumb({ part }: { part: SparePartView }) {
+  const cover = part.photoIds[0];
+  return cover ? (
+    <img
+      src={attachmentUrl(cover)}
+      alt=""
+      loading="lazy"
+      className="h-9 w-9 shrink-0 rounded-md border border-[var(--content-border)] object-cover"
+    />
+  ) : (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--content-bg)] text-[var(--content-ink-dim)]" aria-hidden="true">
+      <BoxIcon className="h-4 w-4" />
+    </span>
+  );
+}
+
 function StockBar({ part }: { part: SparePartView }) {
   const target = Math.max(part.minStock * 2, 1);
   const fill = Math.min(100, Math.round((part.stock / target) * 100));
@@ -297,7 +315,8 @@ function PartTable({
               className="block rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-3 hover:bg-[var(--content-bg)]"
             >
               <span className="flex items-start justify-between gap-2">
-                <span className="min-w-0">
+                <PartThumb part={part} />
+                <span className="min-w-0 flex-1">
                   <span className="block font-display text-xs tabular text-[var(--content-ink-dim)]">{formatSparePartNumber(part.number)}</span>
                   <span className="block truncate font-medium text-[var(--content-ink)]">{part.name}</span>
                 </span>
@@ -334,13 +353,18 @@ function PartTable({
                     {formatSparePartNumber(part.number)}
                   </Link>
                 </td>
-                <td className="max-w-[260px] px-3 py-2.5">
-                  <Link to={partPath(part)} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
-                    {part.name}
-                  </Link>
-                  <span className="mt-0.5 flex items-center gap-2">
-                    {part.low && <LowStockBadge />}
-                    {!part.isActive && <span className="text-xs text-[var(--content-ink-dim)]">Desactivado</span>}
+                <td className="max-w-[300px] px-3 py-2.5">
+                  <span className="flex items-center gap-2.5">
+                    <PartThumb part={part} />
+                    <span className="min-w-0">
+                      <Link to={partPath(part)} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
+                        {part.name}
+                      </Link>
+                      <span className="mt-0.5 flex items-center gap-2">
+                        {part.low && <LowStockBadge />}
+                        {!part.isActive && <span className="text-xs text-[var(--content-ink-dim)]">Desactivado</span>}
+                      </span>
+                    </span>
                   </span>
                 </td>
                 {showArea && (

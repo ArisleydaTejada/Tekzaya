@@ -29,6 +29,7 @@ import { validateBody, validateQuery } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
 import { nextNumber } from "../../models/counter.model";
 import { Asset, SparePart, StockMovement, WorkOrder } from "../../models/maintenance.models";
+import { Attachment } from "../../models/support.models";
 import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
 import { routeParam } from "../tickets/ticket.access";
@@ -97,6 +98,39 @@ async function assertAreaAssets(assetIds: readonly string[], areaId: string): Pr
   return unique.map(oid);
 }
 
+/**
+ * Las fotos se suben antes como cualquier adjunto (borrador) y aquí se enlazan
+ * a la pieza, igual que las de los activos: las que ya son suyas pasan sin más;
+ * una nueva solo vale si es una imagen que subió quien guarda y que no está ya
+ * en un ticket, un equipo, una orden ni otro repuesto. Se comprueban todas antes
+ * de enlazar ninguna.
+ */
+async function claimPartPhotos(
+  photoIds: readonly string[],
+  actor: Actor,
+  partId: Types.ObjectId,
+  current: readonly Types.ObjectId[] = [],
+): Promise<Types.ObjectId[]> {
+  const unique = [...new Set(photoIds)];
+  const fresh = unique.filter((id) => !current.some((own) => own.equals(id)));
+  const files = await Attachment.find({ _id: { $in: fresh.map(oid) } }).lean();
+  const usable = (id: string) => {
+    const file = files.find((candidate) => String(candidate._id) === id);
+    return (
+      file &&
+      String(file.uploaderId) === actor.id &&
+      !file.ticketId &&
+      !file.assetId &&
+      !file.workOrderId &&
+      (!file.sparePartId || file.sparePartId.equals(partId)) &&
+      file.mimeType?.startsWith("image/")
+    );
+  };
+  if (!fresh.every(usable)) throw new AppError(422, "validation_error", "Alguna foto no es válida: sube una imagen nueva");
+  if (fresh.length) await Attachment.updateMany({ _id: { $in: fresh.map(oid) } }, { $set: { sparePartId: partId } });
+  return unique.map(oid);
+}
+
 function toView(
   part: LeanSparePart,
   areas: Map<string, AreaRef>,
@@ -117,6 +151,7 @@ function toView(
     isActive: part.isActive,
     assetIds: linked.map((asset) => asset.id),
     assets: linked.sort((a, b) => a.number - b.number),
+    photoIds: (part.photoIds ?? []).map(String),
     low: isLowStock(part),
     stockValue: part.stock * part.avgUnitCost,
     createdAt: part.createdAt.toISOString(),
@@ -269,6 +304,7 @@ router.post("/spare-parts", validateBody(createSparePartInput), async (req, res)
   const assetIds = await assertAreaAssets(input.assetIds, input.areaId);
 
   const _id = new Types.ObjectId();
+  const photoIds = await claimPartPhotos(input.photoIds, actor, _id);
   await SparePart.create({
     _id,
     number: await nextNumber("spare_part"),
@@ -280,6 +316,7 @@ router.post("/spare-parts", validateBody(createSparePartInput), async (req, res)
     avgUnitCost: input.initialStock?.unitCost ?? 0,
     isActive: true,
     assetIds,
+    photoIds,
   });
   // Las existencias iniciales son una entrada más: el libro empieza cuadrado.
   if (input.initialStock) {
@@ -311,9 +348,11 @@ router.patch("/spare-parts/:id", validateBody(updateSparePartInput), async (req,
   const part = await loadVisiblePart(routeParam(req.params["id"]), actor);
   assertCanManage(part, actor);
 
-  const { assetIds, ...fields } = input;
+  const { assetIds, photoIds, ...fields } = input;
   const $set: Record<string, unknown> = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
   if (assetIds) $set["assetIds"] = await assertAreaAssets(assetIds, String(part.areaId));
+  // Una foto que se quita sigue enlazada a la pieza: solo sale de su galería.
+  if (photoIds) $set["photoIds"] = await claimPartPhotos(photoIds, actor, part._id, part.photoIds ?? []);
   if (Object.keys($set).length) await SparePart.updateOne({ _id: part._id }, { $set });
   await checkLowStock(part._id, actor.id);
   await sendDetail(res, part._id, actor);

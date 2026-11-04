@@ -1,10 +1,10 @@
 import { createReadStream } from "node:fs";
-import { canViewAsset, canViewTicket, canViewWorkOrder, MAX_ATTACHMENT_BYTES } from "@tekzaya/shared";
+import { canViewAsset, canViewSpareParts, canViewTicket, canViewWorkOrder, MAX_ATTACHMENT_BYTES } from "@tekzaya/shared";
 import { Router } from "express";
 import multer from "multer";
 import { Types } from "mongoose";
 import { AppError } from "../../middleware/errors";
-import { Asset, WorkOrder } from "../../models/maintenance.models";
+import { Asset, SparePart, WorkOrder } from "../../models/maintenance.models";
 import { Attachment } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 import { assetRefOf } from "../assets/asset.access";
@@ -77,6 +77,12 @@ router.get("/attachments/:id", async (req, res) => {
     // La factura de un costo externo es información del área, como el costo.
     const order = await WorkOrder.findById(file.workOrderId).select("areaId assigneeIds").lean();
     if (!order || !canViewWorkOrder(actor, workOrderRefOf(order))) {
+      throw new AppError(404, "not_found", "Ese archivo no existe");
+    }
+  } else if (file.sparePartId) {
+    // La foto de un repuesto la ve quien ve ese almacén.
+    const part = await SparePart.findById(file.sparePartId).select("areaId").lean();
+    if (!part || !canViewSpareParts(actor, String(part.areaId))) {
       throw new AppError(404, "not_found", "Ese archivo no existe");
     }
   } else if (String(file.uploaderId) !== actor.id) {

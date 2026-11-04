@@ -150,6 +150,7 @@ async function claimPhotos(
       file &&
       String(file.uploaderId) === actor.id &&
       !file.ticketId &&
+      !file.sparePartId &&
       (!file.assetId || file.assetId.equals(assetId)) &&
       file.mimeType?.startsWith("image/")
     );

@@ -23,6 +23,8 @@ export interface LeanSparePart {
   isActive: boolean;
   /** Ausente en los repuestos anteriores al vínculo con equipos. */
   assetIds?: Types.ObjectId[] | null;
+  /** Ausente en los repuestos anteriores a las fotos. */
+  photoIds?: Types.ObjectId[] | null;
   lowStockNotifiedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;

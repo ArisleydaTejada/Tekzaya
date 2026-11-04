@@ -2,6 +2,7 @@ import {
   amountInputFromCents,
   centsFromAmountInput,
   formatAssetNumber,
+  MAX_PART_PHOTOS,
   PART_UNIT_LABEL,
   PART_UNITS,
   type AreaRef,
@@ -16,6 +17,7 @@ import { assetKeys, listAssets } from "../api/assets";
 import { createSparePart, createStockMovement, updateSparePart } from "../api/spareParts";
 import { formatQuantity } from "../lib/format";
 import { useOnOpen } from "../lib/useOnOpen";
+import { AssetPhotosField } from "./assets";
 import { AlertIcon, SearchIcon, XIcon } from "./icons";
 import { Modal } from "./Modal";
 import { MoneyInput } from "./MoneyInput";
@@ -98,9 +100,14 @@ export function SparePartFormModal({
   const [initialQty, setInitialQty] = useState("");
   const [initialCost, setInitialCost] = useState("");
   const [linked, setLinked] = useState<SparePartAssetRef[]>([]);
+  const [photoIds, setPhotoIds] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   useOnOpen(open, () => {
     setLinked(part?.assets ?? []);
+    setPhotoIds(part?.photoIds ?? []);
+    setPhotoError(null);
     setName(part?.name ?? "");
     setAreaId(part?.areaId ?? areas[0]?.id ?? "");
     setUnit(part?.unit ?? "unit");
@@ -114,6 +121,7 @@ export function SparePartFormModal({
   const min = Number(minStock);
   const valid =
     name.trim().length > 0 &&
+    !uploading &&
     Number.isInteger(min) &&
     min >= 0 &&
     (part !== null || areaId !== "") &&
@@ -122,13 +130,20 @@ export function SparePartFormModal({
   const save = useMutation({
     mutationFn: () =>
       part
-        ? updateSparePart(part.id, { name: name.trim(), unit, minStock: min, assetIds: linked.map((asset) => asset.id) })
+        ? updateSparePart(part.id, {
+            name: name.trim(),
+            unit,
+            minStock: min,
+            assetIds: linked.map((asset) => asset.id),
+            ...(photoIds.join() !== part.photoIds.join() ? { photoIds } : {}),
+          })
         : createSparePart({
             name: name.trim(),
             areaId,
             unit,
             minStock: min,
             assetIds: linked.map((asset) => asset.id),
+            photoIds,
             ...(qty > 0 && cost !== null ? { initialStock: { qty, unitCost: cost } } : {}),
           }),
     onSuccess: onSaved,
@@ -141,12 +156,24 @@ export function SparePartFormModal({
       title={part ? "Editar repuesto" : "Nuevo repuesto"}
       footer={<Footer onClose={onClose} onConfirm={() => save.mutate()} label="Guardar" disabled={!valid || save.isPending} />}
     >
-      <ErrorBox message={save.error?.message} />
+      <ErrorBox message={save.error?.message ?? photoError ?? undefined} />
       <div className="space-y-3">
         <label className="block">
           <span className={labelClass}>Nombre</span>
           <input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} className={inputClass} />
         </label>
+        <div>
+          <span className={labelClass}>Fotos (la primera es la portada)</span>
+          <AssetPhotosField
+            id="part-photos"
+            value={photoIds}
+            onChange={setPhotoIds}
+            onUploading={setUploading}
+            onError={setPhotoError}
+            max={MAX_PART_PHOTOS}
+            limitMessage={`Caben ${MAX_PART_PHOTOS} fotos por repuesto`}
+          />
+        </div>
         {!part && areas.length > 1 && (
           <label className="block">
             <span className={labelClass}>Almacén del área</span>
