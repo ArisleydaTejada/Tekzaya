@@ -1,8 +1,13 @@
 # Tekzaya
 
-Soporte interno por tickets con IA: un empleado reporta un problema, el área que corresponde lo atiende, el sistema mide los plazos (SLA) en horario laboral, avisa en tiempo real y genera reportes por rol.
+Soporte interno y mantenimiento de activos en una sola herramienta, con IA.
 
-> Los usuarios, tickets y métricas que trae la aplicación son **datos semilla de demostración**, no datos reales.
+- **Módulo 1 · Tickets:** un empleado reporta un problema, el área que corresponde lo atiende, el sistema mide los plazos (SLA) en horario laboral, avisa en tiempo real y genera reportes por rol.
+- **Módulo 2 · Activos y mantenimiento:** inventario de equipos con fotos e historial, órdenes de trabajo con su costo, almacén de repuestos, mantenimientos preventivos, alertas y métricas (MTBF, MTTR, disponibilidad). Una queja sobre un equipo se convierte en orden de trabajo, y al completarla se resuelve el ticket.
+
+> Los usuarios, tickets, equipos y métricas que trae la aplicación son **datos semilla de demostración**, no datos reales.
+
+**¿No eres técnico?** La [**Guía de usuario**](docs/GUIA_DE_USUARIO.md) explica en lenguaje sencillo qué hace Tekzaya, cómo se usa cada pantalla y qué puede ver cada rol.
 
 ---
 
@@ -41,7 +46,7 @@ Para probar en local **no hace falta tocar nada**: sin claves, la aplicación ar
 npm run seed
 ```
 
-Crea 6 áreas, 15 personas y unos 100 tickets repartidos en los últimos 90 días: todos los estados del ciclo de vida, plazos en tiempo, en riesgo y vencidos, encuestas respondidas, un incidente detectado y una fusión de duplicados. **Borra lo que hubiera en la base** y se puede repetir: el generador tiene semilla fija y las fechas se calculan desde el momento de sembrar, para que los plazos "en riesgo" lo estén de verdad ese día.
+Crea 6 áreas, 15 personas y unos 100 tickets repartidos en los últimos 90 días: todos los estados del ciclo de vida, plazos en tiempo, en riesgo y vencidos, encuestas respondidas, un incidente detectado y una fusión de duplicados. Para el módulo 2 crea unos 60 equipos con 12 meses de historial, unas 170 órdenes de trabajo, 25 repuestos (2 bajo mínimo), 8 planes preventivos (1 vencido) y una multifuncional de Ventas con fallas repetidas. **Borra lo que hubiera en la base** y se puede repetir: el generador tiene semilla fija y las fechas se calculan desde el momento de sembrar, para que los plazos "en riesgo" lo estén de verdad ese día.
 
 ### 5. Arrancar
 
@@ -60,9 +65,9 @@ Todas usan la contraseña **`Tekzaya2026!`**
 | Rol | Correo | Qué ve |
 |---|---|---|
 | Administradora | `arisleyda.tejada@tekzaya.com` | Todo; configura usuarios, áreas, plazos e IA |
-| Supervisor de área (IT) | `daury.guzman@tekzaya.com` | Los tickets y estadísticas de su área; asigna |
+| Supervisor de área (IT) | `daury.guzman@tekzaya.com` | Los tickets y estadísticas de su área; asigna. IT mantiene equipos: gestiona activos, órdenes, repuestos y preventivos |
 | Supervisora de RRHH | `elena.paredes@tekzaya.com` | Lectura de todas las áreas, usuarios y configuración |
-| Empleado (Ventas) | `diego.castillo@tekzaya.com` | Sus solicitudes; atiende lo de su área |
+| Empleado (Ventas) | `diego.castillo@tekzaya.com` | Sus solicitudes; atiende lo de su área; ve los equipos que usa, sin costos |
 
 Hay más cuentas de ejemplo en [`apps/api/src/seed/catalog.ts`](apps/api/src/seed/catalog.ts).
 
@@ -129,7 +134,9 @@ docs/         Especificación, plan de desarrollo, diseño y guía de la present
 
 Documentación:
 
+- [`docs/GUIA_DE_USUARIO.md`](docs/GUIA_DE_USUARIO.md): guía para usuarios no técnicos (roles, pantallas, plazos, mantenimiento, IA y preguntas frecuentes).
 - [`docs/Tekzaya_Especificacion.md`](docs/Tekzaya_Especificacion.md): qué hace el producto y por qué.
-- [`docs/PLAN_DESARROLLO.md`](docs/PLAN_DESARROLLO.md): fases, decisiones tomadas y su porqué.
+- [`docs/PLAN_DESARROLLO.md`](docs/PLAN_DESARROLLO.md): fases, decisiones tomadas y su porqué (módulo 1).
+- [`docs/PLAN_MODULO2_ACTIVOS.md`](docs/PLAN_MODULO2_ACTIVOS.md): plan y decisiones del módulo de mantenimiento de activos.
 - [`docs/PRESENTACION.md`](docs/PRESENTACION.md): guía rápida para la defensa.
 - [`docs/DESIGN.md`](docs/DESIGN.md): sistema de diseño.

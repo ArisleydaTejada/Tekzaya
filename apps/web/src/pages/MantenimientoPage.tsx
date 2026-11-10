@@ -5,13 +5,14 @@ import {
   type MaintenanceDashboard,
 } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getMaintenanceDashboard, maintenanceKeys } from "../api/maintenance";
 import { AlertIcon, BoxIcon, ChartIcon, ClipboardIcon, ShieldIcon, WrenchIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { StatTile } from "../components/StatTile";
+import { Thumb } from "../components/Thumb";
 import { formatDay, formatQuantity, warrantyCountdown } from "../lib/format";
 
 /**
@@ -130,6 +131,8 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             name: asset.name,
             detail: warrantyCountdown(asset.warrantyUntil),
             title: formatDay(asset.warrantyUntil),
+            photoId: asset.photoId,
+            icon: WrenchIcon,
           }))}
         />
         <AlertList
@@ -143,6 +146,8 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             code: formatAssetNumber(asset.number),
             name: asset.name,
             detail: `${asset.failures} fallas`,
+            photoId: asset.photoId,
+            icon: WrenchIcon,
           }))}
         />
         <AlertList
@@ -156,6 +161,8 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             code: formatSparePartNumber(part.number),
             name: part.name,
             detail: `${formatQuantity(part.stock, part.unit)} de ${part.minStock}`,
+            photoId: part.photoId,
+            icon: BoxIcon,
           }))}
         />
       </div>
@@ -185,7 +192,16 @@ function AlertList({
   hint: string;
   empty: string;
   tone: keyof typeof TONE_DOT;
-  items: { id: string; to: string; code: string; name: string; detail: string; title?: string }[];
+  items: {
+    id: string;
+    to: string;
+    code: string;
+    name: string;
+    detail: string;
+    title?: string;
+    photoId?: string;
+    icon: ComponentType<{ className?: string }>;
+  }[];
 }) {
   return (
     <Plate className="p-4">
@@ -210,7 +226,13 @@ function AlertList({
                 to={item.to}
                 className="-mx-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-[var(--content-bg)]"
               >
-                <span className={`h-2 w-2 rounded-full ${TONE_DOT[tone]}`} aria-hidden="true" />
+                <span className="relative">
+                  <Thumb photoId={item.photoId} icon={item.icon} />
+                  <span
+                    className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[var(--content-surface)] ${TONE_DOT[tone]}`}
+                    aria-hidden="true"
+                  />
+                </span>
                 <span className="min-w-0">
                   <span className="block truncate text-[var(--content-ink)]">{item.name}</span>
                   <span className="block font-display text-xs tabular text-[var(--content-ink-dim)]">{item.code}</span>

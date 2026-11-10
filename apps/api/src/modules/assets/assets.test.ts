@@ -141,6 +141,8 @@ describe("quién ve qué", () => {
       "Laptop de Vito",
     ]);
     expect(list.body.items.every((item: object) => !("purchaseCost" in item))).toBe(true);
+    // Ventas no tiene equipos a cargo: el filtro "área que lo usa" no aplica.
+    expect(list.body.maintainsAssets).toBe(false);
     expect(list.body.items.every((item: { permissions: { viewDetails: boolean } }) => !item.permissions.viewDetails)).toBe(true);
 
     const detail = await empleado.get(`/api/v1/assets/${laptopVito}`);
@@ -168,7 +170,8 @@ describe("quién ve qué", () => {
       const agent = await loginAs(email);
       const list = await agent.get("/api/v1/assets");
       expect(list.body.total).toBe(3);
-      expect(list.body.items.every((item: { purchaseCost?: number }) => item.purchaseCost !== undefined)).toBe(true);
+      expect(list.body.maintainsAssets).toBe(true);
+      expect(list.body.items.every((item: { purchaseCost?: number })=> item.purchaseCost !== undefined)).toBe(true);
       expect(list.body.items.every((item: { permissions: { manage: boolean } }) => !item.permissions.manage)).toBe(true);
       expect((await agent.get(`/api/v1/assets/${serverIt}/events`)).status).toBe(200);
       expect((await agent.patch(`/api/v1/assets/${serverIt}`).send({ location: "Otro" })).status).toBe(403);

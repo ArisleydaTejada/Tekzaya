@@ -24,9 +24,10 @@ import { AssetFormModal } from "../components/AssetFormModal";
 import { AssetStatusBadge, WarrantyBadge } from "../components/assets";
 import { Avatar } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
-import { DownloadIcon, PlusIcon, SearchIcon } from "../components/icons";
+import { DownloadIcon, PlusIcon, SearchIcon, WrenchIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
+import { Thumb } from "../components/Thumb";
 
 const PAGE_SIZE = 25;
 
@@ -279,14 +280,17 @@ export default function ActivosPage() {
                   </option>
                 ))}
               </FilterSelect>
-              <FilterSelect label="Área que lo usa" value={filters.usedByAreaId} onChange={(value) => filter("usedByAreaId", value)}>
-                <option value="">Todas</option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </FilterSelect>
+              {/* Un área sin equipos a cargo solo ve los que usa ella: el filtro sobraría. */}
+              {(data?.maintainsAssets ?? false) && (
+                <FilterSelect label="Área que lo usa" value={filters.usedByAreaId} onChange={(value) => filter("usedByAreaId", value)}>
+                  <option value="">Todas</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
+                </FilterSelect>
+              )}
               <FilterSelect label="Ubicación" value={filters.location} onChange={(value) => filter("location", value)}>
                 <option value="">Todas</option>
                 {locations.map((place) => (
@@ -402,7 +406,8 @@ function AssetTable({
                 className="block rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-3 hover:bg-[var(--content-bg)]"
               >
                 <span className="flex items-start justify-between gap-2">
-                  <span className="min-w-0">
+                  <Thumb photoId={asset.photoIds[0]} icon={WrenchIcon} />
+                  <span className="min-w-0 flex-1">
                     <span className="block font-display text-xs tabular text-[var(--content-ink-dim)]">{number}</span>
                     <span className="block truncate font-medium text-[var(--content-ink)]">{asset.name}</span>
                   </span>
@@ -449,13 +454,18 @@ function AssetTable({
                     {number}
                   </Link>
                 </td>
-                <td className="max-w-[240px] px-3 py-2.5">
-                  <Link to={`/activos/${number}`} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
-                    {asset.name}
-                  </Link>
-                  <span className="block truncate text-xs text-[var(--content-ink-dim)]">
-                    {ASSET_TYPE_LABEL[asset.type]}
-                    {(asset.brand || asset.model) && ` · ${[asset.brand, asset.model].filter(Boolean).join(" ")}`}
+                <td className="max-w-[280px] px-3 py-2.5">
+                  <span className="flex items-center gap-2.5">
+                    <Thumb photoId={asset.photoIds[0]} icon={WrenchIcon} />
+                    <span className="min-w-0">
+                      <Link to={`/activos/${number}`} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
+                        {asset.name}
+                      </Link>
+                      <span className="block truncate text-xs text-[var(--content-ink-dim)]">
+                        {ASSET_TYPE_LABEL[asset.type]}
+                        {(asset.brand || asset.model) && ` · ${[asset.brand, asset.model].filter(Boolean).join(" ")}`}
+                      </span>
+                    </span>
                   </span>
                 </td>
                 <td className="px-3 py-2.5">

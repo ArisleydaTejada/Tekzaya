@@ -34,7 +34,7 @@ import { User } from "../../models/user.model";
 import { getSettings } from "../settings/settings.service";
 import { csvFile, csvRow, sendCsv } from "../tickets/ticket.csv";
 import { routeParam } from "../tickets/ticket.access";
-import { assetRefOf, assetScopeFilter, custodianSearch, loadVisibleAsset, photoIdsOf, type LeanAsset } from "./asset.access";
+import { assetRefOf, assetScopeFilter, custodianSearch, loadVisibleAsset, photoIdsOf, seesOtherAreasAssets, type LeanAsset } from "./asset.access";
 import { hydrateAssets, todayKey, toAssetView } from "./asset.view";
 
 const router = Router();
@@ -180,7 +180,7 @@ router.get("/assets", validateQuery(assetListQuery), async (_req, res) => {
   const direction = query.dir === "desc" ? -1 : 1;
 
   const filter = await listFilter(actor, query);
-  const [items, total, counts] = await Promise.all([
+  const [items, total, counts, maintainsAssets] = await Promise.all([
     Asset.find(filter)
       .sort({ [SORT_FIELDS[query.sort]]: direction, _id: direction })
       .skip((query.page - 1) * query.limit)
@@ -191,6 +191,7 @@ router.get("/assets", validateQuery(assetListQuery), async (_req, res) => {
       { $match: await listFilter(actor, query, false) },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
+    seesOtherAreasAssets(actor),
   ]);
 
   const statusCounts = emptyStatusCounts();
@@ -204,6 +205,7 @@ router.get("/assets", validateQuery(assetListQuery), async (_req, res) => {
     limit: query.limit,
     statusCounts,
     currency: hydration.currency,
+    maintainsAssets,
   });
 });
 

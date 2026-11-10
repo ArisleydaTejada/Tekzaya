@@ -16,9 +16,11 @@ export interface AlertAsset {
   warrantyUntil?: string | null;
   warrantyNotifiedAt?: Date | null;
   repeatedFailuresNotifiedAt?: Date | null;
+  photoIds?: Types.ObjectId[] | null;
+  photoId?: Types.ObjectId | null;
 }
 
-const ALERT_FIELDS = "number name areaId warrantyUntil warrantyNotifiedAt repeatedFailuresNotifiedAt";
+const ALERT_FIELDS = "number name areaId warrantyUntil warrantyNotifiedAt repeatedFailuresNotifiedAt photoIds photoId";
 
 /** Equipos en servicio cuya garantía vence entre hoy y `warrantyAlertDays` días. */
 export async function warrantyExpiring(

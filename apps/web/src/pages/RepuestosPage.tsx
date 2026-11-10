@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listSpareParts, sparePartKeys, sparePartsCsvUrl } from "../api/spareParts";
 import { AreaTag } from "../components/badges";
-import { attachmentUrl } from "../api/tickets";
+import { Thumb } from "../components/Thumb";
 import { AlertIcon, BoxIcon, DownloadIcon, PlusIcon, SearchIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
@@ -261,24 +261,11 @@ function Th({
   );
 }
 
-/** Barra de existencias frente al mínimo: llena a partir del doble del mínimo. */
-/** La portada en pequeño; sin foto, el icono de la caja para que la columna no baile. */
 function PartThumb({ part }: { part: SparePartView }) {
-  const cover = part.photoIds[0];
-  return cover ? (
-    <img
-      src={attachmentUrl(cover)}
-      alt=""
-      loading="lazy"
-      className="h-9 w-9 shrink-0 rounded-md border border-[var(--content-border)] object-cover"
-    />
-  ) : (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--content-bg)] text-[var(--content-ink-dim)]" aria-hidden="true">
-      <BoxIcon className="h-4 w-4" />
-    </span>
-  );
+  return <Thumb photoId={part.photoIds[0]} icon={BoxIcon} />;
 }
 
+/** Barra de existencias frente al mínimo: llena a partir del doble del mínimo. */
 function StockBar({ part }: { part: SparePartView }) {
   const target = Math.max(part.minStock * 2, 1);
   const fill = Math.min(100, Math.round((part.stock / target) * 100));

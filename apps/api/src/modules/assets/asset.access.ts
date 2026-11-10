@@ -70,6 +70,17 @@ export function assetScopeFilter(actor: Actor): Record<string, unknown> {
 }
 
 /**
+ * Si quien consulta ve equipos de otras áreas: con lectura global, o si su área
+ * tiene equipos a cargo (los presta a otras). Si no, solo ve los que usa su área
+ * o tiene él mismo, y filtrar por "área que lo usa" no tiene sentido.
+ */
+export async function seesOtherAreasAssets(actor: Actor): Promise<boolean> {
+  const scope = assetScopeFor(actor);
+  if (scope.type === "global") return true;
+  return Boolean(await Asset.exists({ areaId: new Types.ObjectId(scope.areaId) }));
+}
+
+/**
  * Busca por id o por número (`ACT-0012` o `12`). Lo que no se puede ver responde
  * 404, igual que un ticket ajeno: un 403 confirmaría que el equipo existe.
  */

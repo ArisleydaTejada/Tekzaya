@@ -13,7 +13,13 @@ export const maintenanceDashboardQuery = z.object({
 });
 export type MaintenanceDashboardQuery = z.infer<typeof maintenanceDashboardQuery>;
 
-const assetLine = z.object({ id: objectId, number: z.number().int().positive(), name: z.string() });
+/** `photoId` es la portada, para la miniatura de la lista; ausente si no tiene fotos. */
+const assetLine = z.object({
+  id: objectId,
+  number: z.number().int().positive(),
+  name: z.string(),
+  photoId: objectId.optional(),
+});
 
 export const maintenanceDashboard = z.object({
   /** El área del panel; ausente cuando son todas. */
@@ -38,6 +44,7 @@ export const maintenanceDashboard = z.object({
         id: objectId,
         number: z.number().int().positive(),
         name: z.string(),
+        photoId: objectId.optional(),
         unit: partUnit,
         stock: z.number().int().min(0),
         minStock: z.number().int().min(0),

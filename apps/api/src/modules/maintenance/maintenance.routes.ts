@@ -15,10 +15,11 @@ import { AppError } from "../../middleware/errors";
 import { validateQuery } from "../../middleware/validate";
 import { Area } from "../../models/area.model";
 import { Asset, SparePart, WorkOrder } from "../../models/maintenance.models";
+import { photoIdsOf } from "../assets/asset.access";
 import { todayKey } from "../assets/asset.view";
 import { getSettings } from "../settings/settings.service";
 import { OPEN_WORK_ORDER } from "../workOrders/workOrder.lifecycle";
-import { repeatedFailures, warrantyExpiring } from "./alerts";
+import { repeatedFailures, warrantyExpiring, type AlertAsset } from "./alerts";
 
 /**
  * Plan A6: el panel de mantenimiento. Lo ve quien ve las órdenes de trabajo —el
@@ -33,6 +34,17 @@ const areaRefOf = (area: { _id: unknown; name?: string | null; color?: string | 
   name: area.name ?? "Área",
   color: area.color ?? "#7c8cae",
 });
+
+/** Una línea de equipo de las alertas, con su portada si la tiene. */
+function assetLineOf(asset: AlertAsset) {
+  const cover = photoIdsOf(asset)[0];
+  return {
+    id: String(asset._id),
+    number: asset.number,
+    name: asset.name,
+    ...(cover ? { photoId: String(cover) } : {}),
+  };
+}
 
 /** Lunes y domingo de la semana en curso, como fechas de calendario de la empresa. */
 function weekKeys(today: string): { monday: string; sunday: string } {
@@ -83,7 +95,7 @@ router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), a
       .lean(),
     WorkOrder.countDocuments({ ...byArea, type: "preventive", scheduledFor: { $lt: today }, ...OPEN_WORK_ORDER }),
     SparePart.find({ ...byArea, isActive: true, $expr: { $lt: ["$stock", "$minStock"] } })
-      .select("number name unit stock minStock")
+      .select("number name unit stock minStock photoIds")
       .sort({ stock: 1, name: 1 })
       .lean(),
     WorkOrder.aggregate<{ total: number }>([
@@ -116,21 +128,18 @@ router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), a
     },
     alerts: {
       warranty: warranty.map((asset) => ({
-        id: String(asset._id),
-        number: asset.number,
-        name: asset.name,
+        ...assetLineOf(asset),
         warrantyUntil: asset.warrantyUntil!,
       })),
       repeatedFailures: repeated.map((asset) => ({
-        id: String(asset._id),
-        number: asset.number,
-        name: asset.name,
+        ...assetLineOf(asset),
         failures: asset.failures,
       })),
       lowStock: lowStock.map((part) => ({
         id: String(part._id),
         number: part.number,
         name: part.name,
+        ...(part.photoIds?.[0] ? { photoId: String(part.photoIds[0]) } : {}),
         unit: part.unit as PartUnit,
         stock: part.stock,
         minStock: part.minStock,

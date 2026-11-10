@@ -114,6 +114,11 @@ export const assetListResponse = paginated(assetView).extend({
    */
   statusCounts: assetStatusCounts,
   currency: currencyCode,
+  /**
+   * Si quien consulta ve equipos de otras áreas (lectura global o un área con
+   * equipos a cargo). Si no, el filtro "área que lo usa" se esconde: siempre sería la suya.
+   */
+  maintainsAssets: z.boolean(),
 });
 export type AssetListResponse = z.infer<typeof assetListResponse>;
 
