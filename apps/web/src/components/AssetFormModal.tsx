@@ -23,6 +23,7 @@ import { useAuth } from "../auth/AuthContext";
 import { AssetPhotosField } from "./assets";
 import { Modal } from "./Modal";
 import { MoneyInput } from "./MoneyInput";
+import { oneOf } from "../lib/oneOf";
 
 /** Lo que se edita, todo como texto: así un campo vacío es "" y no `undefined`. */
 interface Draft {
@@ -218,7 +219,7 @@ export function AssetFormModal({
         </Labeled>
         <Labeled label="Tipo">
           {(id) => (
-            <select id={id} value={draft.type} onChange={(e) => set("type", e.target.value as AssetType)} className={INPUT}>
+            <select id={id} value={draft.type} onChange={(e) => set("type", oneOf(ASSET_TYPES, e.target.value) ?? draft.type)} className={INPUT}>
               {ASSET_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {ASSET_TYPE_LABEL[type]}

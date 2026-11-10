@@ -29,9 +29,10 @@ import {
   type TicketScope,
   type TicketSort,
   type TicketStatus,
+  TICKET_STATUSES,
 } from "@tekzaya/shared";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type KeyboardEventHandler } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ticketsCsvUrl } from "../api/stats";
 import {
@@ -67,6 +68,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { formatWhen } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 type ViewMode = "lista" | "grupos" | "kanban";
 
@@ -148,7 +150,11 @@ function kanbanAnnouncements(tickets: TicketListItem[]): Announcements {
     return ticket ? formatTicketNumber(ticket.number) : "El ticket";
   };
 
-  const columnOf = (id: string | number) => TICKET_STATUS_LABEL[id as TicketStatus] ?? String(id);
+  const columnOf = (id: string | number) => {
+    const status = oneOf(TICKET_STATUSES, id);
+
+    return status ? TICKET_STATUS_LABEL[status] : String(id);
+  };
 
   return {
     onDragStart: ({ active }) => `${nameOf(active.id)} levantado.`,
@@ -436,7 +442,7 @@ export default function TicketsPage() {
           aria-label="Filtrar por estado"
           value={statusFilter}
           onChange={(event) => {
-            setStatusFilter(event.target.value as TicketStatus | "");
+            setStatusFilter(oneOf(TICKET_STATUSES, event.target.value) ?? "");
             setPage(1);
           }}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
@@ -452,7 +458,7 @@ export default function TicketsPage() {
           aria-label="Filtrar por prioridad"
           value={priorityFilter}
           onChange={(event) => {
-            setPriorityFilter(event.target.value as Priority | "");
+            setPriorityFilter(oneOf(PRIORITIES, event.target.value) ?? "");
             setPage(1);
           }}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
@@ -470,7 +476,7 @@ export default function TicketsPage() {
               { id: "lista", icon: ListIcon },
               { id: "grupos", icon: GroupIcon },
               { id: "kanban", icon: KanbanIcon },
-            ] as { id: ViewMode; icon: typeof ListIcon }[]
+            ] satisfies { id: ViewMode; icon: typeof ListIcon }[]
           ).map(({ id, icon: Icon }) => (
             <button
               key={id}
@@ -1124,7 +1130,7 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
         <button
           type="button"
           {...attributes}
-          onKeyDown={onKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined}
+          onKeyDown={(event) => onKeyDown?.(event)}
           aria-label={`Mover ${number}`}
           className="rounded font-display text-xs tabular text-[var(--content-ink-dim)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-contrast)]"
         >
@@ -1210,7 +1216,7 @@ function KanbanView({
   const [note, setNote] = useState("");
 
   function handleDragEnd(event: DragEndEvent) {
-    const target = event.over?.id as TicketStatus | undefined;
+    const target = oneOf(TICKET_STATUSES, event.over?.id);
 
     if (!target) return;
     const ticket = tickets.find((item) => item.id === event.active.id);

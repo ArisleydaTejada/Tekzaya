@@ -11,9 +11,10 @@ import { getWorkOrder, listWorkOrders, workOrderKeys } from "../../api/workOrder
 import { OverdueTag, WorkOrderStatusBadge } from "../workOrders";
 import { dedupeSections, PickerModal, type PickerResult } from "./PickerModal";
 import { RecordTabs } from "./RecordTabs";
+import { oneOf } from "../../lib/oneOf";
 
 const OPEN_WORK_ORDER_STATUSES = WORK_ORDER_STATUSES.filter(
-  (status) => !(FINAL_WORK_ORDER_STATUSES as readonly string[]).includes(status),
+  (status) => !oneOf(FINAL_WORK_ORDER_STATUSES, status),
 );
 
 /** Pestañas de órdenes de trabajo, en la sección de órdenes. */

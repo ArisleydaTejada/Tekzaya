@@ -21,6 +21,7 @@ import { Plate } from "../../components/Plate";
 import { SearchIcon, XIcon } from "../../components/icons";
 import { OverdueTag, WorkOrderStatusBadge, WorkOrderTypeTag } from "../../components/workOrders";
 import { formatDateTime, formatDay, formatWhen } from "../../lib/format";
+import { oneOf } from "../../lib/oneOf";
 
 /** Filtros de la lista que una gráfica puede fijar al pulsarla. */
 export interface WorkOrderListFilters {
@@ -114,7 +115,7 @@ export function WorkOrdersOfPeriod({
             aria-label="Estado de la orden"
             value={filters.status ?? ""}
             onChange={(event) =>
-              onFiltersChange({ ...filters, status: (event.target.value || undefined) as WorkOrderStatus | undefined })
+              onFiltersChange({ ...filters, status: oneOf(WORK_ORDER_STATUSES, event.target.value) })
             }
             className={selectClass}
           >
@@ -129,7 +130,7 @@ export function WorkOrdersOfPeriod({
             aria-label="Tipo de orden"
             value={filters.type ?? ""}
             onChange={(event) =>
-              onFiltersChange({ ...filters, type: (event.target.value || undefined) as WorkOrderType | undefined })
+              onFiltersChange({ ...filters, type: oneOf(WORK_ORDER_TYPES, event.target.value) })
             }
             className={selectClass}
           >
@@ -194,8 +195,11 @@ export function WorkOrdersOfPeriod({
           <p>
             {list.data.total} orden{list.data.total === 1 ? "" : "es"} ·{" "}
             {Object.entries(list.data.statusCounts)
-              .filter(([, count]) => count > 0)
-              .map(([status, count]) => `${WORK_ORDER_STATUS_LABEL[status as WorkOrderStatus]}: ${count}`)
+              .flatMap(([status, count]) => {
+                const known = oneOf(WORK_ORDER_STATUSES, status);
+
+                return count > 0 ? [`${known ? WORK_ORDER_STATUS_LABEL[known] : status}: ${count}`] : [];
+              })
               .join(" · ")}
           </p>
           <div className="no-print flex items-center gap-2">

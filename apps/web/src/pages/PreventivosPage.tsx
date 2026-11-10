@@ -5,6 +5,7 @@ import {
   PLAN_MODE_LABEL,
   type PlanState,
   type PlanView,
+  PLAN_STATES,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -17,6 +18,7 @@ import { Plate } from "../components/Plate";
 import { PlanCalendar } from "../components/PlanCalendar";
 import { PlanFormModal } from "../components/plans";
 import { formatDay } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 const coverageOf = (plan: PlanView) =>
   plan.asset
@@ -151,7 +153,7 @@ function PlanList({
         <select
           aria-label="Filtrar por estado"
           value={state}
-          onChange={(event) => onState(event.target.value as PlanState)}
+          onChange={(event) => onState(oneOf(PLAN_STATES, event.target.value) ?? state)}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="active">Activos</option>

@@ -32,7 +32,7 @@ export function Popover({
     if (!open) return;
 
     const onPointer = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
     };
 
     const onKey = (event: KeyboardEvent) => {
@@ -54,7 +54,7 @@ export function Popover({
   // `data-popover-close`) devuelve el foco al botón; pulsar fuera no, porque el
   // foco ya está donde se pulsó.
   const closeFromPanel = (event: MouseEvent<HTMLDivElement>) => {
-    if (!(event.target as HTMLElement).closest("[data-popover-close]")) return;
+    if (!(event.target instanceof Element) || !event.target.closest("[data-popover-close]")) return;
     setOpen(false);
     button.current?.focus();
   };

@@ -15,6 +15,7 @@ import {
   type MessageView,
   type TicketDetail,
   type TicketStatus,
+  TICKET_STATUSES,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -77,6 +78,7 @@ import { MemberOrderToggle, sortMembers, type MemberOrder } from "../components/
 import { Modal } from "../components/Modal";
 import { Plate } from "../components/Plate";
 import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 /** Estados a los que se puede saltar desde el desplegable; el servidor valida el resto. */
 /**
@@ -572,7 +574,9 @@ export default function TicketDetailPage() {
                   aria-label="Estado del ticket"
                   value={ticket.status}
                   onChange={(event) => {
-                    const next = event.target.value as TicketStatus;
+                    const next = oneOf(TICKET_STATUSES, event.target.value);
+
+                    if (!next) return;
 
                     if (next === "resolved") {
                       setResolveOpen(true);
@@ -1243,9 +1247,9 @@ function describeEvent(event: MessageView["systemEvent"]): string {
 }
 
 function label(status?: string): string {
-  return status && status in TICKET_STATUS_LABEL
-    ? TICKET_STATUS_LABEL[status as TicketStatus]
-    : (status ?? "");
+  const known = oneOf(TICKET_STATUSES, status);
+
+  return known ? TICKET_STATUS_LABEL[known] : (status ?? "");
 }
 
 // ── Equipo afectado (plan A2) ─────────────────────────────────

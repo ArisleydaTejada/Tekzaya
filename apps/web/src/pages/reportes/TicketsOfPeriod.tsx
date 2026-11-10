@@ -13,6 +13,10 @@ import {
   type ReportTicketFilters,
   type ReportTicketRow,
   type ReportTicketSort,
+  REPORT_TICKET_SORTS,
+  COMPARATORS,
+  CSAT_RATINGS,
+  MERGED_KINDS,
 } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -25,6 +29,8 @@ import { SlaTimeline } from "../../components/SlaTimeline";
 import { Plate } from "../../components/Plate";
 import { DownloadIcon, FilterIcon, SearchIcon, StarIcon, XIcon } from "../../components/icons";
 import { formatWhen } from "../../lib/format";
+import { allOf, oneOf } from "../../lib/oneOf";
+import { z } from "zod";
 
 /** La selección de columnas se recuerda entre visitas (spec §7.8.9). */
 const COLUMNS_KEY = "tekzaya.reportes.columnas";
@@ -170,21 +176,25 @@ export function TicketsOfPeriod({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
-              {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap px-3 py-2.5 font-medium">
-                  {SORTABLE.has(column) ? (
-                    <button
-                      onClick={() => toggleSort(column as ReportTicketSort)}
-                      className="flex items-center gap-1 hover:text-[var(--content-ink)]"
-                    >
-                      {REPORT_COLUMN_LABEL[column]}
-                      {sort === column && <span aria-hidden="true">{dir === "asc" ? "↑" : "↓"}</span>}
-                    </button>
-                  ) : (
-                    REPORT_COLUMN_LABEL[column]
-                  )}
-                </th>
-              ))}
+              {columns.map((column) => {
+                const sortKey = oneOf(REPORT_TICKET_SORTS, column);
+
+                return (
+                  <th key={column} className="whitespace-nowrap px-3 py-2.5 font-medium">
+                    {sortKey ? (
+                      <button
+                        onClick={() => toggleSort(sortKey)}
+                        className="flex items-center gap-1 hover:text-[var(--content-ink)]"
+                      >
+                        {REPORT_COLUMN_LABEL[column]}
+                        {sort === column && <span aria-hidden="true">{dir === "asc" ? "↑" : "↓"}</span>}
+                      </button>
+                    ) : (
+                      REPORT_COLUMN_LABEL[column]
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -239,7 +249,7 @@ export function TicketsOfPeriod({
               <>
                 {" · "}
                 {Object.entries(list.data.byStatus)
-                  .map(([status, count]) => `${TICKET_STATUS_LABEL[status as keyof typeof TICKET_STATUS_LABEL]}: ${count}`)
+                  .map(([status, count]) => `${statusName(status)}: ${count}`)
                   .join(" · ")}
               </>
             )}
@@ -288,19 +298,6 @@ export function TicketsOfPeriod({
  * son nombres de otras colecciones o valores derivados, y ordenar por ellos
  * obligaría a cruzar tablas sobre todo el histórico. Para esas están los filtros.
  */
-const SORTABLE = new Set<string>([
-  "number",
-  "title",
-  "priority",
-  "status",
-  "createdAt",
-  "firstResponse",
-  "resolvedAt",
-  "resolutionTime",
-  "csat",
-  "reopened",
-]);
-
 function Cell({ row, column }: { row: ReportTicketRow; column: ReportColumn }) {
   switch (column) {
     case "number":
@@ -411,7 +408,7 @@ function FilterPanel({
             options={TICKET_STATUSES.map((value) => ({ value, label: TICKET_STATUS_LABEL[value] }))}
             selected={filters.statuses ?? []}
             onChange={(values) =>
-              set({ statuses: values.length ? (values as ReportTicketFilters["statuses"]) : undefined })
+              set({ statuses: values.length ? allOf(TICKET_STATUSES, values) : undefined })
             }
           />
         </Group>
@@ -420,7 +417,7 @@ function FilterPanel({
             options={PRIORITIES.map((value) => ({ value, label: PRIORITY_LABEL[value] }))}
             selected={filters.priorities ?? []}
             onChange={(values) =>
-              set({ priorities: values.length ? (values as ReportTicketFilters["priorities"]) : undefined })
+              set({ priorities: values.length ? allOf(PRIORITIES, values) : undefined })
             }
           />
         </Group>
@@ -429,7 +426,7 @@ function FilterPanel({
             options={SLA_STATES.map((value) => ({ value, label: SLA_STATE_LABEL[value] }))}
             selected={filters.slaStates ?? []}
             onChange={(values) =>
-              set({ slaStates: values.length ? (values as ReportTicketFilters["slaStates"]) : undefined })
+              set({ slaStates: values.length ? allOf(SLA_STATES, values) : undefined })
             }
           />
         </Group>
@@ -442,7 +439,7 @@ function FilterPanel({
             selected={filters.csatRatings ?? []}
             onChange={(values) =>
               set({
-                csatRatings: values.length ? (values as ReportTicketFilters["csatRatings"]) : undefined,
+                csatRatings: values.length ? allOf(CSAT_RATINGS, values) : undefined,
               })
             }
           />
@@ -537,7 +534,7 @@ function FilterPanel({
             aria-label="Filtrar por fusión"
             value={filters.merged ?? ""}
             onChange={(event) =>
-              set({ merged: (event.target.value || undefined) as ReportTicketFilters["merged"] })
+              set({ merged: oneOf(MERGED_KINDS, event.target.value) })
             }
             className="rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-[11px] text-[var(--content-ink)]"
           >
@@ -645,7 +642,7 @@ function Comparison({
         aria-label={`${label}: más o menos de`}
         value={op ?? ""}
         onChange={(event) =>
-          onChange((event.target.value || undefined) as "gt" | "lt" | undefined, value)
+          onChange(oneOf(COMPARATORS, event.target.value), value)
         }
         className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
       >
@@ -740,12 +737,21 @@ function ColumnPicker({
 
 // ── Utilidades ────────────────────────────────────────────────
 
+function statusName(status: string): string {
+  const known = oneOf(TICKET_STATUSES, status);
+
+  return known ? TICKET_STATUS_LABEL[known] : status;
+}
+
+/** Lo guardado en el navegador: si no es una lista de textos, se ignora. */
+const storedColumns = z.array(z.string()).catch([]);
+
 function readColumns(): ReportColumn[] {
   try {
     const stored = localStorage.getItem(COLUMNS_KEY);
 
     if (!stored) return DEFAULT_REPORT_COLUMNS;
-    const parsed = JSON.parse(stored) as string[];
+    const parsed = storedColumns.parse(JSON.parse(stored));
     // Se reordena según el catálogo: una selección guardada antes de cambiar el
     // orden de las columnas adopta el nuevo en vez de quedarse con el viejo.
     const valid = REPORT_COLUMNS.filter((item) => parsed.includes(item));

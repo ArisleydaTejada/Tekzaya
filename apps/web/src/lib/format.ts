@@ -75,7 +75,7 @@ export function formatBytes(bytes: number): string {
  * convertirla a instante la correría un día hacia atrás en América.
  */
 export function formatDay(key: string): string {
-  const [year, month, day] = key.split("-").map(Number) as [number, number, number];
+  const [year = 0, month = 1, day = 1] = key.split("-").map(Number);
 
   return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("es-MX", {
     timeZone: "UTC",
@@ -87,7 +87,7 @@ export function formatDay(key: string): string {
 
 /** Días de calendario entre hoy (en el reloj de quien mira) y una fecha "YYYY-MM-DD". */
 export function daysUntil(key: string): number {
-  const [year, month, day] = key.split("-").map(Number) as [number, number, number];
+  const [year = 0, month = 1, day = 1] = key.split("-").map(Number);
   const now = new Date();
   const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
 

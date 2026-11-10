@@ -38,6 +38,7 @@ import { Plate } from "../components/Plate";
 import { PlanFormModal } from "../components/plans";
 import { RequiredPartStatus, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
 import { formatDateTime, formatDay, formatQuantity, formatWhen, warrantyCountdown } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 const VIEWS = ["resumen", "historial", "ordenes"] as const;
 
@@ -66,7 +67,7 @@ export default function ActivoDetailPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const requested = params.get("vista");
-  const view: View = VIEWS.includes(requested as View) ? (requested as View) : "resumen";
+  const view: View = oneOf(VIEWS, requested) ?? "resumen";
 
   const show = (next: View) =>
     setParams(

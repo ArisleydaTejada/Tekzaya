@@ -10,6 +10,7 @@ import {
   type Area,
   type Settings,
   type UserStatus,
+  aiFeatures,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useId, useMemo, useState } from "react";
@@ -43,6 +44,7 @@ import {
   updateSettings,
 } from "../api/tickets";
 import { formatDateTime, formatWhen } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 const TABS = [
   { id: "usuarios", label: "Usuarios", access: "users" },
@@ -730,7 +732,11 @@ function RolePicker({
       <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Rol</label>
       <select
         value={current}
-        onChange={(event) => onChange(options[event.target.value as keyof typeof options])}
+        onChange={(event) => {
+          const choice = oneOf(ROLE_CHOICES, event.target.value);
+
+          if (choice) onChange(options[choice]);
+        }}
         className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
       >
         <option value="employee">Empleado</option>
@@ -1000,7 +1006,7 @@ function AreaModal({
       onSaved(items);
       onClose();
     },
-    onError: (cause) => onError(cause as Error),
+    onError: (cause) => onError(cause),
   });
 
   return (
@@ -1104,7 +1110,12 @@ const DAY_LABEL = new Map([
   [7, "D"],
 ]);
 
-const AI_LABEL: Record<keyof Settings["aiEnabled"], string> = {
+type AiFeature = keyof Settings["aiEnabled"];
+
+/** Las funciones de IA, en el orden del esquema de ajustes. */
+const AI_FEATURES = aiFeatures.keyof().options;
+
+const AI_LABEL: Record<AiFeature, string> = {
   suggestArea: "Sugerir área al crear un ticket",
   classify: "Clasificar prioridad y categoría",
   summary: "Resumir la conversación",
@@ -1437,7 +1448,7 @@ function ConfiguracionTab() {
             Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano, y los equipos y las órdenes muestran sus números sin la tarjeta de IA.
           </p>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {(Object.keys(AI_LABEL) as (keyof Settings["aiEnabled"])[]).map((key) => (
+            {AI_FEATURES.map((key) => (
               <div
                 key={key}
                 className="flex items-center justify-between gap-3 rounded-lg bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)]"
@@ -1541,10 +1552,13 @@ function offsetOf(timeZone: string): string {
  * Todas las zonas IANA que conoce el navegador, agrupadas por continente y con su
  * desfase, para elegir sin tener que escribir `America/La_Paz` de memoria.
  */
+/** Las cuatro opciones del selector de rol, que combinan rol y privilegios. */
+const ROLE_CHOICES = ["employee", "supervisor", "hr", "admin"] as const;
+
 function TimezoneSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const groups = useMemo(() => {
-    const supported = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
-    const zones = supported ? supported("timeZone") : FALLBACK_TIMEZONES;
+    // Navegadores anteriores a 2022 no la tienen: ahí se usa una lista fija.
+    const zones = "supportedValuesOf" in Intl ? Intl.supportedValuesOf("timeZone") : FALLBACK_TIMEZONES;
     // La guardada siempre está, aunque el navegador no la liste (p. ej. "UTC").
     const all = zones.includes(value) ? zones : [value, ...zones];
     const map = new Map<string, { zone: string; label: string }[]>();

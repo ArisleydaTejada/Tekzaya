@@ -1092,6 +1092,12 @@ const boolFlag = z.preprocess(
 );
 
 export const COMPARATORS = ["gt", "lt"] as const;
+
+/** `1`…`5`, o `none` para los tickets que nadie calificó. */
+export const CSAT_RATINGS = ["1", "2", "3", "4", "5", "none"] as const;
+
+/** `duplicate` = absorbido por otro; `principal` = absorbió duplicados. */
+export const MERGED_KINDS = ["duplicate", "principal"] as const;
 export const comparator = z.enum(COMPARATORS);
 export type Comparator = z.infer<typeof comparator>;
 
@@ -1132,7 +1138,7 @@ export const reportTicketFilters = z.object({
   ageDaysMin: z.coerce.number().min(0).max(3650).optional(),
 
   /** `1`…`5`, o `none` para los que nadie calificó. */
-  csatRatings: csv(z.enum(["1", "2", "3", "4", "5", "none"])).optional(),
+  csatRatings: csv(z.enum(CSAT_RATINGS)).optional(),
   reopened: boolFlag.optional(),
   responseBreached: boolFlag.optional(),
   resolutionBreached: boolFlag.optional(),
@@ -1142,7 +1148,7 @@ export const reportTicketFilters = z.object({
   multiAssignee: boolFlag.optional(),
   transferred: boolFlag.optional(),
   /** `duplicate` = absorbido por otro; `principal` = absorbió duplicados. */
-  merged: z.enum(["duplicate", "principal"]).optional(),
+  merged: z.enum(MERGED_KINDS).optional(),
   incident: boolFlag.optional(),
   aiPending: boolFlag.optional(),
   priorityCorrected: boolFlag.optional(),

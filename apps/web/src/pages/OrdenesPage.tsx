@@ -26,6 +26,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { OverdueTag, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
 import { formatDateTime, formatDay, formatWhen } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 const PAGE_SIZE = 25;
 
@@ -127,7 +128,7 @@ export default function OrdenesPage() {
           aria-label="Filtrar por estado"
           value={status}
           onChange={(event) => {
-            setStatus(event.target.value as WorkOrderStatus | "");
+            setStatus(oneOf(WORK_ORDER_STATUSES, event.target.value) ?? "");
             setPage(1);
           }}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
@@ -143,7 +144,7 @@ export default function OrdenesPage() {
           aria-label="Filtrar por tipo"
           value={type}
           onChange={(event) => {
-            setType(event.target.value as WorkOrderType | "");
+            setType(oneOf(WORK_ORDER_TYPES, event.target.value) ?? "");
             setPage(1);
           }}
           className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
@@ -161,7 +162,7 @@ export default function OrdenesPage() {
               { id: "lista", icon: ListIcon },
               { id: "grupos", icon: GroupIcon },
               { id: "kanban", icon: KanbanIcon },
-            ] as { id: ViewMode; icon: typeof ListIcon }[]
+            ] satisfies { id: ViewMode; icon: typeof ListIcon }[]
           ).map(({ id, icon: Icon }) => (
             <button
               key={id}

@@ -41,7 +41,9 @@ export function DropdownMenu({ label, items }: { label: string; items: DropdownI
     const close = () => setOpen(false);
 
     const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
+      const target = event.target;
+
+      if (!(target instanceof Node)) return;
 
       if (!menu.current?.contains(target) && !trigger.current?.contains(target)) close();
     };
@@ -55,7 +57,7 @@ export function DropdownMenu({ label, items }: { label: string; items: DropdownI
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         const buttons = [...(menu.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
-        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const index = buttons.findIndex((button) => button === document.activeElement);
         const step = event.key === "ArrowDown" ? 1 : -1;
         buttons[(index + step + buttons.length) % buttons.length]?.focus();
       }

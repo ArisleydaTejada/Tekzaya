@@ -28,6 +28,7 @@ import { DownloadIcon, PlusIcon, SearchIcon, WrenchIcon } from "../components/ic
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { Thumb } from "../components/Thumb";
+import { oneOf } from "../lib/oneOf";
 
 const PAGE_SIZE = 25;
 
@@ -267,7 +268,7 @@ export default function ActivosPage() {
               )}
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <FilterSelect label="Tipo" value={filters.type} onChange={(value) => filter("type", value as AssetType | "")}>
+              <FilterSelect label="Tipo" value={filters.type} onChange={(value) => filter("type", oneOf(ASSET_TYPES, value) ?? "")}>
                 <option value="">Todos los tipos</option>
                 {ASSET_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -302,7 +303,7 @@ export default function ActivosPage() {
                   </option>
                 ))}
               </FilterSelect>
-              <FilterSelect label="Garantía" value={filters.warranty} onChange={(value) => filter("warranty", value as WarrantyState | "")}>
+              <FilterSelect label="Garantía" value={filters.warranty} onChange={(value) => filter("warranty", oneOf(WARRANTY_STATES, value) ?? "")}>
                 <option value="">Cualquiera</option>
                 {WARRANTY_STATES.map((state) => (
                   <option key={state} value={state}>

@@ -24,6 +24,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { CheckIcon } from "../components/icons";
 import { formatWhen } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 /**
  * «Administrar perfil»: lo que cada persona decide de sí misma. El área, el rol
@@ -286,7 +287,7 @@ function AvailabilityCard() {
             <select
               id="motivo"
               value={reason}
-              onChange={(event) => setReason(event.target.value as AwayReason)}
+              onChange={(event) => setReason(oneOf(AWAY_REASONS, event.target.value) ?? reason)}
               className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
             >
               {AWAY_REASONS.map((item) => (

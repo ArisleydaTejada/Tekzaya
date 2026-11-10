@@ -5,6 +5,7 @@ import {
   type SparePartSort,
   type SparePartState,
   type SparePartView,
+  SPARE_PART_STATES,
 } from "@tekzaya/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -17,6 +18,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { LowStockBadge, SparePartFormModal } from "../components/spareParts";
 import { formatQuantity } from "../lib/format";
+import { oneOf } from "../lib/oneOf";
 
 const PAGE_SIZE = 25;
 const partPath = (part: { number: number }) => `/repuestos/${formatSparePartNumber(part.number)}`;
@@ -118,7 +120,7 @@ export default function RepuestosPage() {
               aria-label="Filtrar por estado"
               value={state}
               onChange={(event) => {
-                setState(event.target.value as SparePartState);
+                setState(oneOf(SPARE_PART_STATES, event.target.value) ?? state);
                 setPage(1);
               }}
               className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"

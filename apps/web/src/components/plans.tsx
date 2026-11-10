@@ -19,6 +19,7 @@ import { assetKeys, listAssets } from "../api/assets";
 import { createPlan, updatePlan } from "../api/plans";
 import { useOnOpen } from "../lib/useOnOpen";
 import { Modal } from "./Modal";
+import { oneOf } from "../lib/oneOf";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent";
@@ -244,7 +245,7 @@ export function PlanFormModal({
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>Tipo de equipo</span>
-                  <select value={assetType} onChange={(event) => setAssetType(event.target.value as AssetType)} className={inputClass}>
+                  <select value={assetType} onChange={(event) => setAssetType(oneOf(ASSET_TYPES, event.target.value) ?? assetType)} className={inputClass}>
                     {ASSET_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {ASSET_TYPE_LABEL[type]}
@@ -274,7 +275,7 @@ export function PlanFormModal({
           </label>
           <label className="block">
             <span className={labelClass}>Unidad</span>
-            <select value={unit} onChange={(event) => setUnit(event.target.value as PlanUnit)} className={inputClass}>
+            <select value={unit} onChange={(event) => setUnit(oneOf(PLAN_UNITS, event.target.value) ?? unit)} className={inputClass}>
               {PLAN_UNITS.map((option) => (
                 <option key={option} value={option}>
                   {PLAN_UNIT_LABEL[option].many}

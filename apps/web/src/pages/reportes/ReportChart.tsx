@@ -53,7 +53,7 @@ export function ReportChart({
    */
   const clickHandler = onSelect
     ? {
-        onClick: (entry: object) => {
+        onClick: (entry: ClickedEntry) => {
           const key = groupKeyOf(entry);
 
           if (key) onSelect(key);
@@ -386,6 +386,12 @@ export function ReportChart({
   }
 }
 
+/** Lo que Recharts entrega al pulsar una barra, una porción o un segmento. */
+interface ClickedEntry {
+  groupKey?: string;
+  payload?: ClickedEntry;
+}
+
 const withGroupKey = z.object({ groupKey: z.string() });
 
 /** Plana (una barra), dentro de `payload` (una porción) o dos niveles abajo. */
@@ -395,7 +401,7 @@ const clickedGroup = z.union([
   z.object({ payload: z.object({ payload: withGroupKey }) }).transform((entry) => entry.payload.payload.groupKey),
 ]);
 
-function groupKeyOf(entry: object): string | undefined {
+function groupKeyOf(entry: ClickedEntry): string | undefined {
   const parsed = clickedGroup.safeParse(entry);
 
   return parsed.success ? parsed.data : undefined;
@@ -587,12 +593,12 @@ function Heatmap({ result, color }: { result: ReportQueryResult; color: string }
   const hours = new Set<number>();
 
   for (const row of result.rows) {
-    const [day, hour] = (row.key ?? "").split("-").map(Number);
+    const [day, hour = Number.NaN] = (row.key ?? "").split("-").map(Number);
 
-    if (!day || Number.isNaN(hour as number)) continue;
+    if (!day || Number.isNaN(hour)) continue;
     const value = row.values[0] ?? 0;
     values.set(`${day}-${hour}`, value);
-    hours.add(hour as number);
+    hours.add(hour);
     max = Math.max(max, value);
   }
 

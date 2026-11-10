@@ -26,7 +26,11 @@ const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "
 /** En la vista de mes, las tarjetas que caben en una casilla antes de "+N más". */
 const CELL_LIMIT = 3;
 
-const parse = (key: string) => key.split("-").map(Number) as [number, number, number];
+const parse = (key: string) => {
+  const [year = 0, month = 1, day = 1] = key.split("-").map(Number);
+
+  return [year, month, day] as const;
+};
 
 const utc = (key: string) => {
   const [year, month, day] = parse(key);
@@ -105,7 +109,9 @@ function rangeLabel(view: View, anchor: string, from: string, to: string): strin
 
 // ── Estados y filtros ─────────────────────────────────────────
 
-type Kind = "projected" | "open" | "completed" | "overdue";
+const KINDS = ["projected", "open", "completed", "overdue"] as const;
+
+type Kind = (typeof KINDS)[number];
 
 function kindOf(item: CalendarItem): Kind {
   if (item.kind === "projected" || !item.order) return "projected";
@@ -155,8 +161,6 @@ const KIND: Record<
     Icon: AlertIcon,
   },
 };
-
-const KINDS = Object.keys(KIND) as Kind[];
 
 // ── Calendario ────────────────────────────────────────────────
 

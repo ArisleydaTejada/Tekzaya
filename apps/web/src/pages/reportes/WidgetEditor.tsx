@@ -19,15 +19,12 @@ import {
   WIDGET_SORT_LABEL,
   WORK_ORDER_TYPES,
   WORK_ORDER_TYPE_LABEL,
-  type Aggregation,
-  type AssetType,
-  type ChartType,
-  type DimensionKey,
   type MeasureKey,
   type ReportCatalog,
   type ReportSource,
   type ReportWidget,
-  type WorkOrderType,
+  AGGREGATIONS,
+  DIMENSION_KEYS,
 } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -35,6 +32,7 @@ import { reportKeys, runReportWidget, type ReportScopeRequest } from "../../api/
 import { areaKeys, listAreas } from "../../api/tickets";
 import { XIcon } from "../../components/icons";
 import { ReportChart } from "./ReportChart";
+import { allOf, oneOf } from "../../lib/oneOf";
 
 /**
  * El panel del §7.8.3, con vista previa en vivo. La regla que lo gobierna es la del
@@ -200,7 +198,7 @@ export function WidgetEditor({
                                   set({
                                     measures: draft.measures.map((item) =>
                                       item.key === measure.key
-                                        ? { ...item, aggregation: event.target.value as Aggregation }
+                                        ? { ...item, aggregation: oneOf(AGGREGATIONS, event.target.value) ?? item.aggregation }
                                         : item,
                                     ),
                                   })
@@ -231,7 +229,7 @@ export function WidgetEditor({
                 label="Agrupar por"
                 value={draft.groupBy ?? ""}
                 onChange={(value) =>
-                  set({ groupBy: (value || undefined) as DimensionKey | undefined })
+                  set({ groupBy: oneOf(DIMENSION_KEYS, value) })
                 }
                 options={[
                   { value: "", label: "Sin agrupar" },
@@ -245,7 +243,7 @@ export function WidgetEditor({
               <Select
                 label="Segmentar por"
                 value={draft.splitBy ?? ""}
-                onChange={(value) => set({ splitBy: (value || undefined) as DimensionKey | undefined })}
+                onChange={(value) => set({ splitBy: oneOf(DIMENSION_KEYS, value) })}
                 options={[
                   { value: "", label: "Sin segmentar" },
                   ...dimensions
@@ -267,7 +265,7 @@ export function WidgetEditor({
                   <button
                     key={type}
                     disabled={incompatible}
-                    onClick={() => set({ chart: type as ChartType })}
+                    onClick={() => set({ chart: type })}
                     title={incompatible ? validateWidget(candidate)! : undefined}
                     className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
                       draft.chart === type
@@ -307,7 +305,7 @@ export function WidgetEditor({
                     selected={draft.filters.assetTypes ?? []}
                     onChange={(values) =>
                       set({
-                        filters: { ...draft.filters, assetTypes: values.length ? (values as AssetType[]) : undefined },
+                        filters: { ...draft.filters, assetTypes: values.length ? allOf(ASSET_TYPES, values) : undefined },
                       })
                     }
                   />
@@ -316,7 +314,7 @@ export function WidgetEditor({
                     value={draft.filters.workOrderType ?? ""}
                     onChange={(value) =>
                       set({
-                        filters: { ...draft.filters, workOrderType: (value || undefined) as WorkOrderType | undefined },
+                        filters: { ...draft.filters, workOrderType: oneOf(WORK_ORDER_TYPES, value) },
                       })
                     }
                     options={[
@@ -335,7 +333,7 @@ export function WidgetEditor({
                   set({
                     filters: {
                       ...draft.filters,
-                      priorities: values.length ? (values as typeof PRIORITIES[number][]) : undefined,
+                      priorities: values.length ? allOf(PRIORITIES, values) : undefined,
                     },
                   })
                 }
@@ -347,7 +345,7 @@ export function WidgetEditor({
                   set({
                     filters: {
                       ...draft.filters,
-                      statuses: values.length ? (values as typeof TICKET_STATUSES[number][]) : undefined,
+                      statuses: values.length ? allOf(TICKET_STATUSES, values) : undefined,
                     },
                   })
                 }
@@ -359,7 +357,7 @@ export function WidgetEditor({
                   set({
                     filters: {
                       ...draft.filters,
-                      slaState: (value || undefined) as typeof SLA_STATES[number] | undefined,
+                      slaState: oneOf(SLA_STATES, value),
                     },
                   })
                 }
@@ -395,7 +393,7 @@ export function WidgetEditor({
                 <Select
                   label="Orden"
                   value={draft.sort}
-                  onChange={(value) => set({ sort: value as ReportWidget["sort"] })}
+                  onChange={(value) => set({ sort: oneOf(WIDGET_SORTS, value) ?? draft.sort })}
                   options={WIDGET_SORTS.map((value) => ({ value, label: WIDGET_SORT_LABEL[value] }))}
                 />
                 <Select

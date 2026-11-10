@@ -10,6 +10,7 @@ import {
   type SparePartAssetRef,
   type SparePartDetail,
   type SparePartView,
+  type AssetStatus,
 } from "@tekzaya/shared";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
@@ -21,6 +22,10 @@ import { AssetPhotosField } from "./assets";
 import { AlertIcon, SearchIcon, XIcon } from "./icons";
 import { Modal } from "./Modal";
 import { MoneyInput } from "./MoneyInput";
+import { oneOf } from "../lib/oneOf";
+
+/** Los equipos que se pueden vincular a un repuesto: los dados de baja no. */
+const LINKABLE_STATUSES = ["operational", "in_repair"] satisfies AssetStatus[];
 
 const inputClass =
   "w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent";
@@ -200,7 +205,7 @@ export function SparePartFormModal({
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className={labelClass}>Unidad</span>
-            <select value={unit} onChange={(event) => setUnit(event.target.value as PartUnit)} className={inputClass}>
+            <select value={unit} onChange={(event) => setUnit(oneOf(PART_UNITS, event.target.value) ?? unit)} className={inputClass}>
               {PART_UNITS.map((option) => (
                 <option key={option} value={option}>
                   {PART_UNIT_LABEL[option]}
@@ -260,7 +265,7 @@ function AssetChecklist({
 }) {
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
-  const query = { areaId, status: ["operational", "in_repair"] as ("operational" | "in_repair")[], sort: "name", limit: 100, q: q || undefined } as const;
+  const query = { areaId, status: LINKABLE_STATUSES, sort: "name" as const, limit: 100, q: q || undefined };
 
   const { data, isLoading } = useQuery({
     queryKey: assetKeys.list(query),

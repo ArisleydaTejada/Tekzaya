@@ -5,14 +5,17 @@ import {
   REPORT_SOURCES,
   STATS_PERIOD_LABEL,
   STATS_PERIODS,
-  type Perspective,
   type ReportCatalog,
   type ReportDefinition,
   type ReportSource,
   type ReportTemplate,
   type ReportWidget,
   type SavedReport,
-  type StatsScope,
+  STATS_SCOPES,
+  PRIORITIES,
+  TICKET_STATUSES,
+  SLA_STATES,
+  CSAT_RATINGS,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -36,6 +39,7 @@ import { TicketsOfPeriod } from "./reportes/TicketsOfPeriod";
 import { WidgetCard } from "./reportes/WidgetCard";
 import { WidgetEditor } from "./reportes/WidgetEditor";
 import { WorkOrdersOfPeriod, type WorkOrderListFilters } from "./reportes/WorkOrdersOfPeriod";
+import { allOf, oneOf } from "../lib/oneOf";
 
 /** Reporte que se está viendo: una plantilla abierta, uno guardado o un lienzo nuevo. */
 interface Draft extends ReportDefinition {
@@ -566,7 +570,11 @@ function ScopeSelector({
             key={item.id}
             aria-pressed={draft?.scope === item.id}
             onClick={() => {
-              const patch: Partial<Draft> = { scope: item.id as StatsScope };
+              const scope = oneOf(STATS_SCOPES, item.id);
+
+              if (!scope) return;
+
+              const patch: Partial<Draft> = { scope };
 
               // Elegir "un área" o "una persona" arranca en la propia: es el caso
               // normal y evita un selector vacío esperando una decisión.
@@ -1054,7 +1062,7 @@ function fromSaved(report: SavedReport): Draft {
     period: report.period,
     from: report.from || undefined,
     to: report.to || undefined,
-    perspective: report.perspective ? report.perspective as Perspective : undefined,
+    perspective: oneOf(PERSPECTIVES, report.perspective),
     widgets: report.widgets,
     dirty: false,
     narrowed: report.scopeNarrowed,
@@ -1066,13 +1074,13 @@ type TicketDrill = (key: string) => NonNullable<ReportDefinition["ticketFilters"
 
 const DRILL_FILTERS = new Map<string, TicketDrill>([
   ["category", (key) => ({ categoryIds: [key] })],
-  ["priority", (key) => ({ priorities: [key as "urgent" | "high" | "medium" | "low"] })],
-  ["status", (key) => ({ statuses: [key] as NonNullable<ReportDefinition["ticketFilters"]>["statuses"] })],
-  ["sla_state", (key) => ({ slaStates: [key as "on_time" | "at_risk" | "breached"] })],
+  ["priority", (key) => ({ priorities: allOf(PRIORITIES, [key]) })],
+  ["status", (key) => ({ statuses: allOf(TICKET_STATUSES, [key]) })],
+  ["sla_state", (key) => ({ slaStates: allOf(SLA_STATES, [key]) })],
   ["area", (key) => ({ areaIds: [key] })],
   ["assignee", (key) => (key ? { assigneeIds: [key] } : { unassigned: true })],
   ["requester", (key) => ({ requesterId: key })],
-  ["csat", (key) => ({ csatRatings: [(key || "none") as "1" | "2" | "3" | "4" | "5" | "none"] })],
+  ["csat", (key) => ({ csatRatings: allOf(CSAT_RATINGS, [key || "none"]) })],
   ["created_on_behalf", (key) => ({ onBehalf: key === "on_behalf" })],
 ]);
 

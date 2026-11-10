@@ -13,7 +13,10 @@ export async function downloadChartPng(container: HTMLElement, filename: string)
   if (!svg) throw new Error("Esta gráfica no es una imagen que se pueda descargar");
 
   const { width, height } = svg.getBoundingClientRect();
-  const clone = svg.cloneNode(true) as SVGElement;
+  const clone = svg.cloneNode(true);
+
+  if (!(clone instanceof SVGElement)) throw new Error("Esta gráfica no es una imagen que se pueda descargar");
+
   clone.setAttribute("width", String(width));
   clone.setAttribute("height", String(height));
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
