@@ -32,6 +32,7 @@ export function LogoLockup({
 }) {
   const { theme } = useTheme();
   const background = on ?? theme;
+
   return (
     <img
       src={background === "dark" ? lockupWhite : lockupDark}

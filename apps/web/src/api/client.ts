@@ -28,6 +28,7 @@ const sessionLostListeners = new Set<() => void>();
 /** Avisa cuando la sesión no se pudo renovar. Devuelve la función para dejar de escuchar. */
 export function onSessionLost(listener: () => void): () => void {
   sessionLostListeners.add(listener);
+
   return () => sessionLostListeners.delete(listener);
 }
 
@@ -42,6 +43,7 @@ export function refreshSession(): Promise<boolean> {
     .finally(() => {
       refreshing = null;
     });
+
   return refreshing;
 }
 
@@ -52,11 +54,13 @@ export function refreshSession(): Promise<boolean> {
  */
 export async function sessionFetch(path: string, init: RequestInit): Promise<Response> {
   const response = await fetch(`${BASE_URL}${path}`, init);
+
   if (response.status !== 401 || path.startsWith("/auth/")) return response;
 
   if (await refreshSession()) return fetch(`${BASE_URL}${path}`, init);
 
   for (const listener of sessionLostListeners) listener();
+
   return response;
 }
 
@@ -123,10 +127,13 @@ export async function apiUpload<T extends z.ZodType>(
 /** `{ scope: "area", page: 2 }` → `?scope=area&page=2`, saltando lo vacío. */
 export function queryString(params: Record<string, unknown>): string {
   const search = new URLSearchParams();
+
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;
     search.set(key, Array.isArray(value) ? value.join(",") : String(value));
   }
+
   const text = search.toString();
+
   return text ? `?${text}` : "";
 }

@@ -22,31 +22,43 @@ import { Popover } from "./Popover";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
 /** En la vista de mes, las tarjetas que caben en una casilla antes de "+N más". */
 const CELL_LIMIT = 3;
 
 const parse = (key: string) => key.split("-").map(Number) as [number, number, number];
+
 const utc = (key: string) => {
   const [year, month, day] = parse(key);
+
   return new Date(Date.UTC(year, month - 1, day));
 };
+
 /** 0 = lunes … 6 = domingo. */
 const weekdayOf = (key: string) => (utc(key).getUTCDay() + 6) % 7;
+
 const lastOfMonth = (key: string) => {
   const [year, month] = parse(key);
+
   return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
 };
+
 const monthStart = (key: string) => `${key.slice(0, 7)}-01`;
+
 const shiftMonth = (key: string, delta: number) => {
   const [year, month] = parse(key);
+
   return new Date(Date.UTC(year, month - 1 + delta, 1)).toISOString().slice(0, 10);
 };
+
 const format = (key: string, options: Intl.DateTimeFormatOptions) =>
   utc(key).toLocaleDateString("es-MX", { timeZone: "UTC", ...options });
+
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 function localToday(): string {
   const now = new Date();
+
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
@@ -56,10 +68,13 @@ type View = "month" | "week";
 function rangeOf(view: View, anchor: string): { from: string; to: string } {
   if (view === "week") {
     const from = addDaysToKey(anchor, -weekdayOf(anchor));
+
     return { from, to: addDaysToKey(from, 6) };
   }
+
   const first = monthStart(anchor);
   const last = lastOfMonth(anchor);
+
   return {
     from: addDaysToKey(first, -weekdayOf(first)),
     to: addDaysToKey(last, 6 - weekdayOf(last)),
@@ -68,13 +83,16 @@ function rangeOf(view: View, anchor: string): { from: string; to: string } {
 
 function daysBetween(from: string, to: string): string[] {
   const days: string[] = [];
+
   for (let day = from; day <= to; day = addDaysToKey(day, 1)) days.push(day);
+
   return days;
 }
 
 function rangeLabel(view: View, anchor: string, from: string, to: string): string {
   if (view === "month") return capitalize(format(anchor, { month: "long", year: "numeric" }));
   const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+
   return sameMonth
     ? `${Number(from.slice(8))} – ${format(to, { day: "numeric", month: "short", year: "numeric" })}`
     : `${format(from, { day: "numeric", month: "short" })} – ${format(to, { day: "numeric", month: "short", year: "numeric" })}`;
@@ -86,7 +104,9 @@ type Kind = "projected" | "open" | "completed" | "overdue";
 
 function kindOf(item: CalendarItem): Kind {
   if (item.kind === "projected" || !item.order) return "projected";
+
   if (item.order.overdue) return "overdue";
+
   return item.order.status === "completed" ? "completed" : "open";
 }
 
@@ -130,6 +150,7 @@ const KIND: Record<
     Icon: AlertIcon,
   },
 };
+
 const KINDS = Object.keys(KIND) as Kind[];
 
 // ── Calendario ────────────────────────────────────────────────
@@ -153,25 +174,32 @@ export function PlanCalendar({
   const [hiddenAreas, setHiddenAreas] = useState<ReadonlySet<string>>(new Set());
 
   const { from, to } = rangeOf(view, anchor);
+
   const { data, isLoading, error } = useQuery({
     queryKey: planKeys.calendar({ from, to }),
     queryFn: () => getPlanCalendar({ from, to }),
     placeholderData: (previous) => previous,
   });
+
   const today = data?.today ?? localToday();
 
   const allItems = data?.items ?? [];
+
   const areas = [...new Map(allItems.map((item) => [item.area.id, item.area])).values()].sort((a, b) =>
     a.name.localeCompare(b.name, "es"),
   );
+
   const items = allItems.filter((item) => !hidden.has(kindOf(item)) && !hiddenAreas.has(item.area.id));
   const byDay = new Map<string, CalendarItem[]>();
+
   for (const item of items) byDay.set(item.date, [...(byDay.get(item.date) ?? []), item]);
   const activeFilters = hidden.size + hiddenAreas.size;
 
   const planById = new Map(plans.map((plan) => [plan.id, plan]));
+
   function actionsOf(item: CalendarItem): DropdownItem[] {
     const plan = item.planId ? planById.get(item.planId) : undefined;
+
     return [
       ...(item.order
         ? [
@@ -199,13 +227,16 @@ export function PlanCalendar({
 
   const toggle = <T,>(set: ReadonlySet<T>, value: T) => {
     const next = new Set(set);
+
     if (next.has(value)) next.delete(value);
     else next.add(value);
+
     return next;
   };
 
   const buttonClass =
     "flex h-9 items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]";
+
   const days = daysBetween(from, to);
   const visibleMonth = anchor.slice(0, 7);
 
@@ -358,6 +389,7 @@ export function PlanCalendar({
                 const outside = view === "month" && !day.startsWith(visibleMonth);
                 const dayItems = byDay.get(day) ?? [];
                 const shown = view === "month" ? dayItems.slice(0, CELL_LIMIT) : dayItems;
+
                 return (
                   <div
                     key={day}
@@ -431,7 +463,9 @@ const keyOf = (item: CalendarItem) => item.order?.id ?? `${item.planId ?? ""}-${
 
 function subtitleOf(item: CalendarItem): string {
   const what = item.asset ? item.asset.name : `${item.assetCount ?? 0} equipos`;
+
   if (!item.order) return `${what} · sin orden todavía`;
+
   return `${what} · ${item.order.overdue ? "Vencida" : WORK_ORDER_STATUS_LABEL[item.order.status]}`;
 }
 
@@ -443,6 +477,7 @@ function subtitleOf(item: CalendarItem): string {
 function CalendarCard({ item, actions }: { item: CalendarItem; actions: DropdownItem[] }) {
   const kind = kindOf(item);
   const { Icon } = KIND[kind];
+
   return (
     <div
       className={`relative rounded-lg border bg-[var(--content-surface)] px-2 py-1.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-colors hover:bg-[var(--content-bg)] ${KIND[kind].card}`}
@@ -491,6 +526,7 @@ function Agenda({
   actionsOf: (item: CalendarItem) => DropdownItem[];
 }) {
   const busy = days.filter((day) => byDay.has(day));
+
   if (!busy.length) {
     return (
       <Plate className="py-10 text-center text-sm text-[var(--content-ink-dim)] sm:hidden">
@@ -498,6 +534,7 @@ function Agenda({
       </Plate>
     );
   }
+
   return (
     <ul className="space-y-4 sm:hidden">
       {busy.map((day) => (
@@ -558,6 +595,7 @@ function MonthPicker({
   buttonClass: string;
 }) {
   const [year, setYear] = useState(() => Number(anchor.slice(0, 4)));
+
   return (
     <Popover
       label="Elegir mes"
@@ -594,6 +632,7 @@ function MonthPicker({
           {MONTHS.map((name, index) => {
             const key = `${year}-${String(index + 1).padStart(2, "0")}-01`;
             const current = key.slice(0, 7) === anchor.slice(0, 7);
+
             return (
               <button
                 key={name}

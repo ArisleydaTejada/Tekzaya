@@ -154,6 +154,7 @@ export function createMessage(ticketId: string, input: CreateMessageInput): Prom
 export function uploadAttachment(file: File): Promise<Attachment> {
   const body = new FormData();
   body.append("file", file);
+
   return apiUpload("/attachments", uploadedAttachment, body);
 }
 

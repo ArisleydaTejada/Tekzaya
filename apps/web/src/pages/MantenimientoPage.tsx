@@ -23,6 +23,7 @@ import { formatDay, formatQuantity, warrantyCountdown } from "../lib/format";
  */
 export default function MantenimientoPage() {
   const [areaId, setAreaId] = useState<string | undefined>(undefined);
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: maintenanceKeys.dashboard(areaId),
     queryFn: () => getMaintenanceDashboard(areaId),
@@ -80,6 +81,7 @@ export default function MantenimientoPage() {
 function Dashboard({ data }: { data: MaintenanceDashboard }) {
   const { kpis, alerts, rules } = data;
   const pending = kpis.preventivesThisWeek.total - kpis.preventivesThisWeek.done;
+
   return (
     <>
       <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

@@ -11,6 +11,7 @@ export function RequireAuth() {
   const { me, isLoading } = useAuth();
 
   if (isLoading) return <SessionCheck />;
+
   if (!me) return <Navigate to="/" replace />;
 
   return <Outlet />;
@@ -25,6 +26,7 @@ export function RequireGuest() {
   const { me, isLoading } = useAuth();
 
   if (isLoading) return <SessionCheck />;
+
   if (me) return <Navigate to="/tablero" replace />;
 
   return <Outlet />;
@@ -50,7 +52,9 @@ export function RequireAdmin() {
   const { me, isLoading } = useAuth();
 
   if (isLoading) return null;
+
   if (!me) return <Navigate to="/" replace />;
+
   if (me.role !== "admin") return <Navigate to="/tablero" replace />;
 
   return <Outlet />;
@@ -61,7 +65,9 @@ export function RequireUserManager() {
   const { me, isLoading } = useAuth();
 
   if (isLoading) return null;
+
   if (!me) return <Navigate to="/" replace />;
+
   if (!canManageUsers(me)) return <Navigate to="/tablero" replace />;
 
   return <Outlet />;
@@ -72,7 +78,9 @@ export function RequireSettingsManager() {
   const { me, isLoading } = useAuth();
 
   if (isLoading) return null;
+
   if (!me) return <Navigate to="/" replace />;
+
   if (!canManageSettings(me)) return <Navigate to="/tablero" replace />;
 
   return <Outlet />;

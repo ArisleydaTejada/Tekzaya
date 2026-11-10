@@ -166,6 +166,7 @@ function NotificationRow({
         : item.assetNumber
           ? `/activos/${formatAssetNumber(item.assetNumber)}`
           : null;
+
   if (!to) return <li>{content}</li>;
 
   return (

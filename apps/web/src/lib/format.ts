@@ -12,10 +12,14 @@ export function formatWhen(iso: string): string {
 
   if (new Date(now).toDateString() === date.toDateString()) {
     const minutes = Math.floor(diffMs / 60_000);
+
     if (minutes < 1) return "justo ahora";
+
     if (minutes < 60) return `hace ${minutes} min`;
+
     return `hace ${Math.floor(minutes / 60)} h`;
   }
+
   return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -50,14 +54,19 @@ export function formatSlaDelta(iso: string): string {
 /** Lo que lleva acumulado una pausa del SLA, en la misma escala corta. */
 export function formatSlaDuration(ms: number): string {
   const minutes = Math.round(ms / 60_000);
+
   if (minutes < 60) return `${minutes}m`;
+
   if (minutes < 60 * 48) return `${Math.round(minutes / 60)}h`;
+
   return `${Math.round(minutes / 1440)}d`;
 }
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
+
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -67,6 +76,7 @@ export function formatBytes(bytes: number): string {
  */
 export function formatDay(key: string): string {
   const [year, month, day] = key.split("-").map(Number) as [number, number, number];
+
   return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("es-MX", {
     timeZone: "UTC",
     day: "numeric",
@@ -80,14 +90,18 @@ export function daysUntil(key: string): number {
   const [year, month, day] = key.split("-").map(Number) as [number, number, number];
   const now = new Date();
   const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+
   return Math.round((Date.UTC(year, month - 1, day) - today) / 86_400_000);
 }
 
 /** "Vence en 18 días", "Venció hace 3 días", "Vence hoy". */
 export function warrantyCountdown(until: string): string {
   const days = daysUntil(until);
+
   if (days === 0) return "Vence hoy";
+
   if (days > 0) return `Vence en ${days} ${days === 1 ? "día" : "días"}`;
+
   return `Venció hace ${-days} ${days === -1 ? "día" : "días"}`;
 }
 
@@ -95,7 +109,9 @@ export function warrantyCountdown(until: string): string {
 export function formatMinutes(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
+
   if (hours === 0) return `${rest} min`;
+
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
 

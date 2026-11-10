@@ -121,6 +121,7 @@ export async function downloadWidgetCsv(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...scope, widget }),
   });
+
   if (!response.ok) throw new Error("No se pudo exportar la gráfica");
 
   const blob = await response.blob();

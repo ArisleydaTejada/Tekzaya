@@ -63,6 +63,7 @@ function useWorkOrderTitle(number: string): string | undefined {
     retry: false,
     staleTime: 5 * 60_000,
   });
+
   return data?.title;
 }
 
@@ -73,6 +74,7 @@ function useWorkOrderTitle(number: string): string | undefined {
  */
 function byUrgency(items: readonly WorkOrderListItem[]): WorkOrderListItem[] {
   const weight = (item: WorkOrderListItem) => (item.overdue ? 0 : item.outOfService ? 1 : 2);
+
   return [...items].sort((a, b) => weight(a) - weight(b));
 }
 
@@ -87,9 +89,11 @@ function useWorkOrderSections(search: string, open: boolean): PickerResult<WorkO
     dir: "desc",
     ...(search ? { q: search } : {}),
   };
+
   const mineQuery: Partial<WorkOrderListQuery> = { ...base, scope: "mine" };
   const openQuery: Partial<WorkOrderListQuery> = { ...base, scope: "all", status: OPEN_WORK_ORDER_STATUSES };
   const restQuery: Partial<WorkOrderListQuery> = { ...base, scope: "all", status: [...FINAL_WORK_ORDER_STATUSES] };
+
   const [mine, others, rest] = useQueries({
     queries: [
       { queryKey: workOrderKeys.list(mineQuery), queryFn: () => listWorkOrders(mineQuery), enabled: open },

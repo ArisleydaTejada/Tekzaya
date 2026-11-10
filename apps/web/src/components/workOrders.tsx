@@ -32,6 +32,7 @@ export function WorkOrderStatusBadge({
   holdReason?: WorkOrderHoldReason | undefined;
 }) {
   const token = STATUS_TOKEN[status];
+
   return (
     <span
       className="inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-[0.1em]"
@@ -50,6 +51,7 @@ export function WorkOrderStatusBadge({
 /** Correctiva (una avería) o preventiva (mantenimiento programado), con icono propio. */
 export function WorkOrderTypeTag({ type }: { type: WorkOrderType }) {
   const Icon = type === "corrective" ? WrenchIcon : ShieldIcon;
+
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-[var(--content-ink-dim)]">
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -88,6 +90,7 @@ const AVAILABILITY_TONE: Record<RequiredPartAvailability, string> = {
  */
 export function RequiredPartStatus({ item }: { item: Pick<WorkOrderRequiredPart, "qty" | "stock" | "used"> }) {
   const availability = requiredPartAvailability(item);
+
   const label =
     availability === "loaded"
       ? "Cargado"
@@ -96,6 +99,7 @@ export function RequiredPartStatus({ item }: { item: Pick<WorkOrderRequiredPart,
         : availability === "short"
           ? `Solo ${item.stock === 1 ? "queda 1" : `quedan ${item.stock}`}`
           : "Sin existencias";
+
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium ${AVAILABILITY_TONE[availability]}`}>
       <span className={`h-2.5 w-2.5 rounded-full ${AVAILABILITY_DOT[availability]}`} aria-hidden="true" />

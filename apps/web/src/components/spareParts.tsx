@@ -24,6 +24,7 @@ import { MoneyInput } from "./MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent";
+
 const labelClass = "mb-1 block text-xs font-medium text-[var(--content-ink-dim)]";
 
 /** Bajo mínimo: icono y texto, nunca solo color (plan A7). */
@@ -47,6 +48,7 @@ function centsOf(text: string): number | null {
 
 function ErrorBox({ message }: { message: string | undefined }) {
   if (!message) return null;
+
   return (
     <p role="alert" className="mb-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
       {message}
@@ -119,6 +121,7 @@ export function SparePartFormModal({
   const qty = Number(initialQty) || 0;
   const cost = centsOf(initialCost);
   const min = Number(minStock);
+
   const valid =
     name.trim().length > 0 &&
     !uploading &&
@@ -258,13 +261,16 @@ function AssetChecklist({
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
   const query = { areaId, status: ["operational", "in_repair"] as ("operational" | "in_repair")[], sort: "name", limit: 100, ...(q ? { q } : {}) } as const;
+
   const { data, isLoading } = useQuery({
     queryKey: assetKeys.list(query),
     queryFn: () => listAssets(query),
     enabled,
     placeholderData: keepPreviousData,
   });
+
   const chosen = new Set(value.map((asset) => asset.id));
+
   const toggle = (asset: SparePartAssetRef) =>
     onChange(chosen.has(asset.id) ? value.filter((other) => other.id !== asset.id) : [...value, asset]);
 
@@ -307,6 +313,7 @@ function AssetChecklist({
           <ul className="divide-y divide-[var(--content-border)]">
             {data.items.map((asset) => {
               const ref = { id: asset.id, number: asset.number, name: asset.name, status: asset.status };
+
               return (
                 <li key={asset.id}>
                   <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]">
@@ -367,6 +374,7 @@ export function StockMovementModal({
 
   const amount = Number(qty);
   const unitCost = centsOf(cost);
+
   const valid =
     Number.isInteger(amount) &&
     amount > 0 &&

@@ -70,6 +70,7 @@ export function TicketsOfPeriod({
   // ajusta durante el render y no en un efecto, para no pedir dos veces la misma lista.
   const signature = JSON.stringify([clean(filters), scope, limit]);
   const [lastSignature, setLastSignature] = useState(signature);
+
   if (signature !== lastSignature) {
     setLastSignature(signature);
     setPage(1);
@@ -384,6 +385,7 @@ const Dash = () => <span className="text-[var(--content-ink-dim)]">—</span>;
 
 function Hours({ value }: { value: number | null }) {
   if (value === null) return <Dash />;
+
   return <span className="tabular text-[var(--content-ink-dim)]">{value.toFixed(1)} h</span>;
 }
 
@@ -593,6 +595,7 @@ function Multi({
     <div className="flex flex-wrap gap-1">
       {options.map((option) => {
         const on = selected.includes(option.value);
+
         return (
           <button
             key={option.value}
@@ -692,6 +695,7 @@ function ColumnPicker({
   onChange: (columns: ReportColumn[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+
   return (
     <div className="relative">
       <button
@@ -738,11 +742,13 @@ function ColumnPicker({
 function readColumns(): ReportColumn[] {
   try {
     const stored = localStorage.getItem(COLUMNS_KEY);
+
     if (!stored) return DEFAULT_REPORT_COLUMNS;
     const parsed = JSON.parse(stored) as string[];
     // Se reordena según el catálogo: una selección guardada antes de cambiar el
     // orden de las columnas adopta el nuevo en vez de quedarse con el viejo.
     const valid = REPORT_COLUMNS.filter((item) => parsed.includes(item));
+
     return valid.length ? valid : DEFAULT_REPORT_COLUMNS;
   } catch {
     return DEFAULT_REPORT_COLUMNS;
@@ -752,10 +758,12 @@ function readColumns(): ReportColumn[] {
 /** Fuera lo vacío: un filtro sin valor no debe viajar en la URL ni en la clave de caché. */
 function clean(filters: Filters): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined || value === "" || (Array.isArray(value) && !value.length)) continue;
     result[key] = Array.isArray(value) ? value.join(",") : value;
   }
+
   return result;
 }
 

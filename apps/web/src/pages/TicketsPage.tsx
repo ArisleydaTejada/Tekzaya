@@ -95,7 +95,9 @@ const TABS: { scope: TicketScope; label: string }[] = [
  */
 function statusOptionsFor(scope: TicketScope): readonly TicketStatus[] {
   if (scope === "settled") return SETTLED_TICKET_STATUSES;
+
   if (scope === "mine" || scope === "all") return ALL_FILTER_STATUSES;
+
   return ACTIVE_TICKET_STATUSES;
 }
 
@@ -130,9 +132,11 @@ const kanbanKeyboardCoordinates: KeyboardCoordinateGetter = (event, { currentCoo
   if (event.code === "ArrowRight") {
     return { ...currentCoordinates, x: currentCoordinates.x + KANBAN_COLUMN_STEP };
   }
+
   if (event.code === "ArrowLeft") {
     return { ...currentCoordinates, x: currentCoordinates.x - KANBAN_COLUMN_STEP };
   }
+
   return undefined;
 };
 
@@ -140,9 +144,12 @@ const kanbanKeyboardCoordinates: KeyboardCoordinateGetter = (event, { currentCoo
 function kanbanAnnouncements(tickets: TicketListItem[]): Announcements {
   const nameOf = (id: string | number) => {
     const ticket = tickets.find((item) => item.id === id);
+
     return ticket ? formatTicketNumber(ticket.number) : "El ticket";
   };
+
   const columnOf = (id: string | number) => TICKET_STATUS_LABEL[id as TicketStatus] ?? String(id);
+
   return {
     onDragStart: ({ active }) => `${nameOf(active.id)} levantado.`,
     onDragOver: ({ active, over }) =>
@@ -222,6 +229,7 @@ export default function TicketsPage() {
     setScope(next);
     setPage(1);
     setSelected([]);
+
     // El estado elegido puede no existir en la pestaña de destino —"Cerrado" al
     // saltar de Resueltos a Mi área—, y arrastrarlo dejaría la tabla vacía.
     if (statusFilter && !statusOptionsFor(next).includes(statusFilter)) setStatusFilter("");
@@ -239,6 +247,7 @@ export default function TicketsPage() {
       setSort(column);
       setDir("asc");
     }
+
     setPage(1);
   }
 
@@ -248,6 +257,7 @@ export default function TicketsPage() {
 
   async function moveTo(ticket: TicketListItem, status: TicketStatus, note?: string) {
     setMoveError(null);
+
     try {
       await updateTicket(ticket.id, { status, ...(note ? { note } : {}) });
       await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
@@ -264,6 +274,7 @@ export default function TicketsPage() {
    */
   async function takeOnDrop(ticket: TicketListItem) {
     setMoveError(null);
+
     try {
       await takeTicket(ticket.id);
       await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
@@ -275,6 +286,7 @@ export default function TicketsPage() {
   /** Lo mismo, pero el supervisor elige a quién en vez de quedárselo. */
   async function assignOnDrop(ticket: TicketListItem, assigneeIds: string[]) {
     setMoveError(null);
+
     try {
       await setAssignees(ticket.id, { assigneeIds });
       await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
@@ -292,6 +304,7 @@ export default function TicketsPage() {
    */
   async function takeSelected() {
     setMoveError(null);
+
     for (const ticket of picked) {
       try {
         await takeTicket(ticket.id);
@@ -304,6 +317,7 @@ export default function TicketsPage() {
         break;
       }
     }
+
     setSelected([]);
     await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
   }
@@ -311,6 +325,7 @@ export default function TicketsPage() {
   /** Lo mismo para el supervisor, con la gente que eligió en el modal. */
   async function assignSelected(assigneeIds: string[], mode: AssignMode) {
     setMoveError(null);
+
     for (const ticket of picked) {
       try {
         // "Sumar" se resuelve ticket a ticket, porque cada uno parte de los suyos.
@@ -318,6 +333,7 @@ export default function TicketsPage() {
           mode === "add"
             ? [...new Set([...ticket.assignees.map((person) => person.id), ...assigneeIds])]
             : assigneeIds;
+
         await setAssignees(ticket.id, { assigneeIds: next });
       } catch (cause) {
         setMoveError(
@@ -328,6 +344,7 @@ export default function TicketsPage() {
         break;
       }
     }
+
     setAssignOpen(false);
     setSelected([]);
     await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
@@ -336,6 +353,7 @@ export default function TicketsPage() {
   /** El reparto automático ya confirmado: cada ticket a su persona, de uno en uno. */
   async function autoAssignSelected(plan: AutoAssignment[]) {
     setMoveError(null);
+
     for (const { ticketId, assigneeId } of plan) {
       try {
         await setAssignees(ticketId, { assigneeIds: [assigneeId] });
@@ -349,6 +367,7 @@ export default function TicketsPage() {
         break;
       }
     }
+
     setAssignOpen(false);
     setSelected([]);
     await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
@@ -636,6 +655,7 @@ function SelectionBar({
   // Quien supervisa todas las áreas marcadas reparte; quien solo pertenece a
   // ellas se los queda. El administrador entra por las dos puertas.
   const supervises = picked.length > 0 && Boolean(me) && picked.every((ticket) => isSupervisorOf(me!, ticket.area.id));
+
   const belongs =
     picked.length > 0 &&
     Boolean(me) &&
@@ -711,8 +731,10 @@ function MergeSelectionModal({
   const [error, setError] = useState<string | null>(null);
 
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (open) {
       setPrincipalId(oldest?.id ?? "");
       setReason("");
@@ -861,7 +883,9 @@ function Th({
   if (!column || !onSort) {
     return <th className="px-3 py-2.5 font-medium">{label}</th>;
   }
+
   const active = sort === column;
+
   return (
     <th
       className="px-3 py-2.5 font-medium"
@@ -1018,11 +1042,14 @@ function ListView({
 function GroupedView({ tickets }: { tickets: TicketListItem[] }) {
   const groups = useMemo(() => {
     const map = new Map<TicketStatus, TicketListItem[]>();
+
     for (const ticket of tickets) {
       map.set(ticket.status, [...(map.get(ticket.status) ?? []), ticket]);
     }
+
     return [...map.entries()];
   }, [tickets]);
+
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   return (
@@ -1071,9 +1098,11 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: ticket.id,
   });
+
   const style = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
     : undefined;
+
   const number = formatTicketNumber(ticket.number);
   const titleId = `kanban-${ticket.id}`;
   // Con el ratón se arrastra la tarjeta entera; con teclado, desde el número. Si
@@ -1132,6 +1161,7 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
 
 function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: TicketListItem[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+
   return (
     <section
       ref={setNodeRef}
@@ -1174,20 +1204,24 @@ function KanbanView({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: kanbanKeyboardCoordinates }),
   );
+
   const [pendingResolve, setPendingResolve] = useState<TicketListItem | null>(null);
   const [pendingAssign, setPendingAssign] = useState<TicketListItem | null>(null);
   const [note, setNote] = useState("");
 
   function handleDragEnd(event: DragEndEvent) {
     const target = event.over?.id as TicketStatus | undefined;
+
     if (!target) return;
     const ticket = tickets.find((item) => item.id === event.active.id);
+
     if (!ticket || ticket.status === target) return;
 
     // Resolver exige contar cómo se resolvió; el servidor rechaza el cambio sin
     // nota, así que se pide antes de enviarlo.
     if (target === "resolved") {
       setPendingResolve(ticket);
+
       return;
     }
 
@@ -1203,9 +1237,12 @@ function KanbanView({
     if (target === "assigned" && ticket.assignees.length === 0) {
       if (me && isSupervisorOf(me, ticket.area.id)) {
         setPendingAssign(ticket);
+
         return;
       }
+
       void onTake(ticket);
+
       return;
     }
 
@@ -1278,6 +1315,7 @@ function KanbanView({
         onConfirm={async (assigneeIds) => {
           const ticket = pendingAssign;
           setPendingAssign(null);
+
           if (ticket) await onAssign(ticket, assigneeIds);
         }}
       />
@@ -1322,6 +1360,7 @@ function AssignTicketsModal({
   // ajustar estado cuando cambia una prop, sin efecto de por medio.
   const key = tickets.map((ticket) => ticket.id).join(",");
   const [shownKey, setShownKey] = useState(key);
+
   if (key !== shownKey) {
     setShownKey(key);
     setSelected([]);
@@ -1338,8 +1377,10 @@ function AssignTicketsModal({
   const peak = Math.max(1, ...members.map((member) => member.load));
   const ordered = sortMembers(members, order);
   const available = members.filter((member) => member.availability.state === "available");
+
   const canAutoAssign =
     onAutoAssign !== undefined && tickets.length > 1 && unassigned.length > 0 && available.length > 0;
+
   const what =
     tickets.length === 1
       ? formatTicketNumber(tickets[0]!.number)
@@ -1465,6 +1506,7 @@ function AssignTicketsModal({
       <ul className="space-y-1">
         {ordered.map((member) => {
           const away = member.availability.state === "away";
+
           return (
             <li key={member.id}>
               <label
@@ -1556,6 +1598,7 @@ function AutoAssignPreview({
   onConfirm: () => void;
 }) {
   const available = members.filter((member) => member.availability.state === "available");
+
   const received = (memberId: string) =>
     tickets.filter((ticket) => plan[ticket.id] === memberId).length;
 
@@ -1592,6 +1635,7 @@ function AutoAssignPreview({
       <ul className="mb-4 grid gap-1.5 sm:grid-cols-2">
         {sortMembers(available, "load").map((member) => {
           const count = received(member.id);
+
           return (
             <li
               key={member.id}

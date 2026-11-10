@@ -39,15 +39,19 @@ export function DropdownMenu({ label, items }: { label: string; items: DropdownI
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
+
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
+
       if (!menu.current?.contains(target) && !trigger.current?.contains(target)) close();
     };
+
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         close();
         trigger.current?.focus();
       }
+
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         const buttons = [...(menu.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
@@ -56,10 +60,12 @@ export function DropdownMenu({ label, items }: { label: string; items: DropdownI
         buttons[(index + step + buttons.length) % buttons.length]?.focus();
       }
     };
+
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
+
     return () => {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);

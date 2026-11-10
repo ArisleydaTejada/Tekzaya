@@ -9,6 +9,7 @@
  */
 export async function downloadChartPng(container: HTMLElement, filename: string): Promise<void> {
   const svg = container.querySelector("svg");
+
   if (!svg) throw new Error("Esta gráfica no es una imagen que se pueda descargar");
 
   const { width, height } = svg.getBoundingClientRect();
@@ -21,9 +22,11 @@ export async function downloadChartPng(container: HTMLElement, filename: string)
   // los textos se fija al del tema actual antes de serializar; si no, salen negros
   // sobre fondo oscuro.
   const ink = getComputedStyle(document.documentElement).getPropertyValue("--content-ink").trim();
+
   const surface = getComputedStyle(document.documentElement)
     .getPropertyValue("--content-surface")
     .trim();
+
   for (const text of Array.from(clone.querySelectorAll("text"))) {
     if (!text.getAttribute("fill")) text.setAttribute("fill", ink);
   }
@@ -45,6 +48,7 @@ export async function downloadChartPng(container: HTMLElement, filename: string)
     canvas.width = Math.ceil(width * scale);
     canvas.height = Math.ceil(height * scale);
     const context = canvas.getContext("2d");
+
     if (!context) throw new Error("El navegador no puede generar la imagen");
 
     // Fondo opaco: un PNG transparente se ve ilegible pegado en un documento claro.

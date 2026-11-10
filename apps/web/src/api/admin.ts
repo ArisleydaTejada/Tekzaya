@@ -24,6 +24,7 @@ import { apiFetch } from "./client";
 const usersResponse = z.object({ items: z.array(adminUser) });
 const areasResponse = z.object({ items: z.array(adminArea) });
 const inviteResponse = z.object({ user: adminUser, link: accessLink });
+
 const userResponse = z.object({
   user: adminUser,
   /** Tickets de los que se sacó a la persona al desactivarla. */
@@ -41,6 +42,7 @@ export async function listUsers(query: Record<string, string> = {}): Promise<Adm
   const search = new URLSearchParams(
     Object.entries(query).filter(([, value]) => value !== ""),
   ).toString();
+
   return (await apiFetch(`/users${search ? `?${search}` : ""}`, usersResponse)).items;
 }
 

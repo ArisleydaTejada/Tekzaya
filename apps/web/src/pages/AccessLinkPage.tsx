@@ -81,6 +81,7 @@ export default function AccessLinkPage({ purpose }: { purpose: "invite" | "reset
             onSubmit={(event) => {
               event.preventDefault();
               setTouched(true);
+
               if (ready) submit.mutate();
             }}
             className="rounded-2xl border border-[var(--content-border)] bg-[var(--content-surface)] p-6"

@@ -60,11 +60,14 @@ export function WidgetEditor({
   const problem = validateWidget(draft);
 
   const areas = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
+
   const categories = useMemo(() => {
     const list = areas.data ?? [];
+
     const inScope = draft.filters.areaId
       ? list.filter((area) => area.id === draft.filters.areaId)
       : list;
+
     return inScope.flatMap((area) => area.categories.map((item) => ({ ...item, area: area.name })));
   }, [areas.data, draft.filters.areaId]);
 
@@ -91,9 +94,11 @@ export function WidgetEditor({
   function switchSource(next: ReportSource) {
     if (next === source) return;
     const first = catalog.measures.find((measure) => measure.source === next);
+
     if (!first) return;
     setDraft((current) => {
       const { groupBy: _group, splitBy: _split, ...rest } = current;
+
       return {
         ...rest,
         source: next,
@@ -104,6 +109,7 @@ export function WidgetEditor({
       };
     });
   }
+
   const allowsSplit = chartMeta.dimensions[1] >= 2;
   const allowsGroup = chartMeta.dimensions[1] >= 1;
 
@@ -162,7 +168,9 @@ export function WidgetEditor({
             <div className="max-h-56 space-y-3 overflow-y-auto rounded-lg border border-[var(--content-border)] p-2.5">
               {MEASURE_FAMILIES.map((family) => {
                 const options = measures.filter((measure) => measure.family === family);
+
                 if (!options.length) return null;
+
                 return (
                   <div key={family}>
                     <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
@@ -171,6 +179,7 @@ export function WidgetEditor({
                     <div className="space-y-1">
                       {options.map((measure) => {
                         const chosen = draft.measures.find((item) => item.key === measure.key);
+
                         return (
                           <div key={measure.key} className="flex items-center gap-2">
                             <label className="flex flex-1 items-center gap-2 text-xs text-[var(--content-ink)]">
@@ -253,6 +262,7 @@ export function WidgetEditor({
               {CHART_TYPES.map((type) => {
                 const candidate = { ...draft, chart: type };
                 const incompatible = validateWidget(candidate) !== null && type !== draft.chart;
+
                 return (
                   <button
                     key={type}
@@ -498,13 +508,17 @@ export function WidgetEditor({
 /** Añade o quita una medida respetando el techo del tipo de gráfica. */
 function toggleMeasure(widget: ReportWidget, key: MeasureKey): ReportWidget["measures"] {
   const existing = widget.measures.find((item) => item.key === key);
+
   if (existing) {
     const rest = widget.measures.filter((item) => item.key !== key);
+
     // Una gráfica sin medidas no existe: la última no se puede quitar.
     return rest.length ? rest : widget.measures;
   }
+
   const max = CHART_META[widget.chart].measures[1];
   const next = [...widget.measures, { key }];
+
   return next.length > max ? [...widget.measures.slice(1), { key }] : next;
 }
 
@@ -569,6 +583,7 @@ function Chips({
     <div className="flex flex-wrap gap-1">
       {options.map((option) => {
         const on = selected.includes(option.value);
+
         return (
           <button
             key={option.value}

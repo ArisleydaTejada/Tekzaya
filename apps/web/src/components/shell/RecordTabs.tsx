@@ -60,6 +60,7 @@ export function RecordTabs({
 
   useEffect(() => {
     if (!storageKey) return;
+
     try {
       localStorage.setItem(storageKey, JSON.stringify(tabs));
     } catch {
@@ -71,6 +72,7 @@ export function RecordTabs({
     const index = tabs.indexOf(number);
     const next = tabs.filter((tab) => tab !== number);
     setTabs(next);
+
     if (number === current) {
       const neighbor = next[Math.min(index, next.length - 1)];
       navigate(neighbor ? `${basePath}/${neighbor}` : basePath);
@@ -83,6 +85,7 @@ export function RecordTabs({
       const without = prev.filter((tab) => tab !== number);
       const at = Math.max(0, Math.min(index, without.length));
       const next = [...without.slice(0, at), number, ...without.slice(at)];
+
       return next.every((tab, i) => tab === prev[i]) ? prev : next;
     });
   }
@@ -93,6 +96,7 @@ export function RecordTabs({
     if (!dragging) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
+
     if (over === dragging) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const after = event.clientX > rect.left + rect.width / 2;
@@ -103,6 +107,7 @@ export function RecordTabs({
   // Sin pestañas no hay barra (el "+" suelto sobraba), y fuera de la sección
   // tampoco: son de esa pantalla, no de toda la aplicación.
   const inSection = pathname === basePath || pathname.startsWith(`${basePath}/`);
+
   if (!inSection || tabs.length === 0) return null;
 
   return (
@@ -234,8 +239,10 @@ function RecordTab({
 
 function readTabs(key: string | null): string[] {
   if (!key) return [];
+
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+
     return Array.isArray(parsed) ? parsed.filter((tab): tab is string => typeof tab === "string") : [];
   } catch {
     return [];

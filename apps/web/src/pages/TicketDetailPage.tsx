@@ -85,6 +85,7 @@ import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
  * así el menú no ofrece lo que el servidor rechazaría.
  */
 const SEND_AS_TARGETS = ["in_progress", "on_hold", "resolved"] as const satisfies readonly TicketStatus[];
+
 const SEND_AS_FROM: Partial<Record<TicketStatus, readonly TicketStatus[]>> = {
   open: ["in_progress", "on_hold"],
   assigned: ["in_progress", "on_hold", "resolved"],
@@ -95,6 +96,7 @@ const SEND_AS_FROM: Partial<Record<TicketStatus, readonly TicketStatus[]>> = {
 
 function sendAsTargets(current: TicketStatus): TicketStatus[] {
   const allowed = SEND_AS_FROM[current] ?? [];
+
   return SEND_AS_TARGETS.filter((status) => allowed.includes(status));
 }
 
@@ -203,6 +205,7 @@ export default function TicketDetailPage() {
     queryFn: () => getTicketByNumber(number),
     retry: false,
   });
+
   const ticket = ticketQuery.data;
 
   const messagesQuery = useQuery({
@@ -274,21 +277,26 @@ export default function TicketDetailPage() {
   const sendAs = useMutation({
     mutationFn: async (status: TicketStatus): Promise<"done" | "needs-note"> => {
       const body = draft.trim();
+
       if (status === "resolved" && composerTab === "public" && body.length >= 3) {
         await updateTicket(ticket!.id, {
           status,
           note: body,
           ...(files.length ? { attachmentIds: files.map((file) => file.id) } : {}),
         });
+
         return "done";
       }
+
       await createMessage(ticket!.id, {
         type: composerTab,
         body,
         attachmentIds: files.map((file) => file.id),
       });
+
       if (status === "resolved") return "needs-note";
       await updateTicket(ticket!.id, { status });
+
       return "done";
     },
     onSuccess: async (result) => {
@@ -297,6 +305,7 @@ export default function TicketDetailPage() {
       setFiles([]);
       setActionError(null);
       await refresh();
+
       if (result === "needs-note") setResolveOpen(true);
     },
     onError: async (error) => {
@@ -440,15 +449,18 @@ export default function TicketDetailPage() {
   function addFiles(list: FileList | null) {
     setFileError(null);
     let room = MAX_ATTACHMENTS_PER_MESSAGE - files.length;
+
     for (const file of Array.from(list ?? [])) {
       if (room <= 0) {
         setFileError(`Máximo ${MAX_ATTACHMENTS_PER_MESSAGE} archivos`);
         break;
       }
+
       if (file.size > MAX_ATTACHMENT_BYTES) {
         setFileError(`«${file.name}» supera los 10 MB`);
         continue;
       }
+
       room -= 1;
       upload.mutate(file);
     }
@@ -561,10 +573,13 @@ export default function TicketDetailPage() {
                   value={ticket.status}
                   onChange={(event) => {
                     const next = event.target.value as TicketStatus;
+
                     if (next === "resolved") {
                       setResolveOpen(true);
+
                       return;
                     }
+
                     patch.mutate({ status: next });
                   }}
                   className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs text-[var(--content-ink)]"
@@ -1082,6 +1097,7 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 function MessageBubble({ message, meId }: { message: MessageView; meId?: string }) {
   if (message.type === "system") {
     const event = message.systemEvent;
+
     return (
       <li className="flex justify-center">
         <span className="rounded-full bg-[var(--content-bg)] px-3 py-1 text-[11px] text-[var(--content-ink-dim)]">
@@ -1189,6 +1205,7 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
 
 function describeEvent(event: MessageView["systemEvent"]): string {
   if (!event) return "Actualización";
+
   switch (event.kind) {
     case "status_changed":
       return `Estado: ${label(event.from)} → ${label(event.to)}${event.reason ? ` · ${event.reason}` : ""}`;
@@ -1257,6 +1274,7 @@ function AssetCard({
 
   if (!asset) {
     if (!permissions.linkAsset) return null;
+
     return (
       <Plate className="p-4">
         <button
@@ -1275,6 +1293,7 @@ function AssetCard({
   // resuelve solo, porque resolver exige una nota para el solicitante (plan A2).
   const finished = !openOrder ? workOrders.filter((order) => order.status === "completed").at(-1) : undefined;
   const suggestResolve = Boolean(finished) && permissions.changeStatus && !isSettledStatus(ticket.status);
+
   // El área del ticket no es la que mantiene el equipo: la OT no la puede abrir
   // ella. Se dice qué hacer en vez de esconder el botón sin explicación.
   const otherArea =
@@ -1450,8 +1469,10 @@ function WorkOrderModal({
 
   // Cada vez que se abre, parte del ticket tal como está ahora.
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (open) {
       setTitle(ticket.title);
       setDescription(ticket.description);
@@ -1590,6 +1611,7 @@ function ResolvedPanel({
 }) {
   // Solo el solicitante confirma que el problema desapareció (spec §5.2).
   const isRequesterSide = !ticket.permissions.viewInternalNotes;
+
   if (!isRequesterSide) return null;
 
   return (
@@ -1701,6 +1723,7 @@ function AssignModal({
   const [selected, setSelected] = useState<string[]>(() =>
     ticket.assignees.map((person) => person.id),
   );
+
   const [search, setSearch] = useState("");
   const [order, setOrder] = useState<MemberOrder>("load");
   const [error, setError] = useState<string | null>(null);
@@ -1708,8 +1731,10 @@ function AssignModal({
   // Al abrirse, la selección vuelve a partir de los responsables actuales. Es el
   // patrón de React para ajustar estado cuando cambia una prop, sin efecto.
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (open) setSelected(ticket.assignees.map((person) => person.id));
   }
 
@@ -1729,13 +1754,16 @@ function AssignModal({
   });
 
   const assignedNow = ticket.assignees.map((person) => person.id);
+
   const visible = sortMembers(
     members.filter((member) => member.name.toLowerCase().includes(search.trim().toLowerCase())),
     order,
   );
+
   // La barra se mide contra la persona más cargada del área, no contra un tope
   // inventado: lo que importa es el reparto relativo.
   const peak = Math.max(1, ...members.map((member) => member.load));
+
   const awaySelected = members.filter(
     (member) => member.availability.state === "away" && selected.includes(member.id),
   );
@@ -1782,6 +1810,7 @@ function AssignModal({
           const checked = selected.includes(member.id);
           // A quien está ausente no se le asigna; si ya era responsable, se le puede quitar.
           const locked = away && !assignedNow.includes(member.id);
+
           return (
             <li key={member.id}>
               <label
@@ -1999,6 +2028,7 @@ function MergeModal({
   // Si el ticket pertenece a un incidente, sus compañeros llegan marcados; el
   // usuario siempre confirma (spec §7.5.1).
   const [primed, setPrimed] = useState(false);
+
   if (open && !primed && found.length > 0) {
     setPrimed(true);
     setPicked(found.filter((item) => item.sameIncident).map((item) => item.id));
@@ -2006,8 +2036,10 @@ function MergeModal({
 
   // Al cerrarse, el modal se olvida de todo: la próxima fusión empieza limpia.
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (!open) {
       setPrimed(false);
       setPicked([]);

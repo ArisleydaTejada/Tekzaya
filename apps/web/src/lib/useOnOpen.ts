@@ -8,8 +8,10 @@ import { useState } from "react";
  */
 export function useOnOpen(open: boolean, reset: () => void): void {
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (open) reset();
   }
 }

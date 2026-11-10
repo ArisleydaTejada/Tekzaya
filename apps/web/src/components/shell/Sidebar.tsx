@@ -95,11 +95,13 @@ function useMyOpenCount(): number {
     status: [...ACTIVE_TICKET_STATUSES],
     limit: 1,
   };
+
   const { data } = useQuery({
     queryKey: [...ticketKeys.list(query), "count"],
     queryFn: () => listTickets(query),
     staleTime: 30_000,
   });
+
   return data?.total ?? 0;
 }
 
@@ -110,12 +112,14 @@ function useMyOpenCount(): number {
  */
 function useMyOpenWorkOrderCount(enabled: boolean): number {
   const query = { scope: "mine" as const, limit: 1 };
+
   const { data } = useQuery({
     queryKey: [...workOrderKeys.list(query), "count"],
     queryFn: () => listWorkOrders(query),
     staleTime: 30_000,
     enabled,
   });
+
   return data?.total ?? 0;
 }
 
@@ -135,6 +139,7 @@ function NavItem({
   collapsed: boolean;
 }) {
   const activeCount = count ?? 0;
+
   return (
     <NavLink
       to={to}

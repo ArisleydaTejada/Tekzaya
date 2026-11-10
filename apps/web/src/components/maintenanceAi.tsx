@@ -45,10 +45,12 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 function formatAge(months: number): string {
   const years = Math.floor(months / 12);
   const rest = months % 12;
+
   const parts = [
     years ? `${years} ${years === 1 ? "año" : "años"}` : "",
     rest || !years ? `${rest} ${rest === 1 ? "mes" : "meses"}` : "",
   ].filter(Boolean);
+
   return parts.join(" y ");
 }
 
@@ -65,12 +67,14 @@ export function ReplacementAdviceCard({ asset }: { asset: Pick<AssetView, "id" |
   const [asked, setAsked] = useState(false);
   const enabled = Boolean(ai?.configured && ai.enabled.replacementAdvice);
   const shown = enabled && asset.status !== "retired" && asset.permissions.viewDetails;
+
   const { data: advice, isFetching, isError, error, refetch } = useQuery({
     queryKey: aiKeys.replacement(asset.id),
     queryFn: () => getReplacementAdvice(asset.id),
     enabled: shown && asked,
     staleTime: 5 * 60_000,
   });
+
   if (!shown) return null;
 
   if (advice === undefined) {
@@ -116,6 +120,7 @@ export function ReplacementAdviceCard({ asset }: { asset: Pick<AssetView, "id" |
   }
 
   const money = (cents: number) => formatMoney(cents, advice.currency);
+
   return (
     <Plate className="p-4 text-sm">
       <AiLabel>Sugerencia de IA</AiLabel>
@@ -177,6 +182,7 @@ export function RepairEstimateCard({ order }: { order: WorkOrderDetail }) {
   const ai = useAi();
   const estimate = useMutation({ mutationFn: () => estimateRepair(order.id) });
   const open = order.status !== "completed" && order.status !== "cancelled";
+
   if (!ai?.configured || !ai.enabled.repairEstimate || order.type !== "corrective" || !open) return null;
 
   const result = estimate.data;

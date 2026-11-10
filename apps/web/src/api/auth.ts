@@ -57,6 +57,7 @@ export async function changeMyPassword(input: ChangePasswordInput): Promise<void
 export function uploadMyAvatar(file: File): Promise<MeResponse> {
   const body = new FormData();
   body.append("file", file);
+
   return apiUpload("/me/avatar", meResponse, body);
 }
 

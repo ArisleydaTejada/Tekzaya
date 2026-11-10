@@ -38,12 +38,14 @@ export default function PreventivosPage() {
     queryKey: planKeys.list({ state }),
     queryFn: () => listPlans({ state }),
   });
+
   // El menú de las tarjetas del calendario ofrece editar el plan, esté o no en pausa.
   const allPlans = useQuery({
     queryKey: planKeys.list({ state: "all" }),
     queryFn: () => listPlans({ state: "all" }),
     enabled: view === "calendar",
   });
+
   const toggle = useMutation({
     mutationFn: (plan: PlanView) => setPlanActive(plan.id, !plan.isActive),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: planKeys.all }),

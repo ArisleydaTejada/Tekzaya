@@ -17,7 +17,9 @@ const OPTIONS: { id: MemberOrder; label: string }[] = [
 export function sortMembers(members: AreaWorkloadMember[], order: MemberOrder) {
   const byName = (a: AreaWorkloadMember, b: AreaWorkloadMember) =>
     a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+
   const isAway = (member: AreaWorkloadMember) => Number(member.availability.state === "away");
+
   return [...members].sort(
     (a, b) =>
       isAway(a) - isAway(b) ||

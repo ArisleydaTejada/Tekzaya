@@ -58,6 +58,7 @@ function useTicketTitle(number: string): string | undefined {
     retry: false,
     staleTime: 5 * 60_000,
   });
+
   return data?.title;
 }
 
@@ -71,6 +72,7 @@ function useTicketSections(search: string, open: boolean): PickerResult<TicketLi
   const mineQuery: Partial<TicketListQuery> = { ...base, scope: "assigned" };
   const openQuery: Partial<TicketListQuery> = { ...base, scope: "all", status: [...ACTIVE_TICKET_STATUSES] };
   const restQuery: Partial<TicketListQuery> = { ...base, scope: "all", status: [...SETTLED_TICKET_STATUSES] };
+
   const [mine, others, rest] = useQueries({
     queries: [
       { queryKey: ticketKeys.list(mineQuery), queryFn: () => listTickets(mineQuery), enabled: open },

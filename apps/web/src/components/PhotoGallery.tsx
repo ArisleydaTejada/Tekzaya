@@ -39,9 +39,11 @@ export function PhotoGallery({
 
   async function add(list: FileList | null) {
     const files = [...(list ?? [])].slice(0, room);
+
     if (!files.length) return;
     setUploading(true);
     setUploadError(null);
+
     try {
       onSave([...photos, ...(await uploadAssetPhotos(files))]);
     } catch (cause) {

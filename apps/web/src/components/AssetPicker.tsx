@@ -20,6 +20,7 @@ export type PickedAsset = Omit<AssetPickerItem, "group">;
 
 function groupTitle(group: AssetPickGroup, person: { id: string; name: string }, meId?: string): string {
   const mine = person.id === meId;
+
   switch (group) {
     case "custodian":
       return mine ? "A tu cargo" : `A cargo de ${person.name}`;
@@ -68,6 +69,7 @@ export function AssetPicker({
     ...(requesterId ? { requesterId } : {}),
     ...(onlyType ? { type: onlyType } : {}),
   };
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: assetKeys.linkOptions(query),
     queryFn: () => listAssetLinkOptions(query),
@@ -76,6 +78,7 @@ export function AssetPicker({
   });
 
   const items = data?.items ?? [];
+
   const groups = (["custodian", "area", "other"] as const)
     .map((group) => ({ group, items: items.filter((item) => item.group === group) }))
     .filter((entry) => entry.items.length > 0);
@@ -127,6 +130,7 @@ export function AssetPicker({
               <ul className="space-y-1">
                 {groupItems.map(({ group: _group, ...asset }) => {
                   const selected = asset.id === selectedId;
+
                   return (
                     <li key={asset.id}>
                       <button

@@ -31,6 +31,7 @@ const STATUS_ICON: Record<AssetStatus, typeof CheckIcon> = {
 export function AssetStatusBadge({ status }: { status: AssetStatus }) {
   const token = STATUS_TOKEN[status];
   const Icon = STATUS_ICON[status];
+
   return (
     <span
       className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-[0.1em]"
@@ -70,6 +71,7 @@ export function WarrantyBadge({
   const countdown = until && state === "expiring" ? warrantyCountdown(until).toLowerCase() : null;
   // Apilada no repite "vence": la línea de arriba ya dice "Vence pronto".
   const detail = until ? (countdown ? (stacked ? countdown.replace(/^vence /, "") : countdown) : formatDay(until)) : null;
+
   return (
     <span className={`inline-flex gap-1 text-xs ${stacked ? "items-start" : "items-center whitespace-nowrap"} ${WARRANTY_TONE[state]}`}>
       <Icon className={`h-3.5 w-3.5 shrink-0 ${stacked ? "mt-px" : ""}`} aria-hidden="true" />
@@ -113,14 +115,19 @@ export function AssetPhotosField({
 
   async function pick(list: FileList | null) {
     const files = [...(list ?? [])];
+
     if (!files.length) return;
+
     if (files.length > room) {
       onError(limitMessage);
+
       return;
     }
+
     setUploading(true);
     onUploading(true);
     onError(null);
+
     try {
       onChange([...value, ...(await uploadAssetPhotos(files))]);
     } catch (cause) {

@@ -81,13 +81,16 @@ export default function LoginPage() {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
     if (status === "loading") return;
 
     // El mismo esquema que valida el backend valida aquí (spec §10.1).
     const parsed = loginInput.safeParse({ email: email.trim(), password });
+
     if (!parsed.success) {
       setStatus("error");
       setErrorMessage(parsed.error.issues[0]?.message ?? "Revisa los datos");
+
       return;
     }
 

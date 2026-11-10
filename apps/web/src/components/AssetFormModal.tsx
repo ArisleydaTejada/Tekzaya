@@ -89,8 +89,10 @@ export function AssetFormModal({
   // Cada apertura parte de los datos actuales; patrón de React para ajustar
   // estado cuando cambia una prop, sin efecto de por medio.
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (open) {
       setDraft(draftOf(asset, me?.areaId ?? ""));
       setError(null);
@@ -98,13 +100,16 @@ export function AssetFormModal({
   }
 
   const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas, enabled: open });
+
   const { data: locations = [] } = useQuery({
     queryKey: assetKeys.locations(),
     queryFn: listAssetLocations,
     enabled: open,
   });
+
   // La persona a cargo sale del área que usa el equipo; sin ella, de toda la empresa.
   const peopleArea = draft.usedByAreaId || "";
+
   const { data: people = [] } = useQuery({
     queryKey: assetKeys.people(peopleArea),
     queryFn: () => listAssetPeople(peopleArea),
@@ -118,6 +123,7 @@ export function AssetFormModal({
   const save = useMutation({
     mutationFn: async () => {
       let cost: number | null = null;
+
       if (draft.purchaseCost.trim()) {
         try {
           cost = centsFromAmountInput(draft.purchaseCost);
@@ -135,25 +141,37 @@ export function AssetFormModal({
           ...(cost !== null ? { purchaseCost: cost } : {}),
           ...(draft.photoIds.length ? { photoIds: draft.photoIds } : {}),
         };
+
         for (const key of OPTIONAL_TEXT) {
           const value = draft[key].trim();
+
           if (value) input[key] = value;
         }
+
         return createAsset(input);
       }
 
       const before = draftOf(asset, asset.areaId);
       const input: UpdateAssetInput = {};
+
       if (draft.name.trim() !== before.name) input.name = draft.name.trim();
+
       if (draft.type !== before.type) input.type = draft.type;
+
       if (draft.areaId !== before.areaId) input.areaId = draft.areaId;
+
       if (draft.location.trim() !== before.location) input.location = draft.location.trim();
+
       if (draft.purchaseCost.trim() !== before.purchaseCost) input.purchaseCost = cost;
+
       if (draft.photoIds.join() !== before.photoIds.join()) input.photoIds = draft.photoIds;
+
       for (const key of OPTIONAL_TEXT) {
         const value = draft[key].trim();
+
         if (value !== before[key]) input[key] = value || null;
       }
+
       return updateAsset(asset.id, input);
     },
     onSuccess: onSaved,
@@ -323,6 +341,7 @@ function Labeled({
   children: (id: string) => ReactNode;
 }) {
   const id = useId();
+
   return (
     <div className={className}>
       <label htmlFor={id} className="mb-1.5 flex items-baseline gap-1.5 text-xs font-medium text-[var(--content-ink-dim)]">

@@ -69,6 +69,7 @@ export function AvatarStack({
   if (users.length === 0) return null;
   const shown = users.slice(0, max);
   const rest = users.length - shown.length;
+
   return (
     <span className="flex items-center">
       {shown.map((user, i) => (

@@ -22,6 +22,7 @@ import { LowStockBadge, SparePartFormModal, StockMovementModal } from "../compon
 import { formatDateTime, formatQuantity, formatWhen } from "../lib/format";
 
 const LEDGER_PAGE = 20;
+
 const secondaryButton =
   "flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50";
 
@@ -65,6 +66,7 @@ export default function RepuestoDetailPage() {
       </Plate>
     );
   }
+
   if (isError || !part) {
     return (
       <Plate className="flex flex-col items-center gap-3 py-16 text-center">
@@ -205,6 +207,7 @@ function PartPhotos({ part, onSaved }: { part: SparePartDetail; onSaved: (saved:
     mutationFn: (photoIds: string[]) => updateSparePart(part.id, { photoIds }),
     onSuccess: onSaved,
   });
+
   return (
     <PhotoGallery
       name={part.name}
@@ -238,6 +241,7 @@ function Ledger({ part, page, onPage }: { part: SparePartDetail; page: number; o
     queryFn: () => listStockMovements(part.id, page, LEDGER_PAGE),
     placeholderData: (previous) => previous,
   });
+
   const items = data?.items ?? [];
   const lastPage = Math.max(1, Math.ceil((data?.total ?? 0) / LEDGER_PAGE));
 

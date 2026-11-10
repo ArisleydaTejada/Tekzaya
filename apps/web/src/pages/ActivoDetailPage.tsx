@@ -38,7 +38,9 @@ import { RequiredPartStatus, WorkOrderStatusBadge, WorkOrderTypeTag } from "../c
 import { formatDateTime, formatDay, formatQuantity, formatWhen, warrantyCountdown } from "../lib/format";
 
 const VIEWS = ["resumen", "historial", "ordenes"] as const;
+
 type View = (typeof VIEWS)[number];
+
 const VIEW_LABEL: Record<View, string> = {
   resumen: "Resumen",
   historial: "Historial",
@@ -63,12 +65,15 @@ export default function ActivoDetailPage() {
   const navigate = useNavigate();
   const requested = params.get("vista");
   const view: View = VIEWS.includes(requested as View) ? (requested as View) : "resumen";
+
   const show = (next: View) =>
     setParams(
       (current) => {
         const copy = new URLSearchParams(current);
+
         if (next === "resumen") copy.delete("vista");
         else copy.set("vista", next);
+
         return copy;
       },
       { replace: true },
@@ -92,6 +97,7 @@ export default function ActivoDetailPage() {
       </Plate>
     );
   }
+
   if (isError || !asset) {
     return (
       <Plate className="flex flex-col items-center gap-3 py-16 text-center">
@@ -308,6 +314,7 @@ function HeaderRow({ label, children }: { label: string; children: ReactNode }) 
 /** La garantía destaca solo cuando importa: por vencer avisa en ámbar. */
 function WarrantyAlert({ asset }: { asset: AssetDetail }) {
   if (asset.warranty !== "expiring" || !asset.warrantyUntil || asset.status === "retired") return null;
+
   return (
     <div role="status" className="mt-4 flex items-start gap-3 rounded-xl border border-amber/40 bg-amber/10 px-4 py-3">
       <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber" />
@@ -329,6 +336,7 @@ function AssetPhotos({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: 
     mutationFn: (photoIds: string[]) => updateAsset(asset.id, { photoIds }),
     onSuccess: onSaved,
   });
+
   return (
     <PhotoGallery
       name={asset.name}
@@ -353,14 +361,18 @@ const DAY_MS = 86_400_000;
 /** Fallas de los últimos `days` días, de la más reciente a la más antigua. */
 function failuresWithin(events: readonly AssetEventView[], days: number): AssetEventView[] {
   const since = Date.now() - days * DAY_MS;
+
   return events.filter((event) => event.kind === "failure" && Date.parse(event.at) > since);
 }
 
 /** El estado al que lleva un paso de la historia, si lo cambia. */
 function statusAfter(event: AssetEventView): AssetStatus | undefined {
   if (event.kind === "created") return "operational";
+
   if (event.kind === "retired") return "retired";
+
   if (event.kind === "status_changed" && typeof event.data["to"] === "string") return event.data["to"] as AssetStatus;
+
   return undefined;
 }
 
@@ -372,22 +384,29 @@ function statusAfter(event: AssetEventView): AssetStatus | undefined {
 function availability(events: readonly AssetEventView[], createdAt: string, days: number): number | null {
   const now = Date.now();
   const start = Math.max(now - days * DAY_MS, Date.parse(createdAt));
+
   if (now - start < 60 * 60_000) return null;
   let status: AssetStatus = "operational";
   let since = start;
   let down = 0;
+
   // La historia llega del más reciente al más antiguo.
   for (const event of [...events].reverse()) {
     const next = statusAfter(event);
+
     if (!next) continue;
     const at = Date.parse(event.at);
+
     if (at > since) {
       if (status === "in_repair") down += at - since;
       since = at;
     }
+
     status = next;
   }
+
   if (status === "in_repair") down += now - since;
+
   return 1 - down / (now - start);
 }
 
@@ -412,6 +431,7 @@ function Overview({
     queryKey: assetKeys.events(asset.id),
     queryFn: () => listAssetEvents(asset.id),
   });
+
   const events = data?.items ?? [];
 
   return (
@@ -495,6 +515,7 @@ function AvailabilityRing({ share, status }: { share: number | null | undefined;
   const r = 52;
   const circumference = 2 * Math.PI * r;
   const filled = share ?? 0;
+
   const label =
     share === undefined ? "…" : share === null ? "—" : `${(Math.floor(share * 1000) / 10).toLocaleString("es-MX")}%`;
 
@@ -574,6 +595,7 @@ function EquipmentData({ asset, onEdit }: { asset: AssetDetail; onEdit?: (() => 
  */
 function RecurringFailure({ events, onShow }: { events: readonly AssetEventView[]; onShow: () => void }) {
   const recent = failuresWithin(events, 30);
+
   if (recent.length < 2) return null;
   const titles = recent.map((event) => text(event.data["title"])?.toLowerCase()).filter(Boolean);
   const repeated = titles.find((title, index) => titles.indexOf(title) !== index);
@@ -613,6 +635,7 @@ function RecentActivity({
   onShow: () => void;
 }) {
   const shown = events.slice(0, 5);
+
   return (
     <Plate className="p-4">
       <CardTitle title="Actividad reciente" action={events.length > 0 && <LinkButton onClick={onShow}>Ver todo</LinkButton>} />
@@ -652,6 +675,7 @@ function ServiceHistory({
 }) {
   const service = events.filter((event) => event.kind === "repair" || event.kind === "preventive");
   const shown = service.slice(0, 4);
+
   return (
     <Plate className="p-4">
       <CardTitle title="Historial de servicio" action={service.length > shown.length && <LinkButton onClick={onShow}>Ver todo</LinkButton>} />
@@ -675,7 +699,9 @@ function ServiceHistory({
                 {event.workOrder && <ArrowRightIcon className="h-3.5 w-3.5 text-[var(--content-ink-dim)]" aria-hidden="true" />}
               </>
             );
+
             const layout = "grid grid-cols-[6rem_minmax(0,1fr)_auto] items-center gap-2 py-2";
+
             return (
               <li key={event.id}>
                 {event.workOrder ? (
@@ -701,7 +727,9 @@ function ServiceHistory({
 /** Las notas de cierre de las últimas reparaciones: el relevo entre técnicos. */
 function TechnicianNotes({ events }: { events: readonly AssetEventView[] }) {
   const notes = events.filter((event) => event.kind === "repair" && text(event.data["notes"])).slice(0, 2);
+
   if (notes.length === 0) return null;
+
   return (
     <Plate className="p-4">
       <CardTitle title="Notas del técnico" />
@@ -747,17 +775,21 @@ function ActiveWorkOrder({
   onNewOrder: (() => void) | undefined;
 }) {
   const query = { assetId: asset.id, status: OPEN_STATUSES, sort: "updatedAt", dir: "desc", limit: 5 } as const;
+
   const { data: list, isLoading } = useQuery({
     queryKey: workOrderKeys.list(query),
     queryFn: () => listWorkOrders({ ...query, status: [...OPEN_STATUSES] }),
   });
+
   const first = list?.items[0];
   const key = first ? formatWorkOrderNumber(first.number) : "";
+
   const { data: order } = useQuery({
     queryKey: workOrderKeys.detail(key),
     queryFn: () => getWorkOrder(key),
     enabled: !!first,
   });
+
   const others = (list?.total ?? 0) - 1;
 
   if (isLoading || (first && !order)) {
@@ -768,6 +800,7 @@ function ActiveWorkOrder({
       </Plate>
     );
   }
+
   if (!order) {
     return (
       <Plate className="p-4">
@@ -784,6 +817,7 @@ function ActiveWorkOrder({
       </Plate>
     );
   }
+
   return (
     <>
       <ActiveWorkOrderCard key={order.id} order={order} others={others} onShowAll={onShowAll} />
@@ -798,7 +832,9 @@ function ActiveWorkOrder({
  */
 function RequiredParts({ order }: { order: WorkOrderDetail }) {
   const path = `/ordenes/${formatWorkOrderNumber(order.number)}`;
+
   if (order.requiredParts.length === 0) return null;
+
   return (
     <Plate className="p-4 text-sm">
       <CardTitle
@@ -844,10 +880,12 @@ function RequiredParts({ order }: { order: WorkOrderDetail }) {
  */
 function AssetParts({ asset }: { asset: AssetDetail }) {
   const query = { assetId: asset.id, state: "active", sort: "name", limit: 50 } as const;
+
   const { data, isLoading, isError } = useQuery({
     queryKey: sparePartKeys.list(query),
     queryFn: () => listSpareParts(query),
   });
+
   if (isError) return null;
   const parts = data?.items ?? [];
   const canLink = (data?.manageableAreas ?? []).some((area) => area.id === asset.areaId);
@@ -873,6 +911,7 @@ function AssetParts({ asset }: { asset: AssetDetail }) {
         <ul className="divide-y divide-[var(--content-border)]">
           {parts.map((part) => {
             const tone = part.stock === 0 ? "out" : part.low ? "low" : "ok";
+
             return (
               <li key={part.id}>
                 <Link
@@ -912,6 +951,7 @@ function ActiveWorkOrderCard({ order, others, onShowAll }: { order: WorkOrderDet
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"checklist" | "details">(order.checklist.length ? "checklist" : "details");
   const [error, setError] = useState<string | null>(null);
+
   const toggle = useMutation({
     mutationFn: (checklist: boolean[]) => updateWorkOrder(order.id, { checklist }),
     onSuccess: async (saved) => {
@@ -921,6 +961,7 @@ function ActiveWorkOrderCard({ order, others, onShowAll }: { order: WorkOrderDet
     },
     onError: (cause) => setError(cause.message),
   });
+
   const done = order.checklist.filter((item) => item.done).length;
   const path = `/ordenes/${formatWorkOrderNumber(order.number)}`;
 
@@ -1033,10 +1074,12 @@ function ActiveWorkOrderCard({ order, others, onShowAll }: { order: WorkOrderDet
 
 function AssetWorkOrders({ assetId }: { assetId: string }) {
   const query = { assetId, sort: "number", dir: "desc", limit: 100 } as const;
+
   const { data, isLoading } = useQuery({
     queryKey: workOrderKeys.list(query),
     queryFn: () => listWorkOrders(query),
   });
+
   const orders = data?.items ?? [];
 
   return (
@@ -1060,6 +1103,7 @@ function AssetWorkOrders({ assetId }: { assetId: string }) {
           <tbody>
             {orders.map((order) => {
               const path = `/ordenes/${formatWorkOrderNumber(order.number)}`;
+
               return (
                 <tr key={order.id} className="border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)]">
                   <td className="whitespace-nowrap px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
@@ -1112,6 +1156,7 @@ function AssetPlans({ asset }: { asset: AssetDetail }) {
   const { data } = useQuery({ queryKey: planKeys.list(query), queryFn: () => listPlans(query) });
   const plans = data?.items ?? [];
   const canCreate = asset.status !== "retired" && (data?.manageableAreas ?? []).some((area) => area.id === asset.areaId);
+
   if (!plans.length && !canCreate) return null;
 
   return (
@@ -1183,17 +1228,20 @@ const EVENT_DOT: Record<AssetEventKind, string> = {
 };
 
 const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
+
 const statusLabel = (value: unknown) =>
   typeof value === "string" && value in ASSET_STATUS_LABEL ? ASSET_STATUS_LABEL[value as AssetStatus] : String(value);
 
 /** Lo que pasó, en una frase. Los nombres ya vienen resueltos del servidor. */
 function describe(event: AssetEventView): ReactNode {
   const d = event.data;
+
   switch (event.kind) {
     case "created":
       return "Alta en el inventario";
     case "moved": {
       const parts: ReactNode[] = [];
+
       if (text(d["to"])) {
         parts.push(
           <span key="place" className="inline-flex flex-wrap items-center gap-1">
@@ -1201,10 +1249,14 @@ function describe(event: AssetEventView): ReactNode {
           </span>,
         );
       }
+
       if ("toUsedByAreaName" in d) parts.push(<span key="used">Ahora lo usa {text(d["toUsedByAreaName"]) ?? "su área responsable"}</span>);
+
       if ("toAreaName" in d) parts.push(<span key="area">Pasa a mantenerlo {text(d["toAreaName"]) ?? "otra área"}</span>);
+
       return <span className="flex flex-col gap-0.5">{parts}</span>;
     }
+
     case "custodian_changed":
       return text(d["toName"]) ? `A cargo de ${text(d["toName"])}` : `${text(d["fromName"]) ?? "Su responsable"} deja de tenerlo a cargo`;
     case "status_changed":
@@ -1225,29 +1277,38 @@ function Timeline({ assetId }: { assetId: string }) {
     queryKey: assetKeys.events(assetId),
     queryFn: () => listAssetEvents(assetId),
   });
+
   // Cada avería deja cuatro pasos: falla, fuera de servicio, reparación y vuelta
   // a operativo. Los cambios de estado de una OT se pliegan en su falla o su
   // reparación ("dejó el equipo fuera de servicio"), y la historia se lee en la
   // mitad de líneas sin perder nada.
   const all = data?.items ?? [];
+
   const folded = new Set(
     all
       .filter((event) => event.kind === "failure" || event.kind === "repair")
       .map((event) => `${event.kind}:${event.workOrder?.id ?? ""}`),
   );
+
   const outOfService = new Set<string>();
   const backInService = new Set<string>();
+
   const events = all.filter((event) => {
     if (event.kind !== "status_changed" || !event.workOrder) return true;
     const to = event.data["to"];
+
     if (to === "in_repair" && folded.has(`failure:${event.workOrder.id}`)) {
       outOfService.add(event.workOrder.id);
+
       return false;
     }
+
     if (to === "operational" && folded.has(`repair:${event.workOrder.id}`)) {
       backInService.add(event.workOrder.id);
+
       return false;
     }
+
     return true;
   });
 
@@ -1331,8 +1392,10 @@ function RetireModal({
   const [error, setError] = useState<string | null>(null);
 
   const [wasOpen, setWasOpen] = useState(open);
+
   if (open !== wasOpen) {
     setWasOpen(open);
+
     if (open) {
       setReason("");
       setError(null);

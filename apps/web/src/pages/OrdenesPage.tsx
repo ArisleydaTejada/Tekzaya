@@ -28,6 +28,7 @@ import { OverdueTag, WorkOrderStatusBadge, WorkOrderTypeTag } from "../component
 import { formatDateTime, formatDay, formatWhen } from "../lib/format";
 
 const PAGE_SIZE = 25;
+
 /** El kanban muestra de una vez lo más reciente; para buscar más atrás está la lista. */
 const KANBAN_LIMIT = 100;
 
@@ -61,6 +62,7 @@ export default function OrdenesPage() {
     ...(status ? { status: [status] } : {}),
     ...(type ? { type } : {}),
   };
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: workOrderKeys.list(query),
     queryFn: () => listWorkOrders(query),
@@ -78,6 +80,7 @@ export default function OrdenesPage() {
       setSort(column);
       setDir(column === "scheduledFor" ? "asc" : "desc");
     }
+
     setPage(1);
   }
 
@@ -256,6 +259,7 @@ function Th({
 }) {
   if (!column) return <th className={`px-3 py-2.5 font-medium ${className}`}>{label}</th>;
   const active = sort === column;
+
   return (
     <th
       className={`px-3 py-2.5 font-medium ${className}`}
@@ -284,6 +288,7 @@ function When({ order }: { order: WorkOrderListItem }) {
       </span>
     );
   }
+
   return <span title={formatDateTime(order.createdAt)}>Abierta {formatWhen(order.createdAt).toLowerCase()}</span>;
 }
 
@@ -403,6 +408,7 @@ function GroupedView({
   counts: Record<WorkOrderStatus, number> | undefined;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
   const groups = WORK_ORDER_STATUSES.map((status) => [status, orders.filter((order) => order.status === status)] as const).filter(
     ([, group]) => group.length > 0,
   );
@@ -448,6 +454,7 @@ function KanbanView({ orders }: { orders: WorkOrderListItem[] }) {
     <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
       {WORK_ORDER_STATUSES.map((status) => {
         const column = orders.filter((order) => order.status === status);
+
         return (
           <section
             key={status}

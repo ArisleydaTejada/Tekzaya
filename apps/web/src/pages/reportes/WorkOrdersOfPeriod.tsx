@@ -68,6 +68,7 @@ export function WorkOrdersOfPeriod({
   // Otro filtro u otro alcance vuelven a la primera página, igual que en la de tickets.
   const signature = JSON.stringify([filters, scope, limit]);
   const [lastSignature, setLastSignature] = useState(signature);
+
   if (signature !== lastSignature) {
     setLastSignature(signature);
     setPage(1);
@@ -311,6 +312,7 @@ function Th({
 }) {
   if (!column) return <th className={`px-3 py-2.5 font-medium ${className}`}>{label}</th>;
   const active = sort === column;
+
   return (
     <th
       className={`px-3 py-2.5 font-medium ${className}`}

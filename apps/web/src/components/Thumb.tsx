@@ -15,6 +15,7 @@ export function Thumb({
   size?: "sm" | "md";
 }) {
   const box = size === "sm" ? "h-7 w-7" : "h-9 w-9";
+
   return photoId ? (
     <img
       src={attachmentUrl(photoId)}

@@ -91,9 +91,11 @@ export default function ReportesPage() {
    * elegir "Mantenimiento" para ver las hermanas.
    */
   const [searchParams] = useSearchParams();
+
   const [railSource, setRailSource] = useState<ReportSource | null>(() =>
     searchParams.get("modulo") === "mantenimiento" ? "maintenance" : null,
   );
+
   const [workOrderFilters, setWorkOrderFilters] = useState<WorkOrderListFilters>({});
   const [edited, setEdited] = useState<Draft | null>(null);
   const [editing, setEditing] = useState<ReportWidget | null>(null);
@@ -120,12 +122,16 @@ export default function ReportesPage() {
    */
   const fallback = useMemo(() => {
     const templates = catalog.data?.templates ?? [];
+
     // Si se llegó pidiendo un módulo, se abre la primera plantilla de ese módulo.
     const first =
       (railSource && templates.find((template) => reportSourceOf(template.widgets) === railSource)) || templates[0];
+
     return first ? fromTemplate(first) : null;
   }, [catalog.data, railSource]);
+
   const draft = edited ?? fallback;
+
   /**
    * Módulo del reporte abierto. Un lienzo vacío todavía no tiene gráficas que lo
    * digan, así que toma el del panel: quien pulsa "Nuevo reporte" mirando las
@@ -133,6 +139,7 @@ export default function ReportesPage() {
    */
   const draftSource: ReportSource =
     draft && draft.widgets.length > 0 ? reportSourceOf(draft.widgets) : (railSource ?? "tickets");
+
   const shownRailSource: ReportSource = railSource ?? (draft ? draftSource : "tickets");
   const setDraft = setEdited;
 
@@ -197,12 +204,14 @@ export default function ReportesPage() {
   const update = (patch: Partial<Draft>) =>
     setEdited((current) => {
       const base = current ?? fallback;
+
       return base ? { ...base, ...patch, dirty: true } : null;
     });
 
   const save = () => {
     if (!draft) return;
     setError(null);
+
     const definition = {
       title: draft.title,
       ...(draft.description ? { description: draft.description } : {}),
@@ -216,6 +225,7 @@ export default function ReportesPage() {
       widgets: draft.widgets,
       ticketFilters,
     };
+
     if (draft.id) updateMutation.mutate({ id: draft.id, input: definition });
     else createMutation.mutate(definition);
   };
@@ -229,14 +239,19 @@ export default function ReportesPage() {
   const drillInto = (dimension: string, key: string, source: ReportSource) => {
     // Cada gráfica filtra la lista de su propio módulo, y solo si es la que se ve.
     if (source !== draftSource) return;
+
     if (source === "maintenance") {
       const filter = WORK_ORDER_DRILL_FILTERS[dimension]?.(key);
+
       if (!filter) return;
       setWorkOrderFilters({ ...workOrderFilters, ...filter });
       document.getElementById("ordenes-del-periodo")?.scrollIntoView({ behavior: "smooth" });
+
       return;
     }
+
     const filter = DRILL_FILTERS[dimension]?.(key);
+
     if (!filter) return;
     setTicketFilters({ ...ticketFilters, ...filter });
     document.getElementById("tickets-del-periodo")?.scrollIntoView({ behavior: "smooth" });
@@ -471,6 +486,7 @@ export default function ReportesPage() {
           onDelete={async (id) => {
             await deleteSavedReport(id);
             void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
+
             if (draft?.id === id) setDraft(null);
           }}
         />
@@ -521,6 +537,7 @@ function ScopeSelector({
     queryFn: listAreas,
     enabled: catalog.maxScope === "global",
   });
+
   /*
    * El supervisor no tiene selector de área —solo puede mirar la suya—, así que
    * el reporte nunca trae `areaId` y la lista de personas se quedaba sin pedir.
@@ -528,6 +545,7 @@ function ScopeSelector({
    * áreas elige primero el área y por eso no cae en este caso.
    */
   const memberAreaId = draft?.areaId ?? (catalog.maxScope === "global" ? undefined : myAreaId);
+
   const members = useQuery({
     queryKey: areaKeys.members(memberAreaId ?? ""),
     queryFn: () => listAreaMembers(memberAreaId!),
@@ -1076,10 +1094,12 @@ let widgetCounter = 0;
  */
 function blankWidget(position: number, source: ReportSource = "tickets"): ReportWidget {
   widgetCounter += 1;
+
   const start: Pick<ReportWidget, "source" | "measures" | "groupBy"> =
     source === "maintenance"
       ? { source, measures: [{ key: "wo_created" }], groupBy: "work_order_type" }
       : { source, measures: [{ key: "created" }], groupBy: "category" };
+
   return {
     id: `w${position}-${widgetCounter}`,
     title: "Nueva gráfica",

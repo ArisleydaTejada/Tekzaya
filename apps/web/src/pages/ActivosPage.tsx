@@ -85,6 +85,7 @@ export default function ActivosPage() {
     queryFn: () => listAssets(query),
     placeholderData: (previous) => previous,
   });
+
   const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
   const { data: locations = [] } = useQuery({ queryKey: assetKeys.locations(), queryFn: listAssetLocations });
 
@@ -107,6 +108,7 @@ export default function ActivosPage() {
       setSort(column);
       setDir("asc");
     }
+
     setPage(1);
   }
 
@@ -221,6 +223,7 @@ export default function ActivosPage() {
               {ASSET_STATUSES.map((status) => {
                 const count = counts?.[status] ?? 0;
                 const active = filters.status === status;
+
                 return (
                   <li key={status}>
                     <button
@@ -367,6 +370,7 @@ function Th({
 }) {
   if (!column) return <th className="px-3 py-2.5 font-medium">{label}</th>;
   const active = sort === column;
+
   return (
     <th className="px-3 py-2.5 font-medium" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
       <button
@@ -399,6 +403,7 @@ function AssetTable({
       <ul className="space-y-2 sm:hidden">
         {assets.map((asset) => {
           const number = formatAssetNumber(asset.number);
+
           return (
             <li key={asset.id}>
               <Link
@@ -440,6 +445,7 @@ function AssetTable({
         <tbody>
           {assets.map((asset) => {
             const number = formatAssetNumber(asset.number);
+
             return (
               <tr
                 key={asset.id}

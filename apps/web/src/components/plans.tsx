@@ -22,6 +22,7 @@ import { Modal } from "./Modal";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent";
+
 const labelClass = "mb-1 block text-xs font-medium text-[var(--content-ink-dim)]";
 
 /** Lo que significa cada modo, dicho para quien elige. */
@@ -33,6 +34,7 @@ const PLAN_MODE_HINT: Record<PlanMode, string> = {
 /** "Hoy" en el reloj de quien mira; el servidor valida con el de la empresa. */
 function localToday(): string {
   const now = new Date();
+
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
@@ -97,18 +99,21 @@ export function PlanFormModal({
 
   const q = useDeferredValue(assetSearch.trim());
   const assetQuery: Partial<AssetListQuery> = { q, status: ["operational", "in_repair"], limit: 20, sort: "name" };
+
   const assets = useQuery({
     queryKey: assetKeys.list(assetQuery),
     queryFn: () => listAssets(assetQuery),
     enabled: open && !plan && !presetAsset && scope === "asset",
     placeholderData: keepPreviousData,
   });
+
   // Solo los equipos de un área donde quien crea puede gestionar planes.
   const manageable = new Set(areas.map((area) => area.id));
   const assetOptions = (assets.data?.items ?? []).filter((asset) => manageable.has(asset.areaId));
 
   const everyNumber = Number(every);
   const leadNumber = Number(leadDays);
+
   const valid =
     title.trim().length >= 3 &&
     Number.isInteger(everyNumber) &&
@@ -123,6 +128,7 @@ export function PlanFormModal({
   const save = useMutation({
     mutationFn: () => {
       const recurrence = { every: everyNumber, unit, mode, leadDays: leadNumber, checklist: linesOf(checklist) };
+
       if (plan) {
         return updatePlan(plan.id, {
           title: title.trim(),
@@ -130,6 +136,7 @@ export function PlanFormModal({
           ...(date !== plan.nextDueAt ? { nextDueAt: date } : {}),
         });
       }
+
       return createPlan({
         title: title.trim(),
         ...(scope === "asset" ? { assetId } : { assetType, areaId }),

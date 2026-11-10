@@ -46,6 +46,7 @@ const SLA_TONE: Record<SlaState, Tone> = {
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
   const tone = PRIORITY_TONE[priority];
+
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${TONE_TEXT[tone]}`}>
       {/* La prioridad nunca va solo por color: el punto acompaña al texto (§13). */}
@@ -58,6 +59,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
 export function StatusBadge({ status }: { status: TicketStatus }) {
   // Los colores son tokens por tema en `index.css`; "Fusionado" usa los de "Cancelado".
   const key = status === "merged" ? "cancelled" : status;
+
   return (
     <span
       className="inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 font-display text-[10px] font-semibold uppercase tracking-[0.1em]"
@@ -99,6 +101,7 @@ export function SlaTag({
   const missed = settled && !withoutDeadline && state === "breached";
 
   const tone: Tone = settled ? (missed ? "red" : "muted") : SLA_TONE[state];
+
   const text =
     label ??
     (withoutDeadline

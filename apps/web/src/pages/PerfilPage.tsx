@@ -32,6 +32,7 @@ import { formatWhen } from "../lib/format";
  */
 export default function PerfilPage() {
   const { me } = useAuth();
+
   if (!me) return null;
 
   return (
@@ -53,6 +54,7 @@ export default function PerfilPage() {
 /** Estado de guardado compartido por las tres tarjetas, sin librerías de más. */
 function Saved({ shown }: { shown: boolean }) {
   if (!shown) return null;
+
   return (
     <span className="flex items-center gap-1 text-xs font-medium text-green">
       <CheckIcon className="h-3.5 w-3.5" /> Guardado
@@ -155,6 +157,7 @@ function PhotoPicker() {
     },
     onError: (cause: Error) => setError(cause.message),
   };
+
   const upload = useMutation({ mutationFn: uploadMyAvatar, ...onDone });
   const remove = useMutation({ mutationFn: removeMyAvatar, ...onDone });
   const busy = upload.isPending || remove.isPending;
@@ -173,13 +176,17 @@ function PhotoPicker() {
           onChange={(event) => {
             const file = event.target.files?.[0];
             event.target.value = "";
+
             if (!file) return;
+
             // Se avisa antes de subir: esperar la subida para enterarse de que no cabía
             // es tiempo perdido. El servidor lo vuelve a comprobar de todos modos.
             if (file.size > MAX_AVATAR_BYTES) {
               setError("La foto supera los 2 MB");
+
               return;
             }
+
             upload.mutate(file);
           }}
         />
@@ -395,6 +402,7 @@ function PasswordField({
   autoComplete: string;
 }) {
   const id = useId();
+
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">

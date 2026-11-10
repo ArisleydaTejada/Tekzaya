@@ -42,9 +42,11 @@ const DARK: ChartTheme = {
 
 export function readChartTheme(mode: "light" | "dark"): ChartTheme {
   const fallback = mode === "dark" ? DARK : LIGHT;
+
   if (typeof window === "undefined") return fallback;
 
   const computed = getComputedStyle(document.documentElement);
+
   const token = (name: string, instead: string): string =>
     computed.getPropertyValue(name).trim() || instead;
 
@@ -89,6 +91,7 @@ export function hoverCursor(theme: ChartTheme, kind: "band" | "line") {
  */
 export function formatValue(value: number | null, unit: MeasureUnit, currency?: string): string {
   if (value === null) return "—";
+
   switch (unit) {
     case "money":
       // Montos en unidades de la moneda; sin decimales a partir de mil, que en una
@@ -113,7 +116,9 @@ export function formatValue(value: number | null, unit: MeasureUnit, currency?: 
 /** Compacto para un eje, donde no cabe la unidad. */
 export function formatAxis(value: number, unit: MeasureUnit): string {
   if (unit === "percent") return `${Math.round(value)}%`;
+
   if (Math.abs(value) >= 1000) return `${Math.round(value / 100) / 10} k`;
+
   return formatNumber(value);
 }
 
@@ -132,6 +137,8 @@ export function trendOf(
 ): { value: number } | undefined {
   if (current === null || previous === null || previous === 0) return undefined;
   const change = ((current - previous) / Math.abs(previous)) * 100;
+
   if (!Number.isFinite(change)) return undefined;
+
   return { value: Math.round(change) };
 }

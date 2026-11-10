@@ -38,19 +38,26 @@ const send = (path: string, method: string, body?: unknown) =>
 
 export const createWorkOrder = (input: CreateWorkOrderInput) => send("/work-orders", "POST", input);
 export const updateWorkOrder = (id: string, input: UpdateWorkOrderInput) => send(`/work-orders/${id}`, "PATCH", input);
+
 export const setWorkOrderAssignees = (id: string, assigneeIds: string[]) =>
   send(`/work-orders/${id}/assignees`, "PUT", { assigneeIds });
+
 export const takeWorkOrder = (id: string) => send(`/work-orders/${id}/take`, "POST");
 export const addWorkOrderPart = (id: string, input: AddWorkOrderPartInput) => send(`/work-orders/${id}/parts`, "POST", input);
 export const removeWorkOrderPart = (id: string, usageId: string) => send(`/work-orders/${id}/parts/${usageId}`, "DELETE");
+
 export const setRequiredPart = (id: string, input: SetRequiredPartInput) =>
   send(`/work-orders/${id}/required-parts`, "PUT", input);
+
 export const removeRequiredPart = (id: string, itemId: string) =>
   send(`/work-orders/${id}/required-parts/${itemId}`, "DELETE");
+
 export const addExternalCost = (id: string, input: AddExternalCostInput) =>
   send(`/work-orders/${id}/external-costs`, "POST", input);
+
 export const removeExternalCost = (id: string, costId: string) =>
   send(`/work-orders/${id}/external-costs/${costId}`, "DELETE");
+
 export const completeWorkOrder = (id: string, input: CompleteWorkOrderInput) =>
   send(`/work-orders/${id}/complete`, "POST", input);
 

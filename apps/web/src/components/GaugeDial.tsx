@@ -17,6 +17,7 @@ const SWEEP = 270;
 
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
   const a = (angleDeg * Math.PI) / 180;
+
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
 }
 
@@ -25,6 +26,7 @@ function arcPath(cx: number, cy: number, r: number, a0: number, a1: number) {
   const p1 = polar(cx, cy, r, a1);
   const delta = ((a1 - a0) % 360 + 360) % 360;
   const largeArc = delta > 180 ? 1 : 0;
+
   return `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${largeArc} 1 ${p1.x} ${p1.y}`;
 }
 
@@ -66,6 +68,7 @@ export function GaugeDial({
     const angle = START_ANGLE + t * SWEEP;
     const outer = polar(cx, cy, r + 5, angle);
     const inner = polar(cx, cy, r - 2, angle);
+
     return { key: t, x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y };
   });
 

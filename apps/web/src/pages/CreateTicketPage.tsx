@@ -69,13 +69,16 @@ export default function CreateTicketPage() {
    */
   const [searchParams] = useSearchParams();
   const fromAsset = searchParams.get("activo") ?? "";
+
   const { data: presetAsset } = useQuery({
     queryKey: assetKeys.detail(fromAsset),
     queryFn: () => getAsset(fromAsset),
     enabled: Boolean(fromAsset),
     retry: false,
   });
+
   const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
+
   if (presetAsset && presetAsset.status !== "retired" && appliedPreset !== presetAsset.id) {
     setAppliedPreset(presetAsset.id);
     pickAsset(presetAsset);
@@ -85,7 +88,9 @@ export default function CreateTicketPage() {
   function pickAsset(picked: PickedAsset, fromText = false) {
     setAsset(picked);
     setAssetFromText(fromText);
+
     if (!fromText) setAssetTouched(true);
+
     if (!areaId) {
       setAreaId(picked.area.id);
       setCategoryId("");
@@ -100,19 +105,24 @@ export default function CreateTicketPage() {
    */
   const mentionedNumber = mentionedAssetNumber(`${title} ${description}`);
   const mentionedType = detectAssetType(title, description);
+
   const mentionQuery = mentionedNumber
     ? { q: formatAssetNumber(mentionedNumber) }
     : mentionedType
       ? { type: mentionedType }
       : null;
+
   const mentionKey = mentionQuery && { ...mentionQuery, ...(onBehalfOf ? { requesterId: onBehalfOf } : {}) };
+
   const { data: mentioned, status: mentionStatus } = useQuery({
     queryKey: assetKeys.linkOptions(mentionKey ?? {}),
     queryFn: () => listAssetLinkOptions(mentionKey ?? {}),
     enabled: mentionKey !== null,
     staleTime: 60_000,
   });
+
   const { pick: textPick, candidates } = mentionKey && mentioned ? chooseMentioned(mentioned.items) : NO_MENTION;
+
   if (!assetTouched && (mentionKey === null || mentionStatus !== "pending")) {
     if (textPick && textPick.id !== asset?.id) pickAsset(textPick, true);
     else if (!textPick && asset && assetFromText) {
@@ -145,10 +155,13 @@ export default function CreateTicketPage() {
     void suggestArea({ title, description })
       .then((result) => {
         setSuggestion(result);
+
         if (!result) {
           setAiError("La IA no pudo decidir con este texto. Elige el área a mano.");
+
           return;
         }
+
         setAreaId(result.areaId);
         setCategoryId(result.categoryId ?? "");
       })
@@ -193,15 +206,18 @@ export default function CreateTicketPage() {
   function addFiles(list: FileList | null) {
     setFileError(null);
     let room = MAX_ATTACHMENTS_PER_MESSAGE - files.length;
+
     for (const file of Array.from(list ?? [])) {
       if (room <= 0) {
         setFileError(`Máximo ${MAX_ATTACHMENTS_PER_MESSAGE} archivos`);
         break;
       }
+
       if (file.size > MAX_ATTACHMENT_BYTES) {
         setFileError(`«${file.name}» supera los 10 MB`);
         continue;
       }
+
       room -= 1;
       upload.mutate(file);
     }
@@ -223,11 +239,14 @@ export default function CreateTicketPage() {
 
     if (!parsed.success) {
       const errors: Record<string, string[]> = {};
+
       for (const issue of parsed.error.issues) {
         const key = issue.path.join(".") || "_";
         (errors[key] ??= []).push(issue.message);
       }
+
       setFieldErrors(errors);
+
       return;
     }
 
@@ -719,14 +738,18 @@ const NO_MENTION = { pick: null, candidates: [] as PickedAsset[] };
 function chooseMentioned(items: readonly AssetPickerItem[]): { pick: PickedAsset | null; candidates: PickedAsset[] } {
   for (const group of ["custodian", "area", "other"] as const) {
     const inGroup = items.filter((item) => item.group === group).map(({ group: _group, ...asset }) => asset);
+
     if (inGroup.length === 1) return { pick: inGroup[0]!, candidates: [] };
+
     if (inGroup.length > 1) return { pick: null, candidates: inGroup };
   }
+
   return NO_MENTION;
 }
 
 function FieldError({ messages }: { messages?: string[] }) {
   if (!messages?.length) return null;
+
   return <p className="mt-1.5 text-xs text-red">{messages[0]}</p>;
 }
 

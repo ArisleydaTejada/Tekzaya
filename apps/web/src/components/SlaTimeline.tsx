@@ -92,6 +92,7 @@ export function SlaTimeline({
   const missed = settled && !withoutDeadline && sla.resolutionState === "breached";
 
   const tone: Tone = settled ? (missed ? "red" : "muted") : STATE_TONE[sla.resolutionState];
+
   const label = withoutDeadline
     ? "Sin plazo"
     : settled
@@ -108,6 +109,7 @@ export function SlaTimeline({
    */
   function show() {
     const box = trigger.current?.getBoundingClientRect();
+
     if (!box) return;
     const left = Math.max(8, Math.min(box.left, window.innerWidth - CARD_WIDTH - 8));
     // Si abajo no cabe, cuelga hacia arriba desde el borde superior de la ficha.
@@ -124,6 +126,7 @@ export function SlaTimeline({
     const close = () => setAnchor(null);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
+
     return () => {
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);

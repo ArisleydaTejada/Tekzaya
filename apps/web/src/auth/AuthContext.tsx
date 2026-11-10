@@ -50,17 +50,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!signedIn) return;
     let last = Date.now();
+
     const renew = () => {
       last = Date.now();
       void refreshSession();
     };
+
     const timer = window.setInterval(renew, RENEW_EVERY_MS);
+
     // El navegador frena los temporizadores de las pestañas en segundo plano y los
     // detiene con el equipo suspendido: al volver, se renueva si ya tocaba.
     const onVisible = () => {
       if (document.visibilityState === "visible" && Date.now() - last >= RENEW_EVERY_MS) renew();
     };
+
     document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
@@ -96,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthValue {
   const value = use(AuthContext);
+
   if (!value) throw new Error("useAuth debe usarse dentro de AuthProvider");
+
   return value;
 }

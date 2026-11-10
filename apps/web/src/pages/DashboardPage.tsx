@@ -50,10 +50,13 @@ const PERIODS: StatsPeriod[] = ["day", "week", "month", "year"];
 function scopesFor(me: MeResponse): { id: StatsScope; label: string }[] {
   const allowed = maxReportScope(me);
   const personal = { id: "me" as const, label: "Personal" };
+
   if (allowed.type === "global") {
     return [{ id: "global", label: "Todas las áreas" }, { id: "area", label: "Mi área" }, personal];
   }
+
   if (allowed.type === "area") return [{ id: "area", label: "Mi área" }, personal];
+
   return [personal];
 }
 
@@ -75,6 +78,7 @@ export default function DashboardPage() {
   // (spec §7.2.3). Al resto el servidor les devolvería un 403.
   const canPickArea = Boolean(me && maxReportScope(me).type === "global");
   const pickedArea = canPickArea && activeScope === "area" ? areaId : "";
+
   const query: StatsRequest = {
     scope: activeScope,
     period,
@@ -245,15 +249,21 @@ export default function DashboardPage() {
 
 function subtitleOf(overview: StatsOverview | undefined): string {
   if (!overview) return "Cargando tus indicadores…";
+
   if (overview.kpis.kind === "area") {
     const { pending, unassigned } = overview.kpis;
+
     // Con el selector de área, "el área" ya no es evidente: se nombra.
     const subject =
       overview.scope === "global" ? "Todas las áreas" : (overview.areaName ?? "El área");
+
     if (pending === 0) return `${subject} no tiene tickets pendientes.`;
+
     return `${subject} tiene ${pending} ${pending === 1 ? "ticket" : "tickets"} sin resolver, ${unassigned} sin asignar.`;
   }
+
   const pending = overview.kpis.pendingForMe;
+
   return pending > 0
     ? `Tienes ${pending} ${pending === 1 ? "ticket" : "tickets"} que requieren tu atención.`
     : "No tienes tickets pendientes por ahora.";
@@ -405,10 +415,12 @@ function AvailabilityRow({ person, showArea }: { person: AvailabilityEntry; show
 /** Los tres primeros asignados a mí sin resolver, por urgencia (spec §7.2.1). */
 function AssignedPanel() {
   const query = { scope: "assigned" as const, sort: "sla" as const, limit: 3 };
+
   const { data, isPending } = useQuery({
     queryKey: ticketKeys.list(query),
     queryFn: () => listTickets(query),
   });
+
   const items = data?.items ?? [];
 
   return (
@@ -464,10 +476,12 @@ function AssignedPanel() {
 /** Las cinco solicitudes más recientes que creé, con o sin respuesta (spec §7.2.1). */
 function RequestsPanel() {
   const query = { scope: "mine" as const, sort: "recent" as const, limit: 5 };
+
   const { data, isPending } = useQuery({
     queryKey: ticketKeys.list(query),
     queryFn: () => listTickets(query),
   });
+
   const items = data?.items ?? [];
 
   return (
@@ -529,6 +543,7 @@ function RequestStatus({ ticket }: { ticket: TicketListItem }) {
       </span>
     );
   }
+
   if (ticket.firstResponseAt) {
     return (
       <span className="text-xs text-[var(--content-ink-dim)]">
@@ -536,6 +551,7 @@ function RequestStatus({ ticket }: { ticket: TicketListItem }) {
       </span>
     );
   }
+
   return (
     <span className="w-fit rounded-full bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">
       Sin respuesta

@@ -59,6 +59,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     socket.on("connect", () => {
       setConnected(true);
+
       for (const ticketId of watched.current) {
         socket.emit(REALTIME_COMMANDS.watchTicket, ticketId);
       }
@@ -76,6 +77,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     socket.on(REALTIME_EVENTS.notification, (payload: unknown) => {
       const parsed = notificationEvent.safeParse(payload);
+
       if (!parsed.success) return;
 
       queryClient.setQueriesData<NotificationListResponse>(
@@ -97,6 +99,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     socket.on(REALTIME_EVENTS.ticketUpdated, (payload: unknown) => {
       const parsed = ticketUpdatedEvent.safeParse(payload);
+
       if (!parsed.success) return;
       void queryClient.invalidateQueries({ queryKey: ticketKeys.lists() });
       void queryClient.invalidateQueries({
@@ -107,6 +110,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     socket.on(REALTIME_EVENTS.ticketMessage, (payload: unknown) => {
       const parsed = ticketMessageEvent.safeParse(payload);
+
       if (!parsed.success) return;
       void queryClient.invalidateQueries({ queryKey: ticketKeys.messages(parsed.data.ticketId) });
     });
@@ -114,6 +118,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     // Una OT cambió en el área: listas, su ficha y los equipos (su estado pudo cambiar).
     socket.on(REALTIME_EVENTS.workOrderUpdated, (payload: unknown) => {
       const parsed = workOrderUpdatedEvent.safeParse(payload);
+
       if (!parsed.success) return;
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
       void queryClient.invalidateQueries({
@@ -170,6 +175,7 @@ export function useWatchTicket(ticketId: string | undefined): void {
   useEffect(() => {
     if (!ticketId) return;
     watchTicket(ticketId);
+
     return () => unwatchTicket(ticketId);
   }, [ticketId, watchTicket, unwatchTicket, connected]);
 }

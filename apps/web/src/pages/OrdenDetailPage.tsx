@@ -54,9 +54,12 @@ import { useOnOpen } from "../lib/useOnOpen";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent";
+
 const labelClass = "mb-1 block text-xs font-medium text-[var(--content-ink-dim)]";
+
 const secondaryButton =
   "flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50";
+
 const primaryButton =
   "flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -72,6 +75,7 @@ type OriginTicket = NonNullable<WorkOrderDetail["ticket"]>;
 async function resolveOriginTicket(order: WorkOrderDetail, ticket: OriginTicket, note: string): Promise<WorkOrderDetail> {
   if (ticket.takeFirst) await takeTicket(ticket.id);
   await updateTicket(ticket.id, { status: "resolved", note });
+
   return { ...order, ticket: { ...ticket, status: "resolved", canResolve: false, takeFirst: false } };
 }
 
@@ -116,6 +120,7 @@ export default function OrdenDetailPage() {
       </Plate>
     );
   }
+
   if (isError || !order) {
     return (
       <Plate className="flex flex-col items-center gap-3 py-16 text-center">
@@ -373,6 +378,7 @@ function Checklist({
   onToggle: (checklist: boolean[]) => void;
 }) {
   const done = order.checklist.filter((item) => item.done).length;
+
   return (
     <fieldset className="mt-4">
       <legend className="mb-2 text-xs font-medium text-[var(--content-ink-dim)]">
@@ -404,10 +410,12 @@ function Checklist({
 
 function CostCard({ order }: { order: WorkOrderDetail }) {
   const money = (cents: number) => formatMoney(cents, order.currency);
+
   const rows: [string, number][] = [
     ["Repuestos", order.cost.parts],
     ["Servicios externos", order.cost.external],
   ];
+
   return (
     <Plate className="p-4">
       <h2 className="mb-3 font-display text-sm font-semibold text-[var(--content-ink)]">Costo de la orden</h2>
@@ -461,6 +469,7 @@ function RemoveButton({ label, onClick, disabled }: { label: string; onClick: ()
 
 function FormError({ message }: { message: string | null }) {
   if (!message) return null;
+
   return (
     <p role="alert" className="mt-2 text-xs text-red">
       {message}
@@ -483,7 +492,9 @@ function PartOptionGroups({
   render: (option: WorkOrderPartOption) => ReactNode;
 }) {
   const mine = options.filter((option) => option.forAsset);
+
   if (mine.length === 0) return <>{options.map(render)}</>;
+
   return (
     <>
       <optgroup label="De este equipo">{mine.map(render)}</optgroup>
@@ -501,12 +512,16 @@ interface PartRow {
 
 function partRows(order: WorkOrderDetail): PartRow[] {
   const rows = new Map<string, PartRow>();
+
   for (const item of order.requiredParts) rows.set(item.part.id, { part: item.part, required: item, uses: [] });
+
   for (const use of order.partsUsed) {
     const row = rows.get(use.part.id);
+
     if (row) row.uses.push(use);
     else rows.set(use.part.id, { part: use.part, uses: [use] });
   }
+
   return [...rows.values()];
 }
 
@@ -521,11 +536,13 @@ function partRows(order: WorkOrderDetail): PartRow[] {
 function PartsSection({ order, editable, onSaved }: SectionProps) {
   const [partId, setPartId] = useState("");
   const [qty, setQty] = useState("1");
+
   const { data: options = [] } = useQuery({
     queryKey: workOrderKeys.partOptions(order.id),
     queryFn: () => listWorkOrderPartOptions(order.id),
     enabled: editable,
   });
+
   const queryClient = useQueryClient();
   const chosen = options.find((option) => option.id === partId);
   const rows = partRows(order);
@@ -570,6 +587,7 @@ function PartsSection({ order, editable, onSaved }: SectionProps) {
             const cost = uses.reduce((sum, use) => sum + use.qty * use.unitCost, 0);
             const missing = required ? required.qty - required.used : 0;
             const loadable = required ? Math.min(missing, required.stock) : 0;
+
             return (
               <li key={part.id} className="py-2.5">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -727,17 +745,20 @@ function ExternalSection({ order, editable, onSaved }: SectionProps) {
 
   const worked = minutesOf(hours, minutes);
   const hourlyTotal = hourlyServiceAmount(centsOf(rate), worked);
+
   const valid =
     vendor.trim() !== "" && (pricing === "hourly" ? centsOf(rate) > 0 && worked > 0 : centsOf(amount) > 0);
 
   const mutation = useMutation({
     mutationFn: async () => {
       const invoice = file ? await uploadAttachment(file) : null;
+
       const base = {
         vendor: vendor.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(invoice ? { attachmentId: invoice.id } : {}),
       };
+
       return addExternalCost(
         order.id,
         pricing === "hourly"
@@ -757,6 +778,7 @@ function ExternalSection({ order, editable, onSaved }: SectionProps) {
       await onSaved(next);
     },
   });
+
   const remove = useMutation({
     mutationFn: (costId: string) => removeExternalCost(order.id, costId),
     onSuccess: onSaved,
@@ -798,6 +820,7 @@ function ExternalSection({ order, editable, onSaved }: SectionProps) {
         <form
           onSubmit={(event) => {
             event.preventDefault();
+
             if (valid) mutation.mutate();
           }}
           className="mt-3 grid gap-3 border-t border-[var(--content-border)] pt-3 sm:grid-cols-2"
@@ -942,11 +965,13 @@ function useDialogMutation(onSaved: DialogProps["onSaved"], onClose: () => void)
 function AssignModal({ open, order, onClose, onSaved }: DialogProps) {
   const [selected, setSelected] = useState<string[]>([]);
   useOnOpen(open, () => setSelected(order.assignees.map((person) => person.id)));
+
   const { data: people = [] } = useQuery({
     queryKey: workOrderKeys.assigneeOptions(order.id),
     queryFn: () => listWorkOrderAssigneeOptions(order.id),
     enabled: open,
   });
+
   const save = useDialogMutation(onSaved, onClose);
   const current = new Set(order.assignees.map((person) => person.id));
 
@@ -974,6 +999,7 @@ function AssignModal({ open, order, onClose, onSaved }: DialogProps) {
         {people.map((person) => {
           // A un ausente no se le asigna trabajo nuevo; si ya lo tenía, se puede quitar.
           const blocked = person.away && !current.has(person.id);
+
           return (
             <li key={person.id}>
               <label className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm ${blocked ? "text-[var(--content-ink-dim)]" : "text-[var(--content-ink)] hover:bg-[var(--content-bg)]"}`}>
@@ -1004,6 +1030,7 @@ function HoldModal({ open, order, onClose, onSaved }: DialogProps) {
   const [reason, setReason] = useState<WorkOrderHoldReason | null>(null);
   useOnOpen(open, () => setReason(null));
   const save = useDialogMutation(onSaved, onClose);
+
   return (
     <Modal
       open={open}
@@ -1064,7 +1091,9 @@ function CompleteModal({
 
   async function complete(): Promise<WorkOrderDetail> {
     const next = await completeWorkOrder(order.id, { completionNotes: notes.trim(), retireAsset: retire });
+
     if (!ticket || !resolve || !next.ticket) return next;
+
     try {
       return await resolveOriginTicket(next, ticket, note);
     } catch (cause) {
@@ -1072,9 +1101,11 @@ function CompleteModal({
         `La orden se completó, pero el ticket ${formatTicketNumber(ticket.number)} no se pudo resolver: ` +
           (cause instanceof Error ? cause.message : "inténtalo desde el ticket."),
       );
+
       return next;
     }
   }
+
   return (
     <Modal
       open={open}
@@ -1157,6 +1188,7 @@ function ResolveTicketModal({ open, order, ticket, onClose, onSaved }: DialogPro
   const [note, setNote] = useState("");
   useOnOpen(open, () => setNote(order.completionNotes ?? ""));
   const save = useDialogMutation(onSaved, onClose);
+
   return (
     <Modal
       open={open}
@@ -1194,6 +1226,7 @@ function CancelModal({ open, order, onClose, onSaved }: DialogProps) {
   const [reason, setReason] = useState("");
   useOnOpen(open, () => setReason(""));
   const save = useDialogMutation(onSaved, onClose);
+
   return (
     <Modal
       open={open}

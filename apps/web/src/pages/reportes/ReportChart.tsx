@@ -54,6 +54,7 @@ export function ReportChart({
     ? {
         onClick: (entry: unknown) => {
           const key = groupKeyOf(entry);
+
           if (key) onSelect(key);
         },
         cursor: "pointer",
@@ -83,6 +84,7 @@ export function ReportChart({
         cursor={cursor}
         formatter={(value, name) => {
           const index = result.measures.findIndex((measure) => measure.label === name);
+
           return [formatValue(Number(value ?? 0), units[index === -1 ? 0 : index]!, result.currency), String(name)];
         }}
       />
@@ -116,6 +118,7 @@ export function ReportChart({
         actual: result.rows[0]?.values[index] ?? 0,
         previous: result.comparison?.rows[0]?.values[index] ?? null,
       }));
+
       return (
         <ResponsiveContainer width="100%" height={height}>
           <RadarChart data={data} outerRadius="72%">
@@ -159,7 +162,9 @@ export function ReportChart({
         value: row.values[0] ?? 0,
         fill: theme.categorical[index % theme.categorical.length]!,
       }));
+
       const half = widget.chart === "semidonut";
+
       return (
         <div className="relative">
           <ResponsiveContainer width="100%" height={height}>
@@ -201,6 +206,7 @@ export function ReportChart({
     case "area": {
       const data = seriesData(result);
       const Chart = widget.chart === "area" ? AreaChart : LineChart;
+
       return (
         <ResponsiveContainer width="100%" height={height}>
           <Chart data={data} margin={{ left: -16, right: 10, top: 6 }}>
@@ -271,6 +277,7 @@ export function ReportChart({
 
     case "stacked": {
       const { data, splits } = stackedData(result);
+
       return (
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={data} margin={{ left: -16, right: 10 }}>
@@ -296,6 +303,7 @@ export function ReportChart({
 
     case "hbar": {
       const data = seriesData(result);
+
       return (
         <ResponsiveContainer width="100%" height={Math.max(height, data.length * 28 + 40)}>
           <BarChart data={data} layout="vertical" margin={{ left: 6, right: 28 }}>
@@ -340,6 +348,7 @@ export function ReportChart({
     case "bar":
     default: {
       const data = seriesData(result);
+
       return (
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={data} margin={{ left: -16, right: 10 }}>
@@ -383,6 +392,7 @@ interface Clicked {
 
 function groupKeyOf(entry: unknown): string | undefined {
   const clicked = entry as Clicked | undefined;
+
   return clicked?.groupKey ?? clicked?.payload?.groupKey ?? clicked?.payload?.payload?.groupKey;
 }
 
@@ -413,16 +423,20 @@ function stackedData(result: ReportQueryResult): {
     const split = row.split ?? "Sin valor";
     bucket[split] = row.values[0] ?? 0;
     groups.set(row.label, bucket);
+
     if (!splits.includes(split)) splits.push(split);
   }
 
   // Máximo 6 segmentos; el resto se junta, igual que las porciones de una dona.
   const visible = splits.slice(0, 6);
   const rest = splits.slice(6);
+
   const data = [...groups.values()].map((bucket) => {
     if (!rest.length) return bucket;
     const others = rest.reduce((sum, split) => sum + Number(bucket[split] ?? 0), 0);
+
     for (const split of rest) delete bucket[split];
+
     return others ? { ...bucket, Otros: others } : bucket;
   });
 
@@ -449,6 +463,7 @@ function Kpi({ widget, result }: { widget: ReportWidget; result: ReportQueryResu
 
 function Table({ result }: { result: ReportQueryResult }) {
   const hasSplit = result.rows.some((row) => row.split !== undefined);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
@@ -510,6 +525,7 @@ function Segmented({
   onSelect?: (key: string) => void;
 }) {
   const total = result.rows.reduce((sum, row) => sum + (row.values[0] ?? 0), 0);
+
   if (!total) return <Empty />;
 
   return (
@@ -562,6 +578,7 @@ function Heatmap({ result, color }: { result: ReportQueryResult; color: string }
 
   for (const row of result.rows) {
     const [day, hour] = (row.key ?? "").split("-").map(Number);
+
     if (!day || Number.isNaN(hour as number)) continue;
     const value = row.values[0] ?? 0;
     values.set(`${day}-${hour}`, value);
@@ -591,6 +608,7 @@ function Heatmap({ result, color }: { result: ReportQueryResult; color: string }
               <th className="pr-1.5 text-right font-normal text-[var(--content-ink-dim)]">{name}</th>
               {columns.map((hour) => {
                 const value = values.get(`${index + 1}-${hour}`) ?? 0;
+
                 return (
                   <td key={hour} className="p-0">
                     <div

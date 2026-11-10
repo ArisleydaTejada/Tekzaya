@@ -14,6 +14,7 @@ import { Modal } from "./Modal";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent";
+
 const labelClass = "mb-1 block text-xs font-medium text-[var(--content-ink-dim)]";
 
 /**

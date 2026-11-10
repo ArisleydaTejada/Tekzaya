@@ -62,6 +62,7 @@ export default function AdministracionPage({ tab: fixedTab }: { tab?: string }) 
   // RRHH entra a Usuarios y Configuración, así que no ve pestañas que no puede abrir.
   const isAdmin = me?.role === "admin";
   const managesSettings = Boolean(me && canManageSettings(me));
+
   const tabs = TABS.filter(
     (item) => item.access === "users" || isAdmin || (item.access === "settings" && managesSettings),
   );
@@ -126,10 +127,13 @@ const USER_SORT_KEY: Record<UserColumn, (user: AdminUser) => string | number> = 
 function sortUsers(users: AdminUser[], column: UserColumn, dir: "asc" | "desc"): AdminUser[] {
   const key = USER_SORT_KEY[column];
   const sign = dir === "asc" ? 1 : -1;
+
   return [...users].sort((a, b) => {
     const left = key(a);
     const right = key(b);
+
     if (left === right) return a.name.localeCompare(b.name);
+
     return left < right ? -sign : sign;
   });
 }
@@ -148,6 +152,7 @@ function SortableTh({
   onSort: (column: UserColumn) => void;
 }) {
   const active = sort === column;
+
   return (
     <th
       className="px-3 py-2.5 font-medium"
@@ -180,6 +185,7 @@ const STATUS_TOKEN: Record<string, string> = {
 
 function UserStatusBadge({ status }: { status: string }) {
   const key = STATUS_TOKEN[status] ?? "closed";
+
   return (
     <span
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium"
@@ -200,6 +206,7 @@ type IssuedLink = { kind: "invite" | "recovery"; name: string; link: AccessLink 
 /** El enlace existe una sola vez: si se cierra sin copiarlo, hay que generar otro. */
 function AccessLinkModal({ issued, onClose }: { issued: IssuedLink | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+
   const close = () => {
     setCopied(false);
     onClose();
@@ -267,6 +274,7 @@ function UsuariosTab() {
   const [error, setError] = useState<string | null>(null);
 
   const query = { q: search.trim(), status: statusFilter };
+
   const { data: rows = [], isLoading } = useQuery({
     queryKey: adminKeys.users(query),
     queryFn: () => listUsers(query),
@@ -289,6 +297,7 @@ function UsuariosTab() {
       setDir("asc");
     }
   }
+
   const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -321,6 +330,7 @@ function UsuariosTab() {
     const items: DropdownItem[] = [
       { label: "Editar", icon: <PencilIcon className="h-4 w-4" />, onSelect: () => setEditing(user) },
     ];
+
     if (user.status !== "disabled") {
       items.push({
         label: user.status === "invited" ? "Reenviar invitación" : "Restablecer contraseña",
@@ -329,6 +339,7 @@ function UsuariosTab() {
         onSelect: () => accessLinkMutation.mutate(user),
       });
     }
+
     items.push(
       user.status === "disabled"
         ? {
@@ -343,6 +354,7 @@ function UsuariosTab() {
             onSelect: () => toggleStatus.mutate({ id: user.id, status: "disabled" }),
           },
     );
+
     return items;
   }
 
@@ -695,6 +707,7 @@ function RolePicker({
   // rol de administrador o la lectura global, podría nombrarse a sí misma y el
   // límite dejaría de existir. El servidor rechaza el intento igualmente.
   const mayGrant = Boolean(me && canGrantPrivileges(me));
+
   const current =
     role === "admin"
       ? "admin"
@@ -753,6 +766,7 @@ function AreasTab() {
     queryClient.setQueryData(adminKeys.areas, items);
     void queryClient.invalidateQueries({ queryKey: areaKeys.all });
   };
+
   const fail = (cause: Error) => setError(cause.message);
 
   const toggleArea = useMutation({
@@ -924,6 +938,7 @@ function NewCategoryButton({ onCreate }: { onCreate: (name: string) => void }) {
     <form
       onSubmit={(event) => {
         event.preventDefault();
+
         if (name.trim().length >= 2) onCreate(name.trim());
         setName("");
         setOpen(false);
@@ -960,6 +975,7 @@ function AreaModal({
   const [name, setName] = useState(area?.name ?? "");
   const [description, setDescription] = useState(area?.description ?? "");
   const [color, setColor] = useState(area?.color ?? "#7c8cae");
+
   const [supervisors, setSupervisors] = useState<string[]>(
     area?.supervisors.map((person) => person.id) ?? [],
   );
@@ -975,6 +991,7 @@ function AreaModal({
       const items = area
         ? await updateArea(area.id, { name, description, color })
         : await createArea({ name, description, color, categories: [] });
+
       // Los supervisores se guardan aparte porque tocan la tabla de personas.
       return area ? await saveSupervisors(area.id, { userIds: supervisors }) : items;
     },
@@ -1114,6 +1131,7 @@ function ConfiguracionTab() {
   // El borrador arranca del servidor y solo se reemplaza cuando llega otro
   // distinto, para no pisar lo que el administrador está escribiendo.
   const [loadedFrom, setLoadedFrom] = useState<Settings | null>(null);
+
   if (settings && settings !== loadedFrom) {
     setLoadedFrom(settings);
     setDraft(structuredClone(settings));
@@ -1122,6 +1140,7 @@ function ConfiguracionTab() {
   const save = useMutation({
     mutationFn: () => {
       const { aiEnabled, reportLimits, maintenance, ...rest } = draft!;
+
       return updateSettings(isAdmin ? { ...rest, aiEnabled, reportLimits, maintenance } : rest);
     },
     onSuccess: async (saved) => {
@@ -1144,6 +1163,7 @@ function ConfiguracionTab() {
   }
 
   const patch = (change: Partial<Settings>) => setDraft({ ...draft, ...change });
+
   // Cerrar antes de recordar dejaría al solicitante sin aviso previo.
   const onHoldProblem =
     draft.onHoldAutoCloseDays < draft.onHoldReminderDays
@@ -1164,6 +1184,7 @@ function ConfiguracionTab() {
           <span className="text-xs text-[var(--content-ink-dim)]">Resolución</span>
           {PRIORITIES.map((priority) => {
             const policy = draft.slaPolicies[priority]!;
+
             return (
               <Fragment key={priority}>
                 <span className="text-[var(--content-ink-dim)]">{PRIORITY_LABEL[priority]}</span>
@@ -1222,6 +1243,7 @@ function ConfiguracionTab() {
         <div className="flex flex-wrap items-center gap-1.5">
           {[1, 2, 3, 4, 5, 6, 7].map((day) => {
             const active = draft.businessHours.days.includes(day);
+
             return (
               <button
                 key={day}
@@ -1507,6 +1529,7 @@ function offsetOf(timeZone: string): string {
     const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
       .formatToParts(new Date())
       .find((item) => item.type === "timeZoneName")?.value;
+
     return !part || part === "GMT" ? "UTC+00:00" : part.replace("GMT", "UTC").replace("-", "−");
   } catch {
     return "";
@@ -1524,12 +1547,14 @@ function TimezoneSelect({ value, onChange }: { value: string; onChange: (value: 
     // La guardada siempre está, aunque el navegador no la liste (p. ej. "UTC").
     const all = zones.includes(value) ? zones : [value, ...zones];
     const map = new Map<string, { zone: string; label: string }[]>();
+
     for (const zone of all) {
       const region = zone.includes("/") ? zone.split("/")[0]! : "Otras";
       const city = zone.includes("/") ? zone.slice(region.length + 1) : zone;
       const label = `${city.replace(/_/g, " ").replace(/\//g, " / ")} (${offsetOf(zone)})`;
       map.set(region, [...(map.get(region) ?? []), { zone, label }]);
     }
+
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [value]);
 
@@ -1566,6 +1591,7 @@ function Field({
   ...rest
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   const id = useId();
+
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">

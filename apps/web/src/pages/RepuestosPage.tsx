@@ -46,6 +46,7 @@ export default function RepuestosPage() {
     ...(search.trim() ? { q: search.trim() } : {}),
     ...(low ? { low: "true" as const } : {}),
   };
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: sparePartKeys.list(query),
     queryFn: () => listSpareParts(query),
@@ -66,6 +67,7 @@ export default function RepuestosPage() {
       setSort(column);
       setDir(column === "value" ? "desc" : "asc");
     }
+
     setPage(1);
   }
 
@@ -246,6 +248,7 @@ function Th({
 }) {
   if (!column) return <th className={`px-3 py-2.5 font-medium ${className}`}>{label}</th>;
   const active = sort === column;
+
   return (
     <th className={`px-3 py-2.5 font-medium ${className}`} aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
       <button
@@ -269,6 +272,7 @@ function PartThumb({ part }: { part: SparePartView }) {
 function StockBar({ part }: { part: SparePartView }) {
   const target = Math.max(part.minStock * 2, 1);
   const fill = Math.min(100, Math.round((part.stock / target) * 100));
+
   return (
     <span className="mt-1 block h-1 w-20 overflow-hidden rounded-full bg-[var(--content-border)]" aria-hidden="true">
       <span className={`block h-full rounded-full ${part.low ? "bg-amber" : "bg-green"}`} style={{ width: `${fill}%` }} />

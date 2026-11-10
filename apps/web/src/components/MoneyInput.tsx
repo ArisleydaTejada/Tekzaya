@@ -10,10 +10,13 @@ function significantBefore(text: string, position: number): number {
 function positionAfter(text: string, count: number): number {
   if (count === 0) return 0;
   let seen = 0;
+
   for (let index = 0; index < text.length; index++) {
     if (/[\d.]/.test(text[index]!)) seen++;
+
     if (seen === count) return index + 1;
   }
+
   return text.length;
 }
 

@@ -50,6 +50,7 @@ export function PickerModal<T>({
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(search.trim()), 250);
+
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -60,6 +61,7 @@ export function PickerModal<T>({
     setHighlight(0);
     // Espera a que el modal monte el campo antes de enfocarlo.
     const timer = setTimeout(() => inputRef.current?.focus(), 50);
+
     return () => clearTimeout(timer);
   }, [open]);
 
@@ -70,6 +72,7 @@ export function PickerModal<T>({
 
   function pick(index: number) {
     const item = items[index];
+
     if (item !== undefined) onPick(numberOf(item));
   }
 
@@ -121,6 +124,7 @@ export function PickerModal<T>({
                 {section.items.map((item) => {
                   const index = items.indexOf(item);
                   const number = numberOf(item);
+
                   return (
                     <button
                       key={keyOf(item)}
@@ -153,13 +157,16 @@ export function PickerModal<T>({
 /** Junta varias listas en grupos, sin repetir: cada registro sale en el primero que lo trae. */
 export function dedupeSections<T>(keyOf: (item: T) => string, sections: PickerSection<T>[]): PickerSection<T>[] {
   const seen = new Set<string>();
+
   return sections
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
         const key = keyOf(item);
+
         if (seen.has(key)) return false;
         seen.add(key);
+
         return true;
       }),
     }))

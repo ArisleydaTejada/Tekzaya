@@ -60,6 +60,7 @@ export function WidgetCard({
 
   const span = widget.chart === "kpi" ? "lg:col-span-2 xl:col-span-2" : SPAN[widget.layout.w] ?? SPAN[1]!;
   const aggregation = widget.measures[0]?.aggregation;
+
   const subtitle = [
     widget.measures.map((item) => item.key).length > 1 ? `${widget.measures.length} medidas` : null,
     aggregation ? AGGREGATION_LABEL[aggregation] : null,
@@ -201,6 +202,7 @@ function Menu({
                 icon
                 onClick={async () => {
                   setOpen(false);
+
                   try {
                     if (chartRef.current) await downloadChartPng(chartRef.current, widget.title);
                   } catch (cause) {
