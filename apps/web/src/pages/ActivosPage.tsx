@@ -71,13 +71,13 @@ export default function ActivosPage() {
     limit: PAGE_SIZE,
     sort,
     dir,
-    ...(search.trim() ? { q: search.trim() } : {}),
-    ...(filters.status ? { status: [filters.status] } : {}),
-    ...(filters.type ? { type: [filters.type] } : {}),
-    ...(filters.areaId ? { areaId: filters.areaId } : {}),
-    ...(filters.usedByAreaId ? { usedByAreaId: filters.usedByAreaId } : {}),
-    ...(filters.location ? { location: filters.location } : {}),
-    ...(filters.warranty ? { warranty: filters.warranty } : {}),
+    q: search.trim() || undefined,
+    status: filters.status ? [filters.status] : undefined,
+    type: filters.type ? [filters.type] : undefined,
+    areaId: filters.areaId || undefined,
+    usedByAreaId: filters.usedByAreaId || undefined,
+    location: filters.location || undefined,
+    warranty: filters.warranty || undefined,
   };
 
   const { data, isLoading, isError, error } = useQuery({

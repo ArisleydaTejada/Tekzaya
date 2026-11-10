@@ -54,9 +54,9 @@ export function WorkOrdersOfPeriod({
   const query = useMemo(
     () => ({
       ...scope,
-      ...(filters.q ? { q: filters.q } : {}),
-      ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.type ? { type: filters.type } : {}),
+      q: filters.q || undefined,
+      status: filters.status || undefined,
+      type: filters.type || undefined,
       page,
       limit,
       sort,

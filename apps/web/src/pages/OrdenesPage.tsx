@@ -58,9 +58,9 @@ export default function OrdenesPage() {
     limit: view === "kanban" ? KANBAN_LIMIT : PAGE_SIZE,
     sort,
     dir,
-    ...(search.trim() ? { q: search.trim() } : {}),
-    ...(status ? { status: [status] } : {}),
-    ...(type ? { type } : {}),
+    q: search.trim() || undefined,
+    status: status ? [status] : undefined,
+    type: type || undefined,
   };
 
   const { data, isLoading, isError, error } = useQuery({

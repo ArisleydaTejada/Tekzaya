@@ -68,7 +68,7 @@ function useTicketTitle(number: string): string | undefined {
  * lo ya terminado.
  */
 function useTicketSections(search: string, open: boolean): PickerResult<TicketListItem> {
-  const base: Partial<TicketListQuery> = { limit: 20, sort: "sla", ...(search ? { q: search } : {}) };
+  const base: Partial<TicketListQuery> = { limit: 20, sort: "sla", q: search || undefined };
   const mineQuery: Partial<TicketListQuery> = { ...base, scope: "assigned" };
   const openQuery: Partial<TicketListQuery> = { ...base, scope: "all", status: [...ACTIVE_TICKET_STATUSES] };
   const restQuery: Partial<TicketListQuery> = { ...base, scope: "all", status: [...SETTLED_TICKET_STATUSES] };

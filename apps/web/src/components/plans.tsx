@@ -133,7 +133,7 @@ export function PlanFormModal({
         return updatePlan(plan.id, {
           title: title.trim(),
           ...recurrence,
-          ...(date !== plan.nextDueAt ? { nextDueAt: date } : {}),
+          nextDueAt: date !== plan.nextDueAt ? date : undefined,
         });
       }
 

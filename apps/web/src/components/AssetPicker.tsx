@@ -64,10 +64,10 @@ export function AssetPicker({
   const onlyType = type && !showAll ? type : undefined;
 
   const query = {
-    ...(q ? { q } : {}),
-    ...(ticketId ? { ticketId } : {}),
-    ...(requesterId ? { requesterId } : {}),
-    ...(onlyType ? { type: onlyType } : {}),
+    q: q || undefined,
+    ticketId: ticketId || undefined,
+    requesterId: requesterId || undefined,
+    type: onlyType || undefined,
   };
 
   const { data, isLoading, isError, error } = useQuery({

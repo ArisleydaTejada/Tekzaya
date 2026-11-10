@@ -43,8 +43,8 @@ export default function RepuestosPage() {
     sort,
     dir,
     state,
-    ...(search.trim() ? { q: search.trim() } : {}),
-    ...(low ? { low: "true" as const } : {}),
+    q: search.trim() || undefined,
+    low: low ? "true" as const : undefined,
   };
 
   const { data, isLoading, isError, error } = useQuery({

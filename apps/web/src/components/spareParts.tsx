@@ -138,7 +138,7 @@ export function SparePartFormModal({
             unit,
             minStock: min,
             assetIds: linked.map((asset) => asset.id),
-            ...(photoIds.join() !== part.photoIds.join() ? { photoIds } : {}),
+            photoIds: photoIds.join() !== part.photoIds.join() ? photoIds : undefined,
           })
         : createSparePart({
             name: name.trim(),
@@ -147,7 +147,7 @@ export function SparePartFormModal({
             minStock: min,
             assetIds: linked.map((asset) => asset.id),
             photoIds,
-            ...(qty > 0 && cost !== null ? { initialStock: { qty, unitCost: cost } } : {}),
+            initialStock: qty > 0 && cost !== null ? { qty, unitCost: cost } : undefined,
           }),
     onSuccess: onSaved,
   });
@@ -260,7 +260,7 @@ function AssetChecklist({
 }) {
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
-  const query = { areaId, status: ["operational", "in_repair"] as ("operational" | "in_repair")[], sort: "name", limit: 100, ...(q ? { q } : {}) } as const;
+  const query = { areaId, status: ["operational", "in_repair"] as ("operational" | "in_repair")[], sort: "name", limit: 100, q: q || undefined } as const;
 
   const { data, isLoading } = useQuery({
     queryKey: assetKeys.list(query),
@@ -385,7 +385,7 @@ export function StockMovementModal({
       createStockMovement(
         part.id,
         kind === "in"
-          ? { kind, qty: amount, unitCost: unitCost!, ...(reason.trim() ? { reason: reason.trim() } : {}) }
+          ? { kind, qty: amount, unitCost: unitCost!, reason: reason.trim() || undefined }
           : { kind, qty: direction === "down" ? -amount : amount, reason: reason.trim() },
       ),
     onSuccess: onSaved,

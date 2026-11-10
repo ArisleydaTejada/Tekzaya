@@ -112,7 +112,7 @@ export default function CreateTicketPage() {
       ? { type: mentionedType }
       : null;
 
-  const mentionKey = mentionQuery && { ...mentionQuery, ...(onBehalfOf ? { requesterId: onBehalfOf } : {}) };
+  const mentionKey = mentionQuery && { ...mentionQuery, requesterId: onBehalfOf || undefined };
 
   const { data: mentioned, status: mentionStatus } = useQuery({
     queryKey: assetKeys.linkOptions(mentionKey ?? {}),
@@ -231,9 +231,9 @@ export default function CreateTicketPage() {
       title,
       description,
       areaId,
-      ...(categoryId ? { categoryId } : {}),
-      ...(onBehalfOf ? { requesterId: onBehalfOf } : {}),
-      ...(asset ? { assetId: asset.id } : {}),
+      categoryId: categoryId || undefined,
+      requesterId: onBehalfOf || undefined,
+      assetId: asset ? asset.id : undefined,
       attachmentIds: files.map((file) => file.id),
     });
 

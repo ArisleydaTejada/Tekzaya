@@ -87,7 +87,7 @@ function useWorkOrderSections(search: string, open: boolean): PickerResult<WorkO
     limit: 30,
     sort: "updatedAt",
     dir: "desc",
-    ...(search ? { q: search } : {}),
+    q: search || undefined,
   };
 
   const mineQuery: Partial<WorkOrderListQuery> = { ...base, scope: "mine" };

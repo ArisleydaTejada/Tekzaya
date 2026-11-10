@@ -148,11 +148,11 @@ export default function ReportesPage() {
       draft
         ? {
             scope: draft.scope,
-            ...(draft.areaId ? { areaId: draft.areaId } : {}),
-            ...(draft.userId ? { userId: draft.userId } : {}),
+            areaId: draft.areaId || undefined,
+            userId: draft.userId || undefined,
             period: draft.period,
-            ...(draft.from ? { from: draft.from } : {}),
-            ...(draft.to ? { to: draft.to } : {}),
+            from: draft.from || undefined,
+            to: draft.to || undefined,
           }
         : { scope: "me", period: "month" },
     [draft],
@@ -168,7 +168,7 @@ export default function ReportesPage() {
   const listScope: ReportScopeRequest = useMemo(
     () =>
       catalog.data?.maxScope === "me"
-        ? { period: scope.period, ...(scope.from ? { from: scope.from } : {}), ...(scope.to ? { to: scope.to } : {}), scope: "area" }
+        ? { period: scope.period, from: scope.from || undefined, to: scope.to || undefined, scope: "area" }
         : scope,
     [catalog.data, scope],
   );
@@ -214,14 +214,14 @@ export default function ReportesPage() {
 
     const definition = {
       title: draft.title,
-      ...(draft.description ? { description: draft.description } : {}),
+      description: draft.description || undefined,
       scope: draft.scope,
-      ...(draft.areaId ? { areaId: draft.areaId } : {}),
-      ...(draft.userId ? { userId: draft.userId } : {}),
+      areaId: draft.areaId || undefined,
+      userId: draft.userId || undefined,
       period: draft.period,
-      ...(draft.from ? { from: draft.from } : {}),
-      ...(draft.to ? { to: draft.to } : {}),
-      ...(draft.perspective ? { perspective: draft.perspective } : {}),
+      from: draft.from || undefined,
+      to: draft.to || undefined,
+      perspective: draft.perspective || undefined,
       widgets: draft.widgets,
       ticketFilters,
     };
@@ -408,7 +408,7 @@ export default function ReportesPage() {
               {draft.widgets.map((widget) => (
                 <WidgetCard
                   key={widget.id}
-                  widget={{ ...widget, ...(draft.perspective ? { perspective: draft.perspective } : {}) }}
+                  widget={{ ...widget, perspective: draft.perspective || widget.perspective }}
                   scope={scope}
                   editable
                   onEdit={() => setEditing(widget)}
@@ -565,14 +565,14 @@ function ScopeSelector({
           <button
             key={item.id}
             aria-pressed={draft?.scope === item.id}
-            onClick={() =>
-              onChange({
-                scope: item.id as StatsScope,
-                // Elegir "un área" o "una persona" arranca en la propia: es el caso
-                // normal y evita un selector vacío esperando una decisión.
-                ...(item.id === "user" && !draft?.areaId ? { areaId: undefined } : {}),
-              })
-            }
+            onClick={() => {
+              const patch: Partial<Draft> = { scope: item.id as StatsScope };
+
+              // Elegir "un área" o "una persona" arranca en la propia: es el caso
+              // normal y evita un selector vacío esperando una decisión.
+              if (item.id === "user" && !draft?.areaId) patch.areaId = undefined;
+              onChange(patch);
+            }}
             className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
               draft?.scope === item.id
                 ? "bg-accent text-white"
@@ -1033,10 +1033,10 @@ function fromTemplate(template: ReportTemplate): Draft {
     title: template.title,
     description: template.description,
     scope: template.scope,
-    ...(template.areaId ? { areaId: template.areaId } : {}),
-    ...(template.userId ? { userId: template.userId } : {}),
+    areaId: template.areaId || undefined,
+    userId: template.userId || undefined,
     period: template.period,
-    ...(template.perspective ? { perspective: template.perspective } : {}),
+    perspective: template.perspective || undefined,
     widgets: template.widgets,
     dirty: false,
   };
@@ -1046,15 +1046,15 @@ function fromSaved(report: SavedReport): Draft {
   return {
     id: report.id,
     title: report.title,
-    ...(report.description ? { description: report.description } : {}),
+    description: report.description || undefined,
     // Se abre con el alcance que el rol permite hoy, no con el guardado.
     scope: report.effectiveScope,
-    ...(report.areaId ? { areaId: report.areaId } : {}),
-    ...(report.userId ? { userId: report.userId } : {}),
+    areaId: report.areaId || undefined,
+    userId: report.userId || undefined,
     period: report.period,
-    ...(report.from ? { from: report.from } : {}),
-    ...(report.to ? { to: report.to } : {}),
-    ...(report.perspective ? { perspective: report.perspective as Perspective } : {}),
+    from: report.from || undefined,
+    to: report.to || undefined,
+    perspective: report.perspective ? report.perspective as Perspective : undefined,
     widgets: report.widgets,
     dirty: false,
     narrowed: report.scopeNarrowed,

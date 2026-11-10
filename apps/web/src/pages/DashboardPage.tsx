@@ -82,7 +82,7 @@ export default function DashboardPage() {
   const query: StatsRequest = {
     scope: activeScope,
     period,
-    ...(pickedArea ? { areaId: pickedArea } : {}),
+    areaId: pickedArea || undefined,
   };
 
   const areas = useQuery({ queryKey: areaKeys.all, queryFn: listAreas, enabled: canPickArea });

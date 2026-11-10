@@ -755,15 +755,15 @@ function ExternalSection({ order, editable, onSaved }: SectionProps) {
 
       const base = {
         vendor: vendor.trim(),
-        ...(description.trim() ? { description: description.trim() } : {}),
-        ...(invoice ? { attachmentId: invoice.id } : {}),
+        description: description.trim() || undefined,
+        attachmentId: invoice ? invoice.id : undefined,
       };
 
       return addExternalCost(
         order.id,
         pricing === "hourly"
           ? { ...base, pricing, hourlyRate: centsOf(rate), minutes: worked }
-          : { ...base, pricing, amount: centsOf(amount), ...(worked > 0 ? { minutes: worked } : {}) },
+          : { ...base, pricing, amount: centsOf(amount), minutes: worked > 0 ? worked : undefined },
       );
     },
     onSuccess: async (next) => {

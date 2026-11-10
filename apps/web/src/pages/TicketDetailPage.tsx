@@ -282,7 +282,7 @@ export default function TicketDetailPage() {
         await updateTicket(ticket!.id, {
           status,
           note: body,
-          ...(files.length ? { attachmentIds: files.map((file) => file.id) } : {}),
+          attachmentIds: files.length ? files.map((file) => file.id) : undefined,
         });
 
         return "done";
@@ -1485,7 +1485,7 @@ function WorkOrderModal({
     mutationFn: () =>
       createWorkOrderFromTicket(ticket.id, {
         title: title.trim(),
-        ...(description.trim() ? { description: description.trim() } : {}),
+        description: description.trim() || undefined,
         outOfService: outOfService!,
       }),
     onSuccess: async () => {
@@ -1652,7 +1652,7 @@ function CsatPanel({ ticket, onAnswered }: { ticket: TicketDetail; onAnswered: (
     mutationFn: () =>
       answerCsat(ticket.id, {
         rating,
-        ...(comment.trim() ? { comment: comment.trim() } : {}),
+        comment: comment.trim() || undefined,
       }),
     onSuccess: onAnswered,
     onError: (cause) => setError(cause.message),

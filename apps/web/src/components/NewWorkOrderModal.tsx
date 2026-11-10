@@ -55,9 +55,9 @@ export function NewWorkOrderModal({
         assetId: asset.id,
         type,
         title: title.trim(),
-        ...(description.trim() ? { description: description.trim() } : {}),
+        description: description.trim() || undefined,
         outOfService: outOfService!,
-        ...(type === "preventive" && scheduledFor ? { scheduledFor } : {}),
+        scheduledFor: type === "preventive" && scheduledFor ? scheduledFor : undefined,
         checklist: checklist
           .split("\n")
           .map((line) => line.trim())

@@ -242,7 +242,7 @@ function AvailabilityCard() {
               state: "away",
               reason,
               // El selector da un día; el contrato pide un instante.
-              ...(until ? { awayUntil: new Date(`${until}T23:59:59`).toISOString() } : {}),
+              awayUntil: until ? new Date(`${until}T23:59:59`).toISOString() : undefined,
             }
           : { state: "available" },
       ),

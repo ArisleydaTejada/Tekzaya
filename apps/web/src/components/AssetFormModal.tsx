@@ -138,8 +138,8 @@ export function AssetFormModal({
           type: draft.type,
           areaId: draft.areaId,
           location: draft.location.trim(),
-          ...(cost !== null ? { purchaseCost: cost } : {}),
-          ...(draft.photoIds.length ? { photoIds: draft.photoIds } : {}),
+          purchaseCost: cost ?? undefined,
+          photoIds: draft.photoIds.length ? draft.photoIds : undefined,
         };
 
         for (const key of OPTIONAL_TEXT) {

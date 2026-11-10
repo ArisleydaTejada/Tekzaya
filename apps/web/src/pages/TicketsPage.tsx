@@ -197,9 +197,9 @@ export default function TicketsPage() {
     limit: view === "kanban" ? 100 : PAGE_SIZE,
     sort,
     dir,
-    ...(search.trim() ? { q: search.trim() } : {}),
-    ...(statusFilter ? { status: [statusFilter] } : {}),
-    ...(priorityFilter ? { priority: [priorityFilter] } : {}),
+    q: search.trim() || undefined,
+    status: statusFilter ? [statusFilter] : undefined,
+    priority: priorityFilter ? [priorityFilter] : undefined,
   };
 
   const { data, isLoading, isError, error } = useQuery({
@@ -259,7 +259,7 @@ export default function TicketsPage() {
     setMoveError(null);
 
     try {
-      await updateTicket(ticket.id, { status, ...(note ? { note } : {}) });
+      await updateTicket(ticket.id, { status, note: note || undefined });
       await queryClient.invalidateQueries({ queryKey: ticketKeys.all });
     } catch (cause) {
       // El tablero vuelve solo a su sitio: la tarjeta nunca se movió en la base.

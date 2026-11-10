@@ -207,8 +207,8 @@ export function SlaTimeline({
             role="tooltip"
             style={{
               left: anchor.left,
-              ...(anchor.top !== undefined ? { top: anchor.top } : {}),
-              ...(anchor.bottom !== undefined ? { bottom: anchor.bottom } : {}),
+              top: anchor.top,
+              bottom: anchor.bottom,
             }}
             className="pointer-events-none fixed z-50 w-72 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-4 text-left shadow-[var(--content-shadow)]"
           >
