@@ -15,7 +15,7 @@ import {
   type StatsTimeseries,
   type TicketDetail,
 } from "@tekzaya/shared";
-import { apiFetch, queryString } from "./client";
+import { apiFetch, queryString, type QueryParams } from "./client";
 
 /** Lo que el cliente pide; el servidor decide qué concede (spec §10.4). */
 export type StatsRequest = Partial<StatsQuery>;
@@ -69,6 +69,6 @@ export function statsCsvUrl(query: StatsRequest): string {
   return `/api/v1/stats/export${queryString(query)}`;
 }
 
-export function ticketsCsvUrl(query: Record<string, unknown>): string {
+export function ticketsCsvUrl(query: QueryParams): string {
   return `/api/v1/tickets/export${queryString(query)}`;
 }

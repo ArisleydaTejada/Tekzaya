@@ -1,4 +1,5 @@
 import type { MeasureUnit } from "@tekzaya/shared";
+import type { CSSProperties } from "react";
 
 /**
  * Los colores viven en `index.css` como tokens, uno por tema, y aquí solo se leen: así
@@ -63,7 +64,7 @@ export function readChartTheme(mode: "light" | "dark"): ChartTheme {
   };
 }
 
-export function tooltipStyle(theme: ChartTheme): Record<string, string | number> {
+export function tooltipStyle(theme: ChartTheme): CSSProperties {
   return {
     background: theme.surface,
     border: `1px solid ${theme.border}`,

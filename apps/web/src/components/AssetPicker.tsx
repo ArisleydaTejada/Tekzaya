@@ -79,9 +79,11 @@ export function AssetPicker({
 
   const items = data?.items ?? [];
 
-  const groups = (["custodian", "area", "other"] as const)
-    .map((group) => ({ group, items: items.filter((item) => item.group === group) }))
-    .filter((entry) => entry.items.length > 0);
+  const groups = (["custodian", "area", "other"] as const).flatMap((group) => {
+    const inGroup = items.filter((item) => item.group === group);
+
+    return inGroup.length > 0 ? [{ group, items: inGroup }] : [];
+  });
 
   return (
     <Modal open={open} onClose={onClose} title="Vincular un equipo" wide>

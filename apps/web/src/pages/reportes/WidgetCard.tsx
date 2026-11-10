@@ -19,11 +19,11 @@ const RASTERIZABLE = new Set([
   "radar",
 ]);
 
-const SPAN: Record<number, string> = {
-  1: "lg:col-span-2",
-  2: "lg:col-span-3",
-  3: "lg:col-span-6",
-};
+const SPAN = new Map([
+  [1, "lg:col-span-2"],
+  [2, "lg:col-span-3"],
+  [3, "lg:col-span-6"],
+]);
 
 /**
  * Una tarjeta, una consulta, un esqueleto de carga y un error propios: si una gráfica
@@ -58,7 +58,7 @@ export function WidgetCard({
     queryFn: () => runReportWidget(scope, widget),
   });
 
-  const span = widget.chart === "kpi" ? "lg:col-span-2 xl:col-span-2" : SPAN[widget.layout.w] ?? SPAN[1]!;
+  const span = widget.chart === "kpi" ? "lg:col-span-2 xl:col-span-2" : SPAN.get(widget.layout.w) ?? "lg:col-span-2";
   const aggregation = widget.measures[0]?.aggregation;
 
   const subtitle = [

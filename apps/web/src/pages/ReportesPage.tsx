@@ -241,7 +241,7 @@ export default function ReportesPage() {
     if (source !== draftSource) return;
 
     if (source === "maintenance") {
-      const filter = WORK_ORDER_DRILL_FILTERS[dimension]?.(key);
+      const filter = WORK_ORDER_DRILL_FILTERS.get(dimension)?.(key);
 
       if (!filter) return;
       setWorkOrderFilters({ ...workOrderFilters, ...filter });
@@ -250,7 +250,7 @@ export default function ReportesPage() {
       return;
     }
 
-    const filter = DRILL_FILTERS[dimension]?.(key);
+    const filter = DRILL_FILTERS.get(dimension)?.(key);
 
     if (!filter) return;
     setTicketFilters({ ...ticketFilters, ...filter });
@@ -1062,29 +1062,30 @@ function fromSaved(report: SavedReport): Draft {
 }
 
 /** De qué dimensión a qué filtro de la lista. Lo que no está aquí no es pulsable. */
-const DRILL_FILTERS: Record<
-  string,
-  ((key: string) => NonNullable<ReportDefinition["ticketFilters"]>) | undefined
-> = {
-  category: (key) => ({ categoryIds: [key] }),
-  priority: (key) => ({ priorities: [key as "urgent" | "high" | "medium" | "low"] }),
-  status: (key) => ({ statuses: [key] as NonNullable<ReportDefinition["ticketFilters"]>["statuses"] }),
-  sla_state: (key) => ({ slaStates: [key as "on_time" | "at_risk" | "breached"] }),
-  area: (key) => ({ areaIds: [key] }),
-  assignee: (key) => (key ? { assigneeIds: [key] } : { unassigned: true }),
-  requester: (key) => ({ requesterId: key }),
-  csat: (key) => ({ csatRatings: [(key || "none") as "1" | "2" | "3" | "4" | "5" | "none"] }),
-  created_on_behalf: (key) => ({ onBehalf: key === "on_behalf" }),
-};
+type TicketDrill = (key: string) => NonNullable<ReportDefinition["ticketFilters"]>;
+
+const DRILL_FILTERS = new Map<string, TicketDrill>([
+  ["category", (key) => ({ categoryIds: [key] })],
+  ["priority", (key) => ({ priorities: [key as "urgent" | "high" | "medium" | "low"] })],
+  ["status", (key) => ({ statuses: [key] as NonNullable<ReportDefinition["ticketFilters"]>["statuses"] })],
+  ["sla_state", (key) => ({ slaStates: [key as "on_time" | "at_risk" | "breached"] })],
+  ["area", (key) => ({ areaIds: [key] })],
+  ["assignee", (key) => (key ? { assigneeIds: [key] } : { unassigned: true })],
+  ["requester", (key) => ({ requesterId: key })],
+  ["csat", (key) => ({ csatRatings: [(key || "none") as "1" | "2" | "3" | "4" | "5" | "none"] })],
+  ["created_on_behalf", (key) => ({ onBehalf: key === "on_behalf" })],
+]);
 
 /**
  * Lo mismo para la lista de órdenes. Solo el tipo de orden tiene filtro en ella;
  * un clic en un equipo o un técnico no hace nada antes que llevar a una lista
  * que no corresponde.
  */
-const WORK_ORDER_DRILL_FILTERS: Record<string, ((key: string) => WorkOrderListFilters) | undefined> = {
-  work_order_type: (key) => (key === "corrective" || key === "preventive" ? { type: key } : {}),
-};
+type WorkOrderDrill = (key: string) => WorkOrderListFilters;
+
+const WORK_ORDER_DRILL_FILTERS = new Map<string, WorkOrderDrill>([
+  ["work_order_type", (key) => (key === "corrective" || key === "preventive" ? { type: key } : {})],
+]);
 
 let widgetCounter = 0;
 

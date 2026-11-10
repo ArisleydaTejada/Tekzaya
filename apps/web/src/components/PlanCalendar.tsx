@@ -65,7 +65,12 @@ function localToday(): string {
 type View = "month" | "week";
 
 /** Semanas completas, de lunes a domingo: la rejilla del mes trae los días de los meses vecinos. */
-function rangeOf(view: View, anchor: string): { from: string; to: string } {
+interface DateRange {
+  from: string;
+  to: string;
+}
+
+function rangeOf(view: View, anchor: string): DateRange {
   if (view === "week") {
     const from = addDaysToKey(anchor, -weekdayOf(anchor));
 
@@ -599,7 +604,7 @@ function MonthPicker({
   return (
     <Popover
       label="Elegir mes"
-      triggerClassName={`${buttonClass} min-w-[11rem] justify-between`}
+      triggerClassName={() => `${buttonClass} min-w-[11rem] justify-between`}
       trigger={
         <>
           <span className="flex items-center gap-2">

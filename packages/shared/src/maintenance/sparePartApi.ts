@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { areaRef } from "../area";
-import { isoDateTime, objectId, paginated, paginationQuery } from "../common";
+import { isoDateTime, objectId, paginated, paginationQuery, type PaginationQuery } from "../common";
 import { assetPerson } from "./assetApi";
 import { assetStatus, partUnit, stockMovementKind } from "./enums";
 import { currencyCode, money } from "./money";
@@ -42,7 +42,9 @@ export const sparePartListQuery = paginationQuery.extend({
   sort: sparePartSort.default("name"),
   dir: z.enum(["asc", "desc"]).default("asc"),
 });
-export type SparePartListQuery = z.input<typeof sparePartListQuery>;
+/** Lo que manda el cliente: la paginación viaja como número, no como el `unknown` del `coerce`. */
+export type SparePartListQuery = Omit<z.input<typeof sparePartListQuery>, "page" | "limit"> &
+  Partial<PaginationQuery>;
 export type ParsedSparePartListQuery = z.output<typeof sparePartListQuery>;
 
 // ── Vistas ────────────────────────────────────────────────────

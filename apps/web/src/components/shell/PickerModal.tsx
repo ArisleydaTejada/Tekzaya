@@ -158,17 +158,16 @@ export function PickerModal<T>({
 export function dedupeSections<T>(keyOf: (item: T) => string, sections: PickerSection<T>[]): PickerSection<T>[] {
   const seen = new Set<string>();
 
-  return sections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((item) => {
-        const key = keyOf(item);
+  return sections.flatMap((section) => {
+    const items = section.items.filter((item) => {
+      const key = keyOf(item);
 
-        if (seen.has(key)) return false;
-        seen.add(key);
+      if (seen.has(key)) return false;
+      seen.add(key);
 
-        return true;
-      }),
-    }))
-    .filter((section) => section.items.length > 0);
+      return true;
+    });
+
+    return items.length > 0 ? [{ ...section, items }] : [];
+  });
 }

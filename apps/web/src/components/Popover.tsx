@@ -22,7 +22,7 @@ export function Popover({
   title?: string;
   align?: "left" | "right";
   children: ReactNode;
-  triggerClassName: string | ((open: boolean) => string);
+  triggerClassName: (open: boolean) => string;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -67,7 +67,7 @@ export function Popover({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((current) => !current)}
-        className={typeof triggerClassName === "function" ? triggerClassName(open) : triggerClassName}
+        className={triggerClassName(open)}
       >
         {trigger}
       </button>

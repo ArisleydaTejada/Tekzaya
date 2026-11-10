@@ -19,7 +19,7 @@ import {
   type RetireAssetInput,
   type UpdateAssetInput,
 } from "@tekzaya/shared";
-import { apiFetch, queryString } from "./client";
+import { apiFetch, queryString, type QueryParams } from "./client";
 
 export const assetKeys = {
   all: ["assets"] as const,
@@ -64,7 +64,7 @@ export async function listAssetPeople(areaId: string) {
   return (await apiFetch(`/assets/people${queryString({ areaId })}`, assetPeopleResponse)).items;
 }
 
-export function assetsCsvUrl(query: Record<string, unknown>): string {
+export function assetsCsvUrl(query: QueryParams): string {
   return `/api/v1/assets/export${queryString(query)}`;
 }
 

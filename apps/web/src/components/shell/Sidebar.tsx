@@ -272,20 +272,24 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
               Administración
             </div>
           )}
-          {ADMIN_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive: active }) =>
-                `rounded-lg px-3 py-1.5 text-sm transition-colors ${collapsed ? "text-center" : "pl-9"} ${
-                  active ? "bg-accent/15 font-medium text-[var(--rail-ink)]" : "text-[var(--rail-ink-dim)] hover:bg-[var(--rail-surface-2)] hover:text-[var(--rail-ink)]"
-                }`
-              }
-            >
-              {collapsed ? item.label.slice(0, 1) : item.label}
-            </NavLink>
-          ))}
+          {ADMIN_ITEMS.flatMap((item) =>
+            isAdmin || !item.adminOnly
+              ? [
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    title={collapsed ? item.label : undefined}
+                    className={({ isActive: active }) =>
+                      `rounded-lg px-3 py-1.5 text-sm transition-colors ${collapsed ? "text-center" : "pl-9"} ${
+                        active ? "bg-accent/15 font-medium text-[var(--rail-ink)]" : "text-[var(--rail-ink-dim)] hover:bg-[var(--rail-surface-2)] hover:text-[var(--rail-ink)]"
+                      }`
+                    }
+                  >
+                    {collapsed ? item.label.slice(0, 1) : item.label}
+                  </NavLink>,
+                ]
+              : [],
+          )}
         </div>
       )}
 

@@ -33,8 +33,13 @@ export function getWorkOrder(key: string): Promise<WorkOrderDetail> {
   return apiFetch(`/work-orders/${encodeURIComponent(key)}`, workOrderDetail);
 }
 
-const send = (path: string, method: string, body?: unknown) =>
-  apiFetch(path, workOrderDetail, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+const send = <Body extends object>(path: string, method: string, body?: Body) => {
+  const init: RequestInit = { method };
+
+  if (body !== undefined) init.body = JSON.stringify(body);
+
+  return apiFetch(path, workOrderDetail, init);
+};
 
 export const createWorkOrder = (input: CreateWorkOrderInput) => send("/work-orders", "POST", input);
 export const updateWorkOrder = (id: string, input: UpdateWorkOrderInput) => send(`/work-orders/${id}`, "PATCH", input);

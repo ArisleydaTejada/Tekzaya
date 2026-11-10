@@ -17,6 +17,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import type { QueryParams, QueryValue } from "../../api/client";
 import { listReportTickets, reportKeys, reportTicketsCsvUrl, type ReportScopeRequest } from "../../api/reports";
 import { AvatarStack } from "../../components/Avatar";
 import { PriorityBadge, StatusBadge, AreaTag } from "../../components/badges";
@@ -756,8 +757,8 @@ function readColumns(): ReportColumn[] {
 }
 
 /** Fuera lo vacío: un filtro sin valor no debe viajar en la URL ni en la clave de caché. */
-function clean(filters: Filters): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+function clean(filters: Filters): QueryParams {
+  const result: Record<string, QueryValue> = {};
 
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined || value === "" || (Array.isArray(value) && !value.length)) continue;
@@ -767,53 +768,57 @@ function clean(filters: Filters): Record<string, unknown> {
   return result;
 }
 
-const CHIP_LABEL: Record<string, string> = {
-  q: "Texto",
-  numbers: "Número",
-  statuses: "Estado",
-  priorities: "Prioridad",
-  slaStates: "SLA",
-  csatRatings: "CSAT",
-  createdFrom: "Creado desde",
-  createdTo: "Creado hasta",
-  resolvedFrom: "Resuelto desde",
-  resolvedTo: "Resuelto hasta",
-  responseHours: "1.ª respuesta",
-  resolutionHours: "T. resolución",
-  ageDaysMin: "Antigüedad",
-  mine: "Solo los míos",
-  unassigned: "Sin asignar",
-  hasAttachments: "Con adjuntos",
-  onBehalf: "En nombre de otro",
-  multiAssignee: "Varios responsables",
-  transferred: "Transferido",
-  reopened: "Reabierto",
-  incident: "Incidente",
-  responseBreached: "SLA de respuesta incumplido",
-  aiPending: "Clasificación pendiente",
-  priorityCorrected: "Prioridad corregida",
-  merged: "Fusión",
+const CHIP_LABEL = new Map([
+  ["q", "Texto"],
+  ["numbers", "Número"],
+  ["statuses", "Estado"],
+  ["priorities", "Prioridad"],
+  ["slaStates", "SLA"],
+  ["csatRatings", "CSAT"],
+  ["createdFrom", "Creado desde"],
+  ["createdTo", "Creado hasta"],
+  ["resolvedFrom", "Resuelto desde"],
+  ["resolvedTo", "Resuelto hasta"],
+  ["responseHours", "1.ª respuesta"],
+  ["resolutionHours", "T. resolución"],
+  ["ageDaysMin", "Antigüedad"],
+  ["mine", "Solo los míos"],
+  ["unassigned", "Sin asignar"],
+  ["hasAttachments", "Con adjuntos"],
+  ["onBehalf", "En nombre de otro"],
+  ["multiAssignee", "Varios responsables"],
+  ["transferred", "Transferido"],
+  ["reopened", "Reabierto"],
+  ["incident", "Incidente"],
+  ["responseBreached", "SLA de respuesta incumplido"],
+  ["aiPending", "Clasificación pendiente"],
+  ["priorityCorrected", "Prioridad corregida"],
+  ["merged", "Fusión"],
   // Filtros por identificador: los pone sobre todo el clic en una gráfica (spec §7.8.2).
   // Llevan etiqueta pero no valor, porque un `ObjectId` en una chip no dice nada; lo que
   // importa es que se vea que están puestos y que se puedan quitar de uno en uno.
-  assigneeIds: "Encargado",
-  requesterId: "Solicitante",
-  createdById: "Creado por",
-  areaIds: "Área",
-  categoryIds: "Categoría",
-};
+  ["assigneeIds", "Encargado"],
+  ["requesterId", "Solicitante"],
+  ["createdById", "Creado por"],
+  ["areaIds", "Área"],
+  ["categoryIds", "Categoría"],
+]);
 
 /** Los que no se muestran con su valor, porque su valor es un identificador. */
 const OPAQUE = new Set(["assigneeIds", "requesterId", "createdById", "areaIds", "categoryIds"]);
 
 function activeChips(filters: Filters): { key: string; label: string }[] {
   return Object.entries(filters)
-    .filter(([key, value]) => CHIP_LABEL[key] && value !== undefined && value !== "")
-    .map(([key, value]) => ({
-      key,
-      label:
-        typeof value === "boolean" || OPAQUE.has(key)
-          ? CHIP_LABEL[key]!
-          : `${CHIP_LABEL[key]}: ${Array.isArray(value) ? value.join(", ") : value}`,
-    }));
+    .flatMap(([key, value]) => {
+      const name = CHIP_LABEL.get(key);
+
+      if (!name || value === undefined || value === "") return [];
+
+      const label =
+        value === true || value === false || OPAQUE.has(key)
+          ? name
+          : `${name}: ${Array.isArray(value) ? value.join(", ") : value}`;
+
+      return [{ key, label }];
+    });
 }

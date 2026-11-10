@@ -44,7 +44,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  function handleAuthError(error: unknown): void {
+  function handleAuthError(error: Error): void {
     const isApiError = error instanceof ApiRequestError;
     // El servidor distingue bloqueo de credenciales incorrectas; la interfaz
     // refleja esa diferencia en vez de inventar su propio contador.
@@ -70,7 +70,7 @@ export default function LoginPage() {
       queryClient.setQueryData(ME_QUERY_KEY, me);
       navigate("/tablero", { replace: true });
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       setGoogleMessage(
         error instanceof ApiRequestError
           ? error.message

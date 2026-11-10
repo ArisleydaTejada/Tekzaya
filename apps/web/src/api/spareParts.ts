@@ -10,7 +10,7 @@ import {
   type StockMovementsResponse,
   type UpdateSparePartInput,
 } from "@tekzaya/shared";
-import { apiFetch, queryString } from "./client";
+import { apiFetch, queryString, type QueryParams } from "./client";
 
 export const sparePartKeys = {
   all: ["spare-parts"] as const,
@@ -44,6 +44,6 @@ export function createStockMovement(id: string, input: CreateStockMovementInput)
   return apiFetch(`/spare-parts/${id}/movements`, sparePartDetail, { method: "POST", body: JSON.stringify(input) });
 }
 
-export function sparePartsCsvUrl(query: Record<string, unknown>): string {
+export function sparePartsCsvUrl(query: QueryParams): string {
   return `/api/v1/spare-parts/export${queryString(query)}`;
 }

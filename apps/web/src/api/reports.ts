@@ -17,7 +17,7 @@ import {
   type StatsQueryFields,
   type UpdateReportInput,
 } from "@tekzaya/shared";
-import { apiFetch, queryString, sessionFetch } from "./client";
+import { apiFetch, queryString, sessionFetch, type QueryParams } from "./client";
 
 /**
  * Lo que el cliente **pide**. El alcance que devuelve el servidor puede ser más
@@ -32,8 +32,8 @@ export const reportKeys = {
   one: (id: string) => [...reportKeys.all, "saved", id] as const,
   widget: (scope: ReportScopeRequest, widget: ReportWidget) =>
     [...reportKeys.all, "widget", scope, widget] as const,
-  tickets: (query: Record<string, unknown>) => [...reportKeys.all, "tickets", query] as const,
-  workOrders: (query: Record<string, unknown>) => [...reportKeys.all, "work-orders", query] as const,
+  tickets: (query: QueryParams) => [...reportKeys.all, "tickets", query] as const,
+  workOrders: (query: QueryParams) => [...reportKeys.all, "work-orders", query] as const,
 };
 
 export function getReportCatalog(): Promise<ReportCatalog> {
@@ -55,14 +55,14 @@ export function runReportWidget(
 }
 
 export function listReportTickets(
-  query: Record<string, unknown>,
+  query: QueryParams,
 ): Promise<ReportTicketsResponse> {
   return apiFetch(`/reports/tickets${queryString(query)}`, reportTicketsResponse);
 }
 
 /** Órdenes que tocaron el período, con el alcance de las gráficas (plan A6). */
 export function listReportWorkOrders(
-  query: Record<string, unknown>,
+  query: QueryParams,
 ): Promise<ReportWorkOrdersResponse> {
   return apiFetch(`/reports/work-orders${queryString(query)}`, reportWorkOrdersResponse);
 }
@@ -106,7 +106,7 @@ export async function deleteSavedReport(id: string): Promise<void> {
  * filas, no la página a la vista. Basta con navegar al enlace: la cookie de sesión
  * viaja sola (spec §7.8.9).
  */
-export function reportTicketsCsvUrl(query: Record<string, unknown>): string {
+export function reportTicketsCsvUrl(query: QueryParams): string {
   return `/api/v1/reports/tickets/export${queryString(query)}`;
 }
 

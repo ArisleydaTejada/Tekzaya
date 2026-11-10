@@ -9,6 +9,7 @@ import {
   type AdminUser,
   type Area,
   type Settings,
+  type UserStatus,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useId, useMemo, useState } from "react";
@@ -99,7 +100,7 @@ export default function AdministracionPage({ tab: fixedTab }: { tab?: string }) 
   );
 }
 
-const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Activo",
   invited: "Invitado",
   disabled: "Desactivado",
@@ -177,14 +178,14 @@ function SortableTh({
  * Reutiliza los tokens de los estados de ticket: activo en verde, invitado en
  * naranja (falta que la persona entre) y desactivado en gris.
  */
-const STATUS_TOKEN: Record<string, string> = {
+const STATUS_TOKEN: Record<UserStatus, string> = {
   active: "resolved",
   invited: "in_progress",
   disabled: "closed",
 };
 
-function UserStatusBadge({ status }: { status: string }) {
-  const key = STATUS_TOKEN[status] ?? "closed";
+function UserStatusBadge({ status }: { status: UserStatus }) {
+  const key = STATUS_TOKEN[status];
 
   return (
     <span
@@ -196,7 +197,7 @@ function UserStatusBadge({ status }: { status: string }) {
       }}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-      {STATUS_LABEL[status] ?? status}
+      {STATUS_LABEL[status]}
     </span>
   );
 }
@@ -595,7 +596,7 @@ function EditUserModal({
   user: AdminUser;
   areas: Area[];
   onClose: () => void;
-  onSaved: () => Promise<unknown>;
+  onSaved: () => Promise<void>;
 }) {
   const [name, setName] = useState(user.name);
   const [areaId, setAreaId] = useState(user.areaId);
@@ -1093,15 +1094,15 @@ function AreaModal({
   );
 }
 
-const DAY_LABEL: Record<number, string> = {
-  1: "L",
-  2: "M",
-  3: "X",
-  4: "J",
-  5: "V",
-  6: "S",
-  7: "D",
-};
+const DAY_LABEL = new Map([
+  [1, "L"],
+  [2, "M"],
+  [3, "X"],
+  [4, "J"],
+  [5, "V"],
+  [6, "S"],
+  [7, "D"],
+]);
 
 const AI_LABEL: Record<keyof Settings["aiEnabled"], string> = {
   suggestArea: "Sugerir área al crear un ticket",
@@ -1265,7 +1266,7 @@ function ConfiguracionTab() {
                     : "border-[var(--content-border)] text-[var(--content-ink-dim)]"
                 }`}
               >
-                {DAY_LABEL[day]}
+                {DAY_LABEL.get(day)}
               </button>
             );
           })}

@@ -124,8 +124,13 @@ export async function apiUpload<T extends z.ZodType>(
   return schema.parse(payload);
 }
 
+/** Lo que cabe en una cadena de consulta; las listas van separadas por comas. */
+export type QueryValue = string | number | boolean | null | undefined | readonly (string | number)[];
+
+export type QueryParams = Readonly<Record<string, QueryValue>>;
+
 /** `{ scope: "area", page: 2 }` → `?scope=area&page=2`, saltando lo vacío. */
-export function queryString(params: Record<string, unknown>): string {
+export function queryString(params: QueryParams): string {
   const search = new URLSearchParams();
 
   for (const [key, value] of Object.entries(params)) {

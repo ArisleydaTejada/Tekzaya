@@ -728,16 +728,22 @@ export default function CreateTicketPage() {
 
 const CANDIDATES_SHOWN = 4;
 
-const NO_MENTION = { pick: null, candidates: [] as PickedAsset[] };
+/** El equipo que se deduce del texto, o los candidatos entre los que escoger. */
+interface MentionChoice {
+  pick: PickedAsset | null;
+  candidates: PickedAsset[];
+}
+
+const NO_MENTION: MentionChoice = { pick: null, candidates: [] };
 
 /**
  * De los equipos que casan con lo escrito, el que se elige solo: el único que
  * tiene a su cargo quien reporta o, si no, el único que usa su área. Con
  * varios en el primer grupo que tenga alguno, se ofrecen esos para escoger.
  */
-function chooseMentioned(items: readonly AssetPickerItem[]): { pick: PickedAsset | null; candidates: PickedAsset[] } {
+function chooseMentioned(items: readonly AssetPickerItem[]): MentionChoice {
   for (const group of ["custodian", "area", "other"] as const) {
-    const inGroup = items.filter((item) => item.group === group).map(({ group: _group, ...asset }) => asset);
+    const inGroup = items.flatMap(({ group: itemGroup, ...asset }) => (itemGroup === group ? [asset] : []));
 
     if (inGroup.length === 1) return { pick: inGroup[0]!, candidates: [] };
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from "react";
 import { Link, matchPath, useLocation, useNavigate } from "react-router-dom";
+import { z } from "zod";
 import { useAuth } from "../../auth/AuthContext";
 import { PlusIcon, XIcon } from "../icons";
 
@@ -237,13 +238,23 @@ function RecordTab({
   );
 }
 
+const storedTabs = z.array(z.unknown()).transform((items) =>
+  items.flatMap((item) => {
+    const tab = z.string().safeParse(item);
+
+    return tab.success ? [tab.data] : [];
+  }),
+);
+
 function readTabs(key: string | null): string[] {
   if (!key) return [];
 
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
 
-    return Array.isArray(parsed) ? parsed.filter((tab): tab is string => typeof tab === "string") : [];
+    const tabs = storedTabs.safeParse(parsed);
+
+    return tabs.success ? tabs.data : [];
   } catch {
     return [];
   }

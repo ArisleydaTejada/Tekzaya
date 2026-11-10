@@ -1,4 +1,5 @@
 import { MEASURE_META, type ReportQueryResult, type ReportWidget } from "@tekzaya/shared";
+import { z } from "zod";
 import {
   Area,
   AreaChart,
@@ -52,7 +53,7 @@ export function ReportChart({
    */
   const clickHandler = onSelect
     ? {
-        onClick: (entry: unknown) => {
+        onClick: (entry: object) => {
           const key = groupKeyOf(entry);
 
           if (key) onSelect(key);
@@ -385,15 +386,19 @@ export function ReportChart({
   }
 }
 
-interface Clicked {
-  groupKey?: string;
-  payload?: Clicked;
-}
+const withGroupKey = z.object({ groupKey: z.string() });
 
-function groupKeyOf(entry: unknown): string | undefined {
-  const clicked = entry as Clicked | undefined;
+/** Plana (una barra), dentro de `payload` (una porción) o dos niveles abajo. */
+const clickedGroup = z.union([
+  withGroupKey.transform((entry) => entry.groupKey),
+  z.object({ payload: withGroupKey }).transform((entry) => entry.payload.groupKey),
+  z.object({ payload: z.object({ payload: withGroupKey }) }).transform((entry) => entry.payload.payload.groupKey),
+]);
 
-  return clicked?.groupKey ?? clicked?.payload?.groupKey ?? clicked?.payload?.payload?.groupKey;
+function groupKeyOf(entry: object): string | undefined {
+  const parsed = clickedGroup.safeParse(entry);
+
+  return parsed.success ? parsed.data : undefined;
 }
 
 // ── Pivotes ───────────────────────────────────────────────────
@@ -411,11 +416,16 @@ function seriesData(result: ReportQueryResult) {
 }
 
 /** Barras apiladas: una fila por grupo y una columna por segmento. */
-function stackedData(result: ReportQueryResult): {
-  data: Record<string, unknown>[];
+/** Una fila de barras apiladas: la etiqueta del grupo y un valor por segmento. */
+type StackedRow = Record<string, string | number>;
+
+interface StackedData {
+  data: StackedRow[];
   splits: string[];
-} {
-  const groups = new Map<string, Record<string, unknown>>();
+}
+
+function stackedData(result: ReportQueryResult): StackedData {
+  const groups = new Map<string, StackedRow>();
   const splits: string[] = [];
 
   for (const row of result.rows) {

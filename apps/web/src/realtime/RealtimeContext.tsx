@@ -12,6 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
+import type { z } from "zod";
 import { refreshSession } from "../api/client";
 import { notificationKeys } from "../api/notifications";
 import { statsKeys } from "../api/stats";
@@ -30,6 +31,15 @@ interface RealtimeValue {
 }
 
 const RealtimeContext = createContext<RealtimeValue | null>(null);
+
+/** Cada evento se valida al llegar: lo que no tiene la forma esperada se descarta. */
+function listen<T>(socket: Socket, event: string, schema: z.ZodType<T>, handle: (data: T) => void): void {
+  socket.on(event, (payload) => {
+    const parsed = schema.safeParse(payload);
+
+    if (parsed.success) handle(parsed.data);
+  });
+}
 
 /**
  * El socket se abre una vez por sesión y vive en la raíz de la aplicación. Lo que
@@ -75,18 +85,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    socket.on(REALTIME_EVENTS.notification, (payload: unknown) => {
-      const parsed = notificationEvent.safeParse(payload);
-
-      if (!parsed.success) return;
-
+    listen(socket, REALTIME_EVENTS.notification, notificationEvent, (event) => {
       queryClient.setQueriesData<NotificationListResponse>(
         { queryKey: notificationKeys.all },
         (current) =>
           current
             ? {
                 ...current,
-                items: [parsed.data, ...current.items].slice(0, current.limit),
+                items: [event, ...current.items].slice(0, current.limit),
                 total: current.total + 1,
                 unread: current.unread + 1,
               }
@@ -97,32 +103,23 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ticketKeys.lists() });
     });
 
-    socket.on(REALTIME_EVENTS.ticketUpdated, (payload: unknown) => {
-      const parsed = ticketUpdatedEvent.safeParse(payload);
-
-      if (!parsed.success) return;
+    listen(socket, REALTIME_EVENTS.ticketUpdated, ticketUpdatedEvent, (event) => {
       void queryClient.invalidateQueries({ queryKey: ticketKeys.lists() });
       void queryClient.invalidateQueries({
-        queryKey: ticketKeys.detail(formatTicketNumber(parsed.data.number)),
+        queryKey: ticketKeys.detail(formatTicketNumber(event.number)),
       });
       void queryClient.invalidateQueries({ queryKey: statsKeys.all });
     });
 
-    socket.on(REALTIME_EVENTS.ticketMessage, (payload: unknown) => {
-      const parsed = ticketMessageEvent.safeParse(payload);
-
-      if (!parsed.success) return;
-      void queryClient.invalidateQueries({ queryKey: ticketKeys.messages(parsed.data.ticketId) });
+    listen(socket, REALTIME_EVENTS.ticketMessage, ticketMessageEvent, (event) => {
+      void queryClient.invalidateQueries({ queryKey: ticketKeys.messages(event.ticketId) });
     });
 
     // Una OT cambió en el área: listas, su ficha y los equipos (su estado pudo cambiar).
-    socket.on(REALTIME_EVENTS.workOrderUpdated, (payload: unknown) => {
-      const parsed = workOrderUpdatedEvent.safeParse(payload);
-
-      if (!parsed.success) return;
+    listen(socket, REALTIME_EVENTS.workOrderUpdated, workOrderUpdatedEvent, (event) => {
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.lists() });
       void queryClient.invalidateQueries({
-        queryKey: workOrderKeys.detail(formatWorkOrderNumber(parsed.data.number)),
+        queryKey: workOrderKeys.detail(formatWorkOrderNumber(event.number)),
       });
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
       // Completar un preventivo puede mover la fecha de su plan y cambia el calendario.

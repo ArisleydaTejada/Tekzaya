@@ -9,6 +9,7 @@ import {
   formatWorkOrderNumber,
   describeEvery,
   MAX_ASSET_PHOTOS,
+  assetStatus,
   type AssetDetail,
   type AssetEventKind,
   type AssetEventView,
@@ -18,6 +19,7 @@ import {
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { z } from "zod";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { assetKeys, getAsset, listAssetEvents, retireAsset, updateAsset } from "../api/assets";
 import { listPlans, planKeys } from "../api/plans";
@@ -371,9 +373,11 @@ function statusAfter(event: AssetEventView): AssetStatus | undefined {
 
   if (event.kind === "retired") return "retired";
 
-  if (event.kind === "status_changed" && typeof event.data["to"] === "string") return event.data["to"] as AssetStatus;
+  if (event.kind !== "status_changed") return undefined;
 
-  return undefined;
+  const to = assetStatus.safeParse(event.data["to"]);
+
+  return to.success ? to.data : undefined;
 }
 
 /**
@@ -597,10 +601,10 @@ function RecurringFailure({ events, onShow }: { events: readonly AssetEventView[
   const recent = failuresWithin(events, 30);
 
   if (recent.length < 2) return null;
-  const titles = recent.map((event) => text(event.data["title"])?.toLowerCase()).filter(Boolean);
+  const titles = recent.map((event) => factsOf(event).title?.toLowerCase()).filter(Boolean);
   const repeated = titles.find((title, index) => titles.indexOf(title) !== index);
   const lastService = events.find((event) => event.kind === "repair" || event.kind === "preventive");
-  const latestTitle = text(recent[0]?.data["title"]);
+  const latestTitle = recent[0] ? factsOf(recent[0]).title : undefined;
 
   return (
     <button
@@ -726,7 +730,7 @@ function ServiceHistory({
 
 /** Las notas de cierre de las últimas reparaciones: el relevo entre técnicos. */
 function TechnicianNotes({ events }: { events: readonly AssetEventView[] }) {
-  const notes = events.filter((event) => event.kind === "repair" && text(event.data["notes"])).slice(0, 2);
+  const notes = events.filter((event) => event.kind === "repair" && factsOf(event).notes).slice(0, 2);
 
   if (notes.length === 0) return null;
 
@@ -736,7 +740,7 @@ function TechnicianNotes({ events }: { events: readonly AssetEventView[] }) {
       <ul className="space-y-2">
         {notes.map((event) => (
           <li key={event.id} className="rounded-lg bg-[var(--content-bg)] px-3 py-2.5 text-sm">
-            <p className="whitespace-pre-line text-[var(--content-ink)]">“{text(event.data["notes"])}”</p>
+            <p className="whitespace-pre-line text-[var(--content-ink)]">“{factsOf(event).notes}”</p>
             <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
               {event.actor ? `— ${event.actor.name} · ` : ""}
               <time dateTime={event.at}>{formatDateTime(event.at)}</time>
@@ -1227,14 +1231,35 @@ const EVENT_DOT: Record<AssetEventKind, string> = {
   retired: "bg-[var(--content-ink-dim)]",
 };
 
-const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
+/** Un texto con contenido; lo vacío o lo que no es texto cuenta como ausente. */
+const eventText = z.string().min(1).optional().catch(undefined);
 
-const statusLabel = (value: unknown) =>
-  typeof value === "string" && value in ASSET_STATUS_LABEL ? ASSET_STATUS_LABEL[value as AssetStatus] : String(value);
+/** Los datos de un paso de la historia, leídos una vez con su forma esperada. */
+const eventFacts = z.object({
+  from: eventText,
+  to: eventText,
+  toUsedByAreaName: eventText,
+  toAreaName: eventText,
+  toName: eventText,
+  fromName: eventText,
+  title: eventText,
+  notes: eventText,
+  plan: eventText,
+  reason: eventText,
+});
+
+const factsOf = (event: AssetEventView) => eventFacts.parse(event.data);
+
+const statusLabel = (value: string | undefined) => {
+  const status = assetStatus.safeParse(value);
+
+  return status.success ? ASSET_STATUS_LABEL[status.data] : (value ?? "—");
+};
 
 /** Lo que pasó, en una frase. Los nombres ya vienen resueltos del servidor. */
 function describe(event: AssetEventView): ReactNode {
-  const d = event.data;
+  const raw = event.data;
+  const d = eventFacts.parse(raw);
 
   switch (event.kind) {
     case "created":
@@ -1242,33 +1267,34 @@ function describe(event: AssetEventView): ReactNode {
     case "moved": {
       const parts: ReactNode[] = [];
 
-      if (text(d["to"])) {
+      if (d.to) {
         parts.push(
           <span key="place" className="inline-flex flex-wrap items-center gap-1">
-            {text(d["from"]) ?? "—"} <ArrowRightIcon className="h-3 w-3" aria-label="a" /> {text(d["to"])}
+            {d.from ?? "—"} <ArrowRightIcon className="h-3 w-3" aria-label="a" /> {d.to}
           </span>,
         );
       }
 
-      if ("toUsedByAreaName" in d) parts.push(<span key="used">Ahora lo usa {text(d["toUsedByAreaName"]) ?? "su área responsable"}</span>);
+      // La clave presente con valor vacío también cuenta: el cambio ocurrió aunque no haya nombre.
+      if ("toUsedByAreaName" in raw) parts.push(<span key="used">Ahora lo usa {d.toUsedByAreaName ?? "su área responsable"}</span>);
 
-      if ("toAreaName" in d) parts.push(<span key="area">Pasa a mantenerlo {text(d["toAreaName"]) ?? "otra área"}</span>);
+      if ("toAreaName" in raw) parts.push(<span key="area">Pasa a mantenerlo {d.toAreaName ?? "otra área"}</span>);
 
       return <span className="flex flex-col gap-0.5">{parts}</span>;
     }
 
     case "custodian_changed":
-      return text(d["toName"]) ? `A cargo de ${text(d["toName"])}` : `${text(d["fromName"]) ?? "Su responsable"} deja de tenerlo a cargo`;
+      return d.toName ? `A cargo de ${d.toName}` : `${d.fromName ?? "Su responsable"} deja de tenerlo a cargo`;
     case "status_changed":
-      return `${statusLabel(d["from"])} → ${statusLabel(d["to"])}`;
+      return `${statusLabel(d.from)} → ${statusLabel(d.to)}`;
     case "failure":
-      return text(d["title"]) ? `Falla: ${text(d["title"])}` : "Falla";
+      return d.title ? `Falla: ${d.title}` : "Falla";
     case "repair":
-      return text(d["notes"]) ?? "Reparación completada";
+      return d.notes ?? "Reparación completada";
     case "preventive":
-      return text(d["plan"]) ?? "Mantenimiento preventivo";
+      return d.plan ?? "Mantenimiento preventivo";
     case "retired":
-      return text(d["reason"]) ? `Motivo: ${text(d["reason"])}` : "Baja del inventario";
+      return d.reason ? `Motivo: ${d.reason}` : "Baja del inventario";
   }
 }
 
