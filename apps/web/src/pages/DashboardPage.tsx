@@ -359,7 +359,10 @@ function AreaTiles({ kpis }: { kpis: AreaKpis }) {
         displayValue={kpis.slaCompliance === null ? "—" : `${kpis.slaCompliance}%`}
         tone={slaTone(kpis.slaCompliance)}
         caption={
-          kpis.csatAverage !== null ? (
+          // Sin resueltos no hay cumplimiento que medir: el dial vacío lo explica en vez de quedarse mudo.
+          kpis.slaCompliance === null ? (
+            "sin resueltos en el período"
+          ) : kpis.csatAverage !== null ? (
             <span className="inline-flex items-center gap-1">
               <StarIcon className="h-3 w-3 text-amber" /> {kpis.csatAverage.toFixed(1)} CSAT
             </span>

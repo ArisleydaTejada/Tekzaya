@@ -21,7 +21,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { DropdownMenu, type DropdownItem } from "../components/DropdownMenu";
-import { CheckIcon, KeyIcon, MailIcon, PencilIcon, PlusIcon, PowerIcon } from "../components/icons";
+import { CheckIcon, KeyIcon, MailIcon, PencilIcon, PlusIcon, PowerIcon, SearchIcon } from "../components/icons";
 import {
   addCategory,
   adminKeys,
@@ -356,12 +356,16 @@ function UsuariosTab() {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nombre o correo…"
-          className="min-w-[200px] flex-1 rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
-        />
+        <div className="relative min-w-[200px] flex-1">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-ink-dim)]" aria-hidden="true" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="Buscar usuarios por nombre o correo"
+            placeholder="Buscar por nombre o correo…"
+            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+          />
+        </div>
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
@@ -375,9 +379,9 @@ function UsuariosTab() {
         </select>
         <button
           onClick={() => setInviteOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-dim"
+          className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white hover:bg-accent-dim"
         >
-          <PlusIcon className="h-3.5 w-3.5" /> Invitar
+          <PlusIcon className="h-4 w-4" /> Invitar
         </button>
       </div>
 

@@ -1,15 +1,51 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import { SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+
+  /*
+   * Atajos de teclado: "/" busca y "n" abre un ticket nuevo. Se ignoran mientras se
+   * escribe en un campo o con una tecla modificadora, para no robarle letras a nadie.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target;
+
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+
+      if (event.key === "/") {
+        const field = document.getElementById("buscar-global");
+        event.preventDefault();
+
+        if (field) field.focus();
+        else navigate("/tickets");
+      } else if (event.key === "n") {
+        event.preventDefault();
+        navigate("/tickets/nuevo");
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navigate]);
 
   return (
     <div className="flex min-h-dvh bg-[var(--content-bg)]">
+      {/* Con teclado, el primer Tab salta el menú entero y va directo al contenido. */}
+      <a
+        href="#contenido"
+        className="sr-only z-[60] rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+      >
+        Saltar al contenido
+      </a>
       {/* La barra de escritorio. Sigue al tema: clara con el claro, oscura con
           el oscuro, al contrario que el resto del cromo "instrumento". */}
       <aside
@@ -51,7 +87,7 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenuClick={() => setDrawerOpen(true)} />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>

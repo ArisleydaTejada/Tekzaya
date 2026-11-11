@@ -6,7 +6,7 @@ import { updateMyAvailability } from "../../api/auth";
 import { ME_QUERY_KEY, useAuth } from "../../auth/AuthContext";
 import { Avatar } from "../Avatar";
 import { Link } from "react-router-dom";
-import { ChevronDownIcon, MoonIcon, SunIcon, UserIcon } from "../icons";
+import { ChevronDownIcon, MoonIcon, PlusIcon, SunIcon, UserIcon } from "../icons";
 import { NotificationBell } from "./NotificationBell";
 import { TicketTabs } from "./TicketTabs";
 import { WorkOrderTabs } from "./WorkOrderTabs";
@@ -53,6 +53,14 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       <WorkOrderTabs />
 
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+        {/* En el móvil, "Nuevo ticket" vivía solo dentro del menú: la acción principal queda a mano. */}
+        <Link
+          to="/tickets/nuevo"
+          aria-label="Nuevo ticket"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white hover:bg-accent-dim lg:hidden"
+        >
+          <PlusIcon className="h-4 w-4" aria-hidden="true" />
+        </Link>
         <NotificationBell />
 
         <div className="relative">

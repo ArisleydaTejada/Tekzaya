@@ -30,10 +30,11 @@ import {
   type TicketSort,
   type TicketStatus,
   TICKET_STATUSES,
+  TICKET_SCOPES,
 } from "@tekzaya/shared";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ticketsCsvUrl } from "../api/stats";
 import {
   areaKeys,
@@ -68,9 +69,12 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { formatWhen } from "../lib/format";
+import { useOverflowFade } from "../lib/useOverflowFade";
 import { oneOf } from "../lib/oneOf";
 
-type ViewMode = "lista" | "grupos" | "kanban";
+const VIEW_MODES = ["lista", "grupos", "kanban"] as const;
+
+type ViewMode = (typeof VIEW_MODES)[number];
 
 /**
  * "Sin asignar" abre porque nadie lo mira aún; "Mis solicitudes" baja: es de quien pide, no de quien atiende.
@@ -169,12 +173,44 @@ type AssignMode = "add" | "replace";
 export default function TicketsPage() {
   const queryClient = useQueryClient();
   const { me } = useAuth();
-  const [scope, setScope] = useState<TicketScope>("area");
-  const [view, setView] = useState<ViewMode>("lista");
-  const [search, setSearch] = useState("");
+  /*
+   * Pestaña, prioridad y vista arrancan de la URL: las fichas del tablero enlazan a
+   * "?scope=area&priority=urgent" y la vista kanban se puede compartir o recargar.
+   */
+  const [params, setParams] = useSearchParams();
+  const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "area");
+  const [view, setViewState] = useState<ViewMode>(() => oneOf(VIEW_MODES, params.get("vista") ?? "") ?? "lista");
+  const [search, setSearch] = useState(() => params.get("q") ?? "");
+  // La búsqueda de la barra lateral llega como "?q=": si cambia estando ya aquí, se adopta.
+  const [lastQuery, setLastQuery] = useState(params.get("q"));
+
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
-  const [priorityFilter, setPriorityFilter] = useState<Priority | "">("");
+  const [priorityFilter, setPriorityFilter] = useState<Priority | "">(() => oneOf(PRIORITIES, params.get("priority") ?? "") ?? "");
+
+  function setView(next: ViewMode) {
+    setViewState(next);
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+
+        if (next === "lista") updated.delete("vista");
+        else updated.set("vista", next);
+
+        return updated;
+      },
+      { replace: true },
+    );
+  }
+
   const [page, setPage] = useState(1);
+
+  if (params.get("q") !== lastQuery) {
+    setLastQuery(params.get("q"));
+    setSearch(params.get("q") ?? "");
+    setScope(oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? scope);
+    setPage(1);
+  }
+
   const [moveError, setMoveError] = useState<string | null>(null);
   const [sort, setSort] = useState<TicketSort>("sla");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
@@ -379,6 +415,7 @@ export default function TicketsPage() {
         {TABS.map((tab, index) => (
           <button
             key={tab.scope}
+            aria-pressed={scope === tab.scope}
             onClick={() => changeScope(tab.scope)}
             className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === tab.scope
@@ -446,11 +483,11 @@ export default function TicketsPage() {
         <div className="ml-auto flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
           {(
             [
-              { id: "lista", icon: ListIcon },
-              { id: "grupos", icon: GroupIcon },
-              { id: "kanban", icon: KanbanIcon },
-            ] satisfies { id: ViewMode; icon: typeof ListIcon }[]
-          ).map(({ id, icon: Icon }) => (
+              { id: "lista", label: "Lista", icon: ListIcon },
+              { id: "grupos", label: "Grupos", icon: GroupIcon },
+              { id: "kanban", label: "Kanban", icon: KanbanIcon },
+            ] satisfies { id: ViewMode; label: string; icon: typeof ListIcon }[]
+          ).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               aria-pressed={view === id}
@@ -458,13 +495,13 @@ export default function TicketsPage() {
                 setView(id);
                 setPage(1);
               }}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium capitalize transition-colors ${
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 view === id
                   ? "bg-accent text-white"
                   : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" /> {id}
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
             </button>
           ))}
         </div>
@@ -1222,6 +1259,8 @@ function KanbanView({
   onTake: (ticket: TicketListItem) => Promise<void>;
   onAssign: (ticket: TicketListItem, assigneeIds: string[]) => Promise<void>;
 }) {
+  const kanbanFade = useOverflowFade<HTMLDivElement>();
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: kanbanKeyboardCoordinates }),
@@ -1276,7 +1315,7 @@ function KanbanView({
           screenReaderInstructions: { draggable: KANBAN_INSTRUCTIONS },
         }}
       >
-        <div className="relative flex snap-x gap-3 overflow-x-auto pb-2">
+        <div ref={kanbanFade.ref} className={`relative flex snap-x gap-3 overflow-x-auto pb-2 ${kanbanFade.fadeClass}`}>
           {KANBAN_STATUSES.map((status) => (
             <KanbanColumn
               key={status}

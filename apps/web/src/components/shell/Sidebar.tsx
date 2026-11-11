@@ -218,17 +218,30 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <SearchIcon />
         </button>
       ) : (
-        <div className="relative">
+        <form
+          role="search"
+          className="relative"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const field = event.currentTarget.elements.namedItem("q");
+            const term = field instanceof HTMLInputElement ? field.value.trim() : "";
+
+            navigate(term ? `/tickets?scope=all&q=${encodeURIComponent(term)}` : "/tickets");
+          }}
+        >
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rail-ink-dim)]" />
           <input
             type="search"
+            name="q"
+            id={collapsed ? undefined : "buscar-global"}
+            aria-label="Buscar tickets por número o título"
             placeholder="Buscar…"
             className="w-full rounded-lg border border-[var(--rail-bezel)] bg-[var(--rail-surface-2)] py-2 pl-9 pr-8 text-sm text-[var(--rail-ink)] outline-none placeholder:text-[var(--rail-ink-dim)] focus:border-accent"
           />
           <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-[var(--rail-bezel)] px-1 font-display text-[10px] text-[var(--rail-ink-dim)]">
             /
           </kbd>
-        </div>
+        </form>
       )}
 
       <nav className="flex flex-col gap-1">

@@ -13,7 +13,7 @@ const TITLE = `Revisar el proyector de la sala B ${Date.now().toString(36)}`;
 
 async function openBoard(page: Page) {
   await page.goto("/tickets");
-  await page.getByRole("button", { name: "kanban" }).click();
+  await page.getByRole("button", { name: "Kanban" }).click();
   await page.getByRole("textbox", { name: "Buscar tickets" }).fill(TITLE);
 }
 

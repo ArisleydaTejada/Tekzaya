@@ -435,18 +435,20 @@ function Th({
   sort,
   dir,
   onSort,
+  className = "",
 }: {
   label: string;
   column?: AssetSort;
   sort: AssetSort;
   dir: "asc" | "desc";
   onSort: (column: AssetSort) => void;
+  className?: string;
 }) {
-  if (!column) return <th className="px-3 py-2.5 font-medium">{label}</th>;
+  if (!column) return <th className={`px-3 py-2.5 font-medium ${className}`}>{label}</th>;
   const active = sort === column;
 
   return (
-    <th className="px-3 py-2.5 font-medium" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
+    <th className={`px-3 py-2.5 font-medium ${className}`} aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
       <button
         onClick={() => onSort(column)}
         className={`flex items-center gap-1 whitespace-nowrap hover:text-[var(--content-ink)] ${active ? "text-[var(--content-ink)]" : ""}`}
@@ -512,7 +514,7 @@ function AssetTable({
             <Th label="Equipo" column="name" sort={sort} dir={dir} onSort={onSort} />
             <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
             <Th label="Lo usa" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Ubicación" column="location" sort={sort} dir={dir} onSort={onSort} />
+            <Th label="Ubicación" column="location" sort={sort} dir={dir} onSort={onSort} className="hidden 2xl:table-cell" />
             <Th label="Garantía" column="warranty" sort={sort} dir={dir} onSort={onSort} />
           </tr>
         </thead>
@@ -545,6 +547,8 @@ function AssetTable({
                         {ASSET_TYPE_LABEL[asset.type]}
                         {(asset.brand || asset.model) && ` · ${[asset.brand, asset.model].filter(Boolean).join(" ")}`}
                       </span>
+                      {/* Sin columna propia por debajo de 2xl: con ella, la garantía quedaba cortada en el borde. */}
+                      <span className="block truncate text-xs text-[var(--content-ink-dim)] 2xl:hidden">{asset.location}</span>
                     </span>
                   </span>
                 </td>
@@ -561,8 +565,9 @@ function AssetTable({
                     <AreaTag area={asset.usedByArea ?? asset.area} />
                   )}
                 </td>
-                <td className="min-w-[120px] px-3 py-2.5 text-xs text-[var(--content-ink-dim)]">{asset.location}</td>
-                <td className="px-3 py-2.5">
+                <td className="hidden min-w-[120px] px-3 py-2.5 text-xs text-[var(--content-ink-dim)] 2xl:table-cell">{asset.location}</td>
+                {/* Ancho mínimo: la tabla repartía el sobrante y la fecha se cortaba ("29 oct 202"). */}
+                <td className="min-w-[7.5rem] px-3 py-2.5">
                   <WarrantyBadge state={asset.warranty} until={asset.warrantyUntil} stacked />
                 </td>
               </tr>

@@ -26,7 +26,7 @@ const PAGES: {
     name: "tickets · kanban",
     path: "/tickets",
     role: "supervisor",
-    ready: (page) => page.getByRole("button", { name: "kanban" }).click(),
+    ready: (page) => page.getByRole("button", { name: "Kanban" }).click(),
   },
   { name: "nuevo ticket", path: "/tickets/nuevo", role: "employee" },
   {

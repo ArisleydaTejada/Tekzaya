@@ -26,6 +26,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { OverdueTag, WorkOrderStatusBadge, WorkOrderTypeTag } from "../components/workOrders";
 import { formatDateTime, formatDay, formatWhen } from "../lib/format";
+import { useOverflowFade } from "../lib/useOverflowFade";
 import { oneOf } from "../lib/oneOf";
 
 const PAGE_SIZE = 25;
@@ -450,8 +451,10 @@ function GroupedView({
 }
 
 function KanbanView({ orders }: { orders: WorkOrderListItem[] }) {
+  const kanbanFade = useOverflowFade<HTMLDivElement>();
+
   return (
-    <div className="relative -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+    <div ref={kanbanFade.ref} className={`relative -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2 ${kanbanFade.fadeClass}`}>
       {WORK_ORDER_STATUSES.map((status) => {
         const column = orders.filter((order) => order.status === status);
 
