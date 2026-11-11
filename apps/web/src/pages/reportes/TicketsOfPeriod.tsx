@@ -95,7 +95,7 @@ export function TicketsOfPeriod({
   return (
     <section id="tickets-del-periodo" className="mt-8">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+        <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Tickets del período
         </h2>
         <div className="no-print flex flex-wrap items-center gap-2">

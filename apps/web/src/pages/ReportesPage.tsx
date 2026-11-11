@@ -771,7 +771,7 @@ function ReportsRail({
     <aside className="no-print order-first w-full shrink-0 xl:sticky xl:top-22 xl:order-none xl:w-72">
       <Plate className="flex flex-col p-3 xl:max-h-[calc(100dvh-7rem)]">
         <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-          <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+          <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
             Reportes
           </h2>
           <button

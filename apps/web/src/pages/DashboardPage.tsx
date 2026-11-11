@@ -361,7 +361,7 @@ function AvailabilityPanel({ query, global }: { query: StatsRequest; global: boo
   return (
     <Plate className="p-4 mb-6">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+        <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Disponibilidad del equipo
         </h2>
         <Link
@@ -422,7 +422,7 @@ function AssignedPanel() {
 
   return (
     <Plate className="p-4">
-      <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+      <h2 className="mb-3 font-display text-sm font-semibold text-[var(--content-ink)]">
         Asignados a mí
       </h2>
       {isPending ? (
@@ -483,7 +483,7 @@ function RequestsPanel() {
 
   return (
     <Plate className="p-4">
-      <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+      <h2 className="mb-3 font-display text-sm font-semibold text-[var(--content-ink)]">
         Mis solicitudes
       </h2>
       {isPending ? (

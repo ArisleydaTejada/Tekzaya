@@ -83,7 +83,7 @@ function IdentityCard() {
   return (
     <Plate className="p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+        <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Datos
         </h2>
         <Saved shown={save.isSuccess && !changed} />
@@ -254,7 +254,7 @@ function AvailabilityCard() {
 
   return (
     <Plate className="p-5">
-      <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+      <h2 className="mb-4 font-display text-sm font-semibold text-[var(--content-ink)]">
         Disponibilidad
       </h2>
 
@@ -355,7 +355,7 @@ function PasswordCard() {
   return (
     <Plate className="p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+        <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Contraseña
         </h2>
         <Saved shown={save.isSuccess && current === ""} />

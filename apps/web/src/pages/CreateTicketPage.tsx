@@ -691,9 +691,7 @@ export default function CreateTicketPage() {
         </Plate>
 
         <Plate className="h-fit space-y-3 p-5 text-sm text-[var(--content-ink-dim)]">
-          <p className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
-            <SparkleIcon className="text-accent-ink" /> Antes de enviar
-          </p>
+          <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">Antes de enviar</h2>
           <p className="flex items-start gap-1.5">
             <LightbulbIcon className="mt-0.5 shrink-0 text-[var(--content-ink-dim)]" />
             Adjuntar capturas de pantalla con el código de error acelera la resolución.

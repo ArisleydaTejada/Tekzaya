@@ -888,9 +888,7 @@ export default function TicketDetailPage() {
 
         {(ticket.mergedInto || ticket.mergedTickets.length > 0) && (
           <Plate className="p-4 text-sm">
-            <p className="mb-2 font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
-              Duplicados
-            </p>
+            <h2 className="mb-2 font-display text-sm font-semibold text-[var(--content-ink)]">Duplicados</h2>
 
             {/* Este ticket es el absorbido: lo único que hace falta es el camino
                 de vuelta al principal, donde sigue la conversación. */}
@@ -957,9 +955,7 @@ export default function TicketDetailPage() {
         )}
 
         <Plate className="p-4 text-sm">
-          <p className="mb-2 font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
-            Historial
-          </p>
+          <h2 className="mb-2 font-display text-sm font-semibold text-[var(--content-ink)]">Historial</h2>
           <ul className="space-y-2 text-xs text-[var(--content-ink-dim)]">
             {ticket.history.map((entry, index) => (
               <li key={`${entry.status}-${index}`}>
@@ -1310,9 +1306,9 @@ function AssetCard({
 
   return (
     <Plate role="region" aria-labelledby="equipo-afectado" className="space-y-3 p-4 text-sm">
-      <p id="equipo-afectado" className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink)]">
+      <h2 id="equipo-afectado" className="font-display text-sm font-semibold text-[var(--content-ink)]">
         Equipo afectado
-      </p>
+      </h2>
 
       <div className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5">
         <div className="flex items-start justify-between gap-2">
