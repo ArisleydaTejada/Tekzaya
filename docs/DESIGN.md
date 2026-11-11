@@ -137,15 +137,15 @@ Paleta de instrumento: negro casi puro para el panel, blanco cálido para la pla
 - **Tinta de la placa** (`#12141a` texto principal / `#5b6472` texto secundario).
 
 ### Chart categorical (identity, not a reading)
-Cuando un color codifica una **categoría** en una gráfica (área, persona, categoría) en vez de una **lectura de estado** (SLA, éxito/error), nunca toma prestado el índigo ni el trío semántico. La rampa `--chart-cat-1…7` es, en orden: azul `#2f6fcb`, magenta `#d6449c`, verde azulado `#0e9c8e`, ocre `#c67f1e`, acero `#7c8cae`, oliva `#8a6d1e` y siena `#a0522d` (en oscuro, sus versiones aclaradas). Las dos primeras son las más distintas entre sí.
-- La serie "Recibidos" es azul, no índigo: el índigo es de la IA.
+Cuando un color codifica una **categoría** en una gráfica (área, persona, categoría) en vez de una **lectura de estado** (SLA, éxito/error), nunca toma prestado el trío semántico. La rampa `--chart-cat-1…7` abre con el **morado de la marca** `#58479d` (lila `#b5a3cf` en oscuro) y sigue con azul `#2f6fcb`, magenta `#d6449c`, verde azulado `#0e9c8e`, ocre `#c67f1e`, acero `#7c8cae` y oliva `#8a6d1e`. No usa el trío rojo/ámbar/verde.
+- La serie "Recibidos" va en el morado de la marca.
 - En las gráficas por prioridad, "Urgente" es rojo (es una lectura, ver abajo) y "Baja" es **Acero**: la prioridad más baja no compite con las demás ni se confunde con el verde de "resuelto".
 
 ### Estados del ticket
 El texto siempre acompaña al color. **Abierto** y **Asignado** son acero (un ticket recién llegado es lo normal, no una alarma); **En progreso**, azul (trabajo en marcha); **En espera**, ámbar (depende de alguien); **Resuelto**, verde; **Cerrado**, **Cancelado** y **Fusionado**, grises. **Reabierto** es el único sólido y rojo, porque pide mirarlo ya. Una garantía vencida es un dato (texto atenuado); solo "Vence pronto" lleva ámbar.
 
 ### Named Rules
-**The Reserved Glow Rule.** El índigo vivo solo puede significar "la IA está actuando" o "esta es la acción principal". Si un elemento no es ninguna de las dos cosas, no lleva índigo — incluida la identidad de una categoría en una gráfica.
+**The Reserved Glow Rule.** El índigo vivo en la interfaz significa "la IA está actuando" o "esta es la acción principal". Las dos excepciones son la marca en los datos: el dial y la primera serie de las gráficas llevan el morado, porque son la identidad de Tekzaya en Reportes y en los tableros.
 
 **The Semantic Three Rule.** Verde = SLA en tiempo / éxito. Ámbar = SLA en riesgo / advertencia. Rojo = SLA vencido / urgente / error. Sobre claro son tonos oscuros que pasan AA (`#15703f`, `#965000`, `#b42318`); sobre oscuro, los vivos (`#39d98a`, `#f5a623`, `#ff7a7f`). Estos tres colores son una **lectura de estado**, nunca una identidad de categoría: una gráfica que agrupa por prioridad, área o persona usa la paleta "Chart categorical" de arriba, no este trío, aunque prioridad y SLA compartan pantalla (ver "Resueltos por persona" y la tabla "Tickets del período" en Reportes, donde ambos vocabularios conviven sin pisarse).
 
@@ -208,8 +208,8 @@ Radios: 8px (`rounded-lg`) para tarjetas de estado semántico, 12px (`rounded-xl
 - **Focus:** borde índigo + anillo `ring-2` índigo al 25% de opacidad.
 - **Error:** borde rojo sólido.
 
-### Diales de instrumento (Gauge)
-Componente de firma del sistema y la **única** lectura de instrumento fuera del login: un dial protagonista por tablero (cumplimiento de SLA en el de área, preventivos de la semana en el de mantenimiento). Si su período no tiene datos, mira el siguiente más amplio y lo dice en el pie, en vez de quedarse en «—». El resto de la app es sobria y clara: los demás KPI son **lecturas compactas** (`Readouts`), una lista en una sola placa junto al dial, y Reportes usa fichas y gráficas planas. Círculo con bisel metálico de dos capas, cara con gradiente radial (siempre oscura, en ambos temas — ver Layout), arco de 270° (hueco de 90° abajo) que se llena según el valor con física de resorte amortiguado, aguja con el mismo comportamiento, cifra central en Oswald con números tabulares, y una placa de etiqueta grabada (`bg-panel`, texto en mayúsculas) en la base. Cuatro remaches en las esquinas de la tarjeta contenedora (misma tarjeta, exterior consciente del tema vía `--content-surface`/`--content-border`) y una veta de puntos muy sutil sobre toda la placa. El dial "protagonista" (mayor tamaño + resplandor) es el único que anima su color en vivo — representa a la IA clasificando. Acepta una leyenda opcional bajo la etiqueta (nunca el glifo `★`; usa el icono de estrella dibujado).
+### Dial (Gauge)
+Un dial protagonista por tablero (cumplimiento de SLA en el de área, preventivos de la semana en el de mantenimiento), dibujado según `docs/ideas_diseno/dial.png`: tarjeta clara (`--content-surface`), arco de 270° con una **línea fina en degradado de la marca** (`--dial-start` → `--dial-end`, del morado `#58479d` al lila `#b5a3cf`; en oscuro, versiones aclaradas) y, por dentro, una **banda ancha y suave** del mismo degradado translúcido que se llena hasta el valor. Sin esfera oscura, sin aguja y sin remaches: sobre una pantalla clara, el bloque negro pesaba más que la cifra. La cifra va en Hanken Grotesk ligera (300), grande, con el `%` pequeño arriba a la derecha; bajo el arco, una píldora con el contexto (el período: «Mes»). Si el período no tiene datos, el dial mira el siguiente más amplio y lo dice en el pie; sin ningún dato, la línea queda gris y sin banda. El estado (en tiempo, en riesgo) lo cuentan la cifra y el pie, no el color del arco. El resto de KPI son lecturas compactas (`Readouts`) junto al dial.
 
 ### SLA needle
 Marca miniatura (14px) exclusiva de una lectura de SLA: un arco tenue + una aguja corta en `currentColor`, heredando el color semántico (verde/ámbar/rojo) del texto que acompaña. Vive siempre junto al texto del estado, nunca sola. Ver The SLA Needle Rule.
@@ -223,12 +223,12 @@ Usadas en Tickets, Administración y "Tickets del período" de Reportes. Encabez
 ## Do's and Don'ts
 
 ### Do:
-- **Do** reservar el índigo vivo exclusivamente a la IA y a la acción primaria (The Reserved Glow Rule).
+- **Do** reservar el índigo vivo de la interfaz a la IA y a la acción primaria; en los datos, solo el dial y la primera serie de las gráficas (The Reserved Glow Rule).
 - **Do** dar a toda tarjeta de estado semántico un borde sólido de 2px de su color, no solo un tinte de fondo.
 - **Do** construir la textura de material con el patrón de puntos en mosaico, nunca con `feTurbulence`.
 - **Do** mostrar una versión compacta del dial protagonista + la franja de "ticket entrante" en cualquier viewport donde el panel de instrumentos completo no quepa (la tesis de "la IA ya está trabajando" no puede depender solo del ancho de pantalla).
 - **Do** etiquetar todo dato de ejemplo/demostración como "dato de ejemplo" quede donde quede.
-- **Do** usar la paleta "Chart categorical" (magenta/azul/verde azulado + acero) cuando un color de gráfica identifica una categoría, nunca el trío semántico ni el índigo.
+- **Do** usar la rampa "Chart categorical" (morado de la marca primero) cuando un color de gráfica identifica una categoría, nunca el trío semántico.
 - **Do** dibujar el SLA con la mini-aguja (`SlaNeedleIcon`) y la prioridad con un punto sólido — nunca el mismo glifo para los dos.
 - **Do** reemplazar todo glifo Unicode (`★`, `👋`, `💡`…) por un icono dibujado del sistema, o quitarlo si no aporta información.
 

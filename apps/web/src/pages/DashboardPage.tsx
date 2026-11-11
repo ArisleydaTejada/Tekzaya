@@ -349,7 +349,8 @@ function slaTone(compliance: number | null): GaugeTone {
 
 /** Si el período no tiene cierres, el dial mira el siguiente más amplio en vez de quedarse en "—". */
 const WIDER_PERIOD: Partial<Record<StatsPeriod, StatsPeriod>> = { day: "week", week: "month", month: "year" };
-const OF_PERIOD: Partial<Record<StatsPeriod, string>> = { week: "de la semana", month: "del mes", year: "del año" };
+const OF_PERIOD: Partial<Record<StatsPeriod, string>> = { week: "la semana", month: "el mes", year: "el año" };
+const IN_PERIOD: Partial<Record<StatsPeriod, string>> = { day: "el día", week: "la semana", month: "el mes" };
 
 /**
  * La pregunta del supervisor es "¿cumplimos el SLA?": esa lectura va en el dial, y los
@@ -377,12 +378,13 @@ function AreaTiles({ kpis, query }: { kpis: AreaKpis; query: StatsRequest }) {
         id="dashboard-sla"
         label="Cumplimiento SLA"
         featured={wide}
+        badge={STATS_PERIOD_LABEL[(fromWider ? widerPeriod : query.period) ?? "week"]}
         value={compliance ?? 0}
         displayValue={compliance === null ? "—" : `${compliance}%`}
         tone={slaTone(compliance)}
         caption={
           fromWider ? (
-            `dato ${OF_PERIOD[widerPeriod!]}: en este período no hubo cierres`
+            `En ${IN_PERIOD[query.period ?? "week"] ?? "este período"} no hubo cierres; se muestra ${OF_PERIOD[widerPeriod!]}`
           ) : compliance === null ? (
             "sin cierres en el período"
           ) : kpis.csatAverage !== null ? (

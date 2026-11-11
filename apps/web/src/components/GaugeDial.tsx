@@ -3,15 +3,6 @@ import type { ReactNode } from "react";
 
 export type GaugeTone = "neutral" | "steel" | "accent" | "green" | "amber" | "red";
 
-const TONE_COLOR: Record<GaugeTone, string> = {
-  neutral: "var(--color-panel-ink-dim)",
-  steel: "var(--color-steel)",
-  accent: "var(--accent-contrast)",
-  green: "var(--status-green)",
-  amber: "var(--status-amber)",
-  red: "var(--status-red)",
-};
-
 const START_ANGLE = 135;
 const SWEEP = 270;
 
@@ -34,15 +25,27 @@ export interface GaugeDialProps {
   id: string;
   label: string;
   displayValue: string;
-  /** 0–100, position of the needle and fill arc */
+  /** 0–100: hasta dónde se llena la banda. */
   value: number;
+  /**
+   * Solo `neutral` cambia el dibujo (sin datos: línea gris y sin banda). El dial va siempre en
+   * los colores de la marca; el estado lo cuentan la cifra y el pie.
+   */
   tone: GaugeTone;
   featured?: boolean;
+  /** Se conserva por compatibilidad; el dial claro no lleva resplandor. */
   glow?: boolean;
+  /** Píldora bajo el arco con el contexto de la cifra, p. ej. el período ("Mes"). */
+  badge?: string;
   caption?: ReactNode;
   className?: string;
 }
 
+/**
+ * Dial claro en los colores de la marca (referencia: docs/ideas_diseno/dial.png): una línea
+ * fina en degradado recorre todo el arco y una banda suave se llena hasta el valor. Sin
+ * esfera oscura ni aguja: en una pantalla clara, el bloque negro pesaba más que la cifra.
+ */
 export function GaugeDial({
   id,
   label,
@@ -51,151 +54,94 @@ export function GaugeDial({
   value,
   tone,
   featured = false,
-  glow = false,
+  badge,
   className = "",
 }: GaugeDialProps) {
   const prefersReducedMotion = useReducedMotion();
-  const cx = 60;
-  const cy = 60;
-  const r = 46;
-  const trackPath = arcPath(cx, cy, r, START_ANGLE, START_ANGLE + SWEEP);
+  const cx = 100;
+  const cy = 100;
+  const outerR = 84;
+  const bandR = 68;
+  const bandWidth = 20;
+  const empty = tone === "neutral";
   const clamped = Math.max(0, Math.min(100, value));
-  const needleAngle = START_ANGLE + (clamped / 100) * SWEEP;
-  const color = TONE_COLOR[tone];
-  const circumference = (SWEEP / 360) * 2 * Math.PI * r;
+  const bandLength = (SWEEP / 360) * 2 * Math.PI * bandR;
+  const outerPath = arcPath(cx, cy, outerR, START_ANGLE, START_ANGLE + SWEEP);
+  const bandPath = arcPath(cx, cy, bandR, START_ANGLE, START_ANGLE + SWEEP);
 
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => {
-    const angle = START_ANGLE + t * SWEEP;
-    const outer = polar(cx, cy, r + 5, angle);
-    const inner = polar(cx, cy, r - 2, angle);
-
-    return { key: t, x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y };
-  });
-
-  const rivetStyle =
-    "absolute h-[5px] w-[5px] rounded-full bg-[radial-gradient(circle_at_35%_30%,#767f8f,#1a1d23_75%)] shadow-[0_0.5px_0_rgba(255,255,255,0.15),0_1px_1px_rgba(0,0,0,0.6)]";
+  // "75%" se pinta como en la referencia: la cifra grande y el símbolo pequeño, arriba.
+  const percent = displayValue.endsWith("%");
+  const figure = percent ? displayValue.slice(0, -1) : displayValue;
 
   return (
     <div
-      className={`relative flex flex-col items-center overflow-hidden rounded-2xl border border-[var(--content-border)] bg-[var(--content-surface)] pt-4 shadow-[var(--content-shadow)] ${className}`}
+      className={`flex flex-col items-center rounded-2xl border border-[var(--content-border)] bg-[var(--content-surface)] px-4 pb-4 pt-3 shadow-[var(--content-shadow)] ${className}`}
     >
-      <div
-        className="pointer-events-none absolute inset-x-3 top-0 h-10 rounded-full opacity-[0.06] blur-xl"
-        style={{ background: "radial-gradient(ellipse at 50% 0%, #ffffff, transparent 70%)" }}
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.4] mix-blend-overlay"
-        style={{
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.5) 0.5px, transparent 0.5px)",
-          backgroundSize: "3px 3px",
-        }}
-        aria-hidden="true"
-      />
-      <span className={`${rivetStyle} left-2 top-2`} aria-hidden="true" />
-      <span className={`${rivetStyle} right-2 top-2`} aria-hidden="true" />
-      <span className={`${rivetStyle} bottom-2 left-2`} aria-hidden="true" />
-      <span className={`${rivetStyle} bottom-2 right-2`} aria-hidden="true" />
+      <p className="self-start text-sm text-[var(--content-ink)]">{label}</p>
 
-      <svg
-        viewBox="0 0 120 120"
-        role="img"
-        aria-label={`${label}: ${displayValue}`}
-        className={featured ? "h-36 w-36" : "h-28 w-28"}
-      >
-        <defs>
-          <radialGradient id={`face-${id}`} cx="50%" cy="36%" r="75%">
-            <stop offset="0%" stopColor="#242933" />
-            <stop offset="100%" stopColor="#12151b" />
-          </radialGradient>
-          <linearGradient id={`bezel-${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#454c59" />
-            <stop offset="50%" stopColor="#20242b" />
-            <stop offset="100%" stopColor="#4a5160" />
-          </linearGradient>
-          {glow && (
-            <filter id={`glow-${id}`} x="-60%" y="-60%" width="220%" height="220%">
-              <feGaussianBlur stdDeviation="3.2" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          )}
-        </defs>
+      <div className={`relative ${featured ? "w-48" : "w-40"}`}>
+        <svg viewBox="0 0 200 172" role="img" aria-label={`${label}: ${displayValue}`} className="block w-full">
+          <defs>
+            {/* Degradados en el espacio del dial, de abajo a la izquierda hacia abajo a la derecha. */}
+            <linearGradient id={`dial-line-${id}`} gradientUnits="userSpaceOnUse" x1="20" y1="160" x2="180" y2="160">
+              <stop offset="0%" style={{ stopColor: "var(--dial-start)" }} />
+              <stop offset="100%" style={{ stopColor: "var(--dial-end)" }} />
+            </linearGradient>
+            <linearGradient id={`dial-band-${id}`} gradientUnits="userSpaceOnUse" x1="20" y1="160" x2="180" y2="160">
+              <stop offset="0%" style={{ stopColor: "var(--dial-band-start)" }} />
+              <stop offset="100%" style={{ stopColor: "var(--dial-band-end)" }} />
+            </linearGradient>
+          </defs>
 
-        <circle cx={cx} cy={cy} r={56} fill={`url(#bezel-${id})`} />
-        <circle cx={cx} cy={cy} r={53} fill="#0b0c10" />
-        <circle cx={cx} cy={cy} r={51} fill={`url(#face-${id})`} stroke="#050608" strokeWidth={1.5} />
-        <circle cx={cx} cy={cy} r={51} fill="none" stroke="#3d4451" strokeWidth={0.75} opacity={0.6} />
-
-        {ticks.map((t) => (
-          <line
-            key={t.key}
-            x1={t.x1}
-            y1={t.y1}
-            x2={t.x2}
-            y2={t.y2}
-            stroke="#525a68"
-            strokeWidth={1.5}
+          <path
+            d={outerPath}
+            fill="none"
+            stroke={empty ? "var(--content-border)" : `url(#dial-line-${id})`}
+            strokeWidth={3}
             strokeLinecap="round"
           />
-        ))}
 
-        <path d={trackPath} fill="none" stroke="#282d36" strokeWidth={7} strokeLinecap="round" />
+          {!empty && (
+            <path
+              d={bandPath}
+              fill="none"
+              stroke={`url(#dial-band-${id})`}
+              strokeWidth={bandWidth}
+              strokeDasharray={bandLength}
+              style={{
+                strokeDashoffset: bandLength * (1 - clamped / 100),
+                transition: prefersReducedMotion ? "none" : "stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
+            />
+          )}
 
-        {/* Transiciones CSS y no de motion: el `style` inicial pisaba el valor animado (el arco
-            no aparecía) y el origen en px se medía sobre la caja del grupo, así que la aguja
-            giraba fuera de la esfera. Aquí el giro es sobre el centro del viewBox. */}
-        <path
-          d={trackPath}
-          fill="none"
-          stroke={color}
-          strokeWidth={7}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          filter={glow ? `url(#glow-${id})` : undefined}
-          style={{
-            strokeDashoffset: circumference * (1 - clamped / 100),
-            transition: prefersReducedMotion ? "none" : "stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        />
+          <text
+            x={cx}
+            y={cy + 14}
+            textAnchor="middle"
+            className="tabular"
+            fill="var(--content-ink)"
+            fontFamily="var(--font-body)"
+            fontWeight={300}
+            fontSize={figure.length > 4 ? 34 : 46}
+          >
+            {figure}
+            {percent && (
+              <tspan fontSize={18} fontWeight={500} dx={2} dy={-20}>
+                %
+              </tspan>
+            )}
+          </text>
+        </svg>
 
-        <g
-          style={{
-            transform: `rotate(${needleAngle}deg)`,
-            transformOrigin: "60px 60px",
-            transformBox: "view-box",
-            transition: prefersReducedMotion ? "none" : "transform 800ms cubic-bezier(0.34, 1.4, 0.64, 1)",
-          }}
-        >
-          <line x1={cx - 8} y1={cy} x2={cx + 36} y2={cy} stroke="#f5f7fa" strokeWidth={2.5} strokeLinecap="round" />
-          <line x1={cx - 8} y1={cy} x2={cx + 36} y2={cy} stroke={color} strokeWidth={2.5} strokeLinecap="round" opacity={0.6} />
-        </g>
+        {badge && (
+          <span className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-0.5 text-xs text-[var(--content-ink-dim)]">
+            {badge}
+          </span>
+        )}
+      </div>
 
-        <circle cx={cx} cy={cy} r={6} fill="#1b1f27" stroke="#565e6d" strokeWidth={1} />
-        <circle cx={cx} cy={cy} r={2.5} fill={color} />
-
-        <text
-          x={cx}
-          y={cy + 25}
-          textAnchor="middle"
-          className="tabular"
-          fill="#f5f7fa"
-          fontFamily="var(--font-display)"
-          fontWeight={600}
-          fontSize={featured ? 21 : 17}
-        >
-          {displayValue}
-        </text>
-      </svg>
-
-      <span className="mt-1.5 rounded-md bg-panel px-2.5 py-1 text-center font-display text-[10px] font-medium uppercase leading-tight tracking-[0.14em] text-panel-ink-dim shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
-        {label}
-      </span>
-      <span className={`text-center text-xs text-[var(--content-ink-dim)] ${caption ? "mb-3 mt-1.5" : "mb-3"}`}>
-        {caption ?? " "}
-      </span>
+      {caption && <p className="mt-2 text-center text-xs text-[var(--content-ink-dim)]">{caption}</p>}
     </div>
   );
 }

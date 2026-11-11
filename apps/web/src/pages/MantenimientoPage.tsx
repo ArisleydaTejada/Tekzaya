@@ -90,6 +90,7 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
           <GaugeDial
             id="maintenance-preventives"
             label="Preventivos de la semana"
+            {...(kpis.preventivesThisWeek.total ? { badge: "Hechos" } : {})}
             featured
             className="h-full"
             value={kpis.preventivesThisWeek.total ? (kpis.preventivesThisWeek.done / kpis.preventivesThisWeek.total) * 100 : 0}

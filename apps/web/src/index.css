@@ -86,7 +86,7 @@
 
   /* Chart-safe steps, validated with scripts/validate_palette.js. Chart fills need more
      chroma and lightness headroom than the small UI dots. */
-  --chart-recibidos: #2f6fcb;
+  --chart-recibidos: #58479d;
   --chart-resueltos: #1f9a63;
   --chart-bar: #2f6fcb;
   --chart-urgente: #e5484d;
@@ -96,17 +96,23 @@
   --chart-grid: var(--color-placard-border);
   --chart-axis: var(--color-placard-ink-dim);
 
-  /* Rampa categórica: las series son identidades, así que no toma el morado (reservado a la IA
-     y a la acción principal) ni el trío rojo/ámbar/verde. Las dos primeras son las más distintas;
-     el gris de comparación marca solo el término de referencia. */
-  --chart-cat-1: #2f6fcb;
-  --chart-cat-2: #d6449c;
-  --chart-cat-3: #0e9c8e;
-  --chart-cat-4: #c67f1e;
-  --chart-cat-5: #7c8cae;
-  --chart-cat-6: #8a6d1e;
-  --chart-cat-7: #a0522d;
+  /* Rampa categórica: abre con el morado de la marca, que es la identidad de Tekzaya en las
+     gráficas, y sigue sin el trío rojo/ámbar/verde, reservado a las lecturas de estado.
+     El gris de comparación marca solo el término de referencia. */
+  --chart-cat-1: #58479d;
+  --chart-cat-2: #2f6fcb;
+  --chart-cat-3: #d6449c;
+  --chart-cat-4: #0e9c8e;
+  --chart-cat-5: #c67f1e;
+  --chart-cat-6: #7c8cae;
+  --chart-cat-7: #8a6d1e;
   --chart-compare: #9aa3b2;
+
+  /* Dial: una línea fina en degradado de la marca y una banda suave que se llena hasta el valor. */
+  --dial-start: #58479d;
+  --dial-end: #b5a3cf;
+  --dial-band-start: rgba(88, 71, 157, 0.16);
+  --dial-band-end: rgba(181, 163, 207, 0.32);
 
   /*
    * Estados del ticket: el texto siempre acompaña al color. Abierto y asignado son acero,
@@ -168,7 +174,7 @@
   --status-red: #ff7a7f;
   --status-green: #39d98a;
 
-  --chart-recibidos: #5b8fe0;
+  --chart-recibidos: #b5a3cf;
   --chart-resueltos: #2fa374;
   --chart-bar: #5b8fe0;
   --chart-urgente: #d9585c;
@@ -178,14 +184,19 @@
   --chart-grid: var(--color-panel-bezel);
   --chart-axis: var(--color-panel-ink-dim);
 
-  --chart-cat-1: #5b8fe0;
-  --chart-cat-2: #c24e8e;
-  --chart-cat-3: #1d9a78;
-  --chart-cat-4: #e0a24a;
-  --chart-cat-5: #9aa8c4;
-  --chart-cat-6: #c9a646;
-  --chart-cat-7: #d0805a;
+  --chart-cat-1: #b5a3cf;
+  --chart-cat-2: #5b8fe0;
+  --chart-cat-3: #c24e8e;
+  --chart-cat-4: #1d9a78;
+  --chart-cat-5: #e0a24a;
+  --chart-cat-6: #9aa8c4;
+  --chart-cat-7: #c9a646;
   --chart-compare: #6b7384;
+
+  --dial-start: #8f7fd0;
+  --dial-end: #d9cfe8;
+  --dial-band-start: rgba(181, 163, 207, 0.14);
+  --dial-band-end: rgba(217, 207, 232, 0.26);
 
   --st-open-bg: rgba(124, 140, 174, 0.26);
   --st-open-ink: #d3dbea;
