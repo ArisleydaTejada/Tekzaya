@@ -356,7 +356,7 @@ const OF_PERIOD: Partial<Record<StatsPeriod, string>> = { week: "de la semana", 
  * contadores la acompañan al lado, en una sola placa con la misma altura.
  */
 function AreaTiles({ kpis, query }: { kpis: AreaKpis; query: StatsRequest }) {
-  const widerPeriod = kpis.slaCompliance === null ? WIDER_PERIOD[query.period] : undefined;
+  const widerPeriod = kpis.slaCompliance === null ? (query.period ? WIDER_PERIOD[query.period] : undefined) : undefined;
   const widerQuery: StatsRequest = { ...query, period: widerPeriod ?? query.period };
 
   const wider = useQuery({
