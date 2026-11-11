@@ -104,7 +104,7 @@ export default function AccessLinkPage({ purpose }: { purpose: "invite" | "reset
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               onBlur={() => setTouched(true)}
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
             />
             {touched && !check.success && (
               <p className="mt-1.5 text-xs text-red">{check.error.issues[0]!.message}</p>
@@ -122,7 +122,7 @@ export default function AccessLinkPage({ purpose }: { purpose: "invite" | "reset
               autoComplete="new-password"
               value={repeat}
               onChange={(event) => setRepeat(event.target.value)}
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
             />
             {mismatch && <p className="mt-1.5 text-xs text-red">Las dos no coinciden.</p>}
 

@@ -78,7 +78,7 @@ export function PickerModal<T>({
 
   return (
     <Modal open={open} onClose={onClose} title={title} wide>
-      <label className="flex items-center gap-2 rounded-xl border border-[var(--content-border)] bg-[var(--content-bg)] px-3 focus-within:border-accent">
+      <label className="flex items-center gap-2 rounded-xl border border-[var(--field-border)] bg-[var(--content-bg)] px-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
         <SearchIcon className="h-4 w-4 shrink-0 text-[var(--content-ink-dim)]" />
         <input
           ref={inputRef}

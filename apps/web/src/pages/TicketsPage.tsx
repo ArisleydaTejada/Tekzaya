@@ -408,7 +408,7 @@ export default function TicketsPage() {
             }}
             aria-label="Buscar tickets"
             placeholder="Buscar por número o título…"
-            className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
+            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </div>
         <select
@@ -418,7 +418,7 @@ export default function TicketsPage() {
             setStatusFilter(oneOf(TICKET_STATUSES, event.target.value) ?? "");
             setPage(1);
           }}
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Todos los estados</option>
           {statusOptionsFor(scope).map((status) => (
@@ -434,7 +434,7 @@ export default function TicketsPage() {
             setPriorityFilter(oneOf(PRIORITIES, event.target.value) ?? "");
             setPage(1);
           }}
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Toda prioridad</option>
           {PRIORITIES.map((priority) => (
@@ -811,7 +811,7 @@ function MergeSelectionModal({
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         placeholder="Ej. Mismo fallo de wifi en Ventas"
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
     </Modal>
   );
@@ -1321,7 +1321,7 @@ function KanbanView({
           onChange={(event) => setNote(event.target.value)}
           rows={3}
           placeholder="¿Cómo se resolvió el problema?"
-          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+          className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] p-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
         />
       </Modal>
 
@@ -1672,7 +1672,7 @@ function AutoAssignPreview({
               aria-label={`Responsable de ${formatTicketNumber(ticket.number)}`}
               value={plan[ticket.id] ?? ""}
               onChange={(event) => onChange(ticket.id, event.target.value)}
-              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+              className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
             >
               {available.map((member) => (
                 <option key={member.id} value={member.id}>

@@ -150,7 +150,7 @@ function PlanList({
           aria-label="Filtrar por estado"
           value={state}
           onChange={(event) => onState(oneOf(PLAN_STATES, event.target.value) ?? state)}
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="active">Activos</option>
           <option value="paused">En pausa</option>

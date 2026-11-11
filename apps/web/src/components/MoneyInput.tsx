@@ -48,7 +48,7 @@ export function MoneyInput({
   }, [value]);
 
   return (
-    <div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] focus-within:border-accent">
+    <div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
       <span
         className="flex items-center border-r border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 font-display text-xs font-semibold tracking-wide text-[var(--content-ink-dim)]"
         title={`Los montos se guardan en ${currency}`}

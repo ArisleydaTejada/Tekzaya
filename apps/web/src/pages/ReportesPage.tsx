@@ -297,7 +297,7 @@ export default function ReportesPage() {
               <input
                 value={draft.title}
                 onChange={(event) => update({ title: event.target.value })}
-                className="w-full max-w-sm truncate rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-display text-lg font-semibold text-[var(--content-ink)] hover:border-[var(--content-border)] focus:border-accent focus:outline-none"
+                className="w-full max-w-sm truncate rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-display text-lg font-semibold text-[var(--content-ink)] hover:border-[var(--field-border)] focus:border-accent focus:outline-none"
                 aria-label="Nombre del reporte"
               />
               {draft.narrowed && (
@@ -573,7 +573,7 @@ function ScopeSelector({
           aria-label="Área del reporte"
           value={draft.areaId ?? ""}
           onChange={(event) => onChange({ areaId: event.target.value || undefined })}
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
         >
           <option value="">Mi área</option>
           {(areas.data ?? []).map((area) => (
@@ -591,7 +591,7 @@ function ScopeSelector({
               aria-label="Área de la persona"
               value={draft.areaId ?? ""}
               onChange={(event) => onChange({ areaId: event.target.value || undefined, userId: undefined })}
-              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
+              className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
             >
               <option value="">Área…</option>
               {(areas.data ?? []).map((area) => (
@@ -605,7 +605,7 @@ function ScopeSelector({
             aria-label="Persona del reporte"
             value={draft.userId ?? ""}
             onChange={(event) => onChange({ userId: event.target.value || undefined })}
-            className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
+            className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]"
           >
             <option value="">Persona…</option>
             {(members.data ?? []).map((member) => (
@@ -649,14 +649,14 @@ function RangePicker({
               type="date"
               value={draft?.from ?? ""}
               onChange={(event) => onChange({ period: "range", from: event.target.value })}
-              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+              className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
             />
             <span className="text-xs text-[var(--content-ink-dim)]">a</span>
             <input
               type="date"
               value={draft?.to ?? ""}
               onChange={(event) => onChange({ period: "range", to: event.target.value })}
-              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+              className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
             />
           </div>
         </>

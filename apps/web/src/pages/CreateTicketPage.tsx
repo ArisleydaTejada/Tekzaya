@@ -352,7 +352,7 @@ export default function CreateTicketPage() {
                   aria-label="Crear en nombre de un compañero"
                   value=""
                   onChange={(event) => setOnBehalfOf(event.target.value)}
-                  className="rounded-lg border border-dashed border-[var(--content-border)] bg-transparent px-2 py-1 text-xs text-accent-ink"
+                  className="rounded-lg border border-dashed border-[var(--field-border)] bg-transparent px-2 py-1 text-xs text-accent-ink"
                 >
                   <option value="">Crear en nombre de un compañero…</option>
                   {colleagues
@@ -382,7 +382,7 @@ export default function CreateTicketPage() {
               maxLength={120}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Resume el problema en una frase"
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
             />
             <FieldError messages={fieldErrors["title"]} />
           </div>
@@ -403,7 +403,7 @@ export default function CreateTicketPage() {
               rows={5}
               maxLength={5000}
               placeholder="Cuéntanos qué pasó, cuándo empezó y qué has intentado."
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
             />
             <FieldError messages={fieldErrors["description"]} />
           </div>
@@ -547,7 +547,7 @@ export default function CreateTicketPage() {
                   setAreaId(event.target.value);
                   setCategoryId("");
                 }}
-                className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+                className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
               >
                 <option value="">Selecciona un área</option>
                 {areas.map((item: Area) => (
@@ -593,7 +593,7 @@ export default function CreateTicketPage() {
                 value={categoryId}
                 disabled={!area}
                 onChange={(event) => setCategoryId(event.target.value)}
-                className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent disabled:opacity-50"
+                className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent disabled:opacity-50"
               >
                 <option value="">Que la elija el área</option>
                 {area?.categories.map((category) => (

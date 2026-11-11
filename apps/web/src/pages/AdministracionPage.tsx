@@ -241,7 +241,7 @@ function AccessLinkModal({ issued, onClose }: { issued: IssuedLink | null; onClo
               value={issued.link.url}
               onFocus={(event) => event.target.select()}
               aria-label="Enlace"
-              className="min-w-0 flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-2 font-display text-xs text-[var(--content-ink)]"
+              className="min-w-0 flex-1 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2.5 py-2 font-display text-xs text-[var(--content-ink)]"
             />
             <button
               onClick={() => {
@@ -360,13 +360,13 @@ function UsuariosTab() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por nombre o correo…"
-          className="min-w-[200px] flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+          className="min-w-[200px] flex-1 rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
         />
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
           aria-label="Filtrar por estado"
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Todos los estados</option>
           <option value="active">Activos</option>
@@ -586,7 +586,7 @@ function InviteModal({
           <select
             value={areaId}
             onChange={(event) => setAreaId(event.target.value)}
-            className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
           >
             <option value="">Selecciona un área</option>
             {areas.map((area) => (
@@ -675,7 +675,7 @@ function EditUserModal({
           <select
             value={areaId}
             onChange={(event) => setAreaId(event.target.value)}
-            className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
           >
             {areas.map((area) => (
               <option key={area.id} value={area.id}>
@@ -759,7 +759,7 @@ function RolePicker({
 
           if (choice) onChange(options[choice]);
         }}
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
       >
         <option value="employee">Empleado</option>
         <option value="supervisor">Supervisor de área</option>
@@ -981,7 +981,7 @@ function NewCategoryButton({ onCreate }: { onCreate: (name: string) => void }) {
         onBlur={() => !name && setOpen(false)}
         placeholder="Nombre"
         aria-label="Nombre de la categoría"
-        className="w-28 rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-28 rounded-full border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
       />
       <button type="submit" className="text-xs font-medium text-accent-ink">
         Añadir
@@ -1075,7 +1075,7 @@ function AreaModal({
               type="color"
               value={color}
               onChange={(event) => setColor(event.target.value)}
-              className="h-9 w-12 cursor-pointer rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)]"
+              className="h-9 w-12 cursor-pointer rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)]"
             />
             <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
               {color}
@@ -1239,7 +1239,7 @@ function ConfiguracionTab() {
                     })
                   }
                   aria-label={`Primera respuesta para prioridad ${PRIORITY_LABEL[priority]}`}
-                  className="w-full min-w-0 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+                  className="w-full min-w-0 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
                 />
                 <input
                   type="number"
@@ -1258,7 +1258,7 @@ function ConfiguracionTab() {
                     })
                   }
                   aria-label={`Resolución para prioridad ${PRIORITY_LABEL[priority]}`}
-                  className="w-full min-w-0 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+                  className="w-full min-w-0 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
                 />
               </Fragment>
             );
@@ -1312,7 +1312,7 @@ function ConfiguracionTab() {
               patch({ businessHours: { ...draft.businessHours, start: event.target.value } })
             }
             aria-label="Hora de apertura"
-            className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+            className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
           />
           <span className="text-[var(--content-ink-dim)]">a</span>
           <input
@@ -1322,7 +1322,7 @@ function ConfiguracionTab() {
               patch({ businessHours: { ...draft.businessHours, end: event.target.value } })
             }
             aria-label="Hora de cierre"
-            className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
+            className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1.5 text-[var(--content-ink)]"
           />
         </div>
         <TimezoneSelect
@@ -1345,7 +1345,7 @@ function ConfiguracionTab() {
             value={newHoliday}
             onChange={(event) => setNewHoliday(event.target.value)}
             aria-label="Nuevo día festivo"
-            className="flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+            className="flex-1 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
           />
           <button
             type="button"
@@ -1607,7 +1607,7 @@ function TimezoneSelect({ value, onChange }: { value: string; onChange: (value: 
         id="zona-horaria"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       >
         {groups.map(([region, zones]) => (
           <optgroup key={region} label={region}>
@@ -1637,7 +1637,7 @@ function Field({
       <input
         id={id}
         {...rest}
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
     </div>
   );

@@ -122,7 +122,7 @@ export default function DashboardPage() {
                 value={areaId}
                 onChange={(event) => setAreaId(event.target.value)}
                 aria-label="Área del tablero"
-                className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-xs text-[var(--content-ink)]"
+                className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-xs text-[var(--content-ink)]"
               >
                 <option value="">Mi área</option>
                 {(areas.data ?? []).map((item) => (

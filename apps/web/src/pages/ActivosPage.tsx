@@ -206,7 +206,7 @@ export default function ActivosPage() {
                 }}
                 aria-label="Buscar activos"
                 placeholder="Buscar por número, nombre, marca o serie…"
-                className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
+                className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
               />
             </div>
             {!wide && (
@@ -421,7 +421,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
       >
         {children}
       </select>

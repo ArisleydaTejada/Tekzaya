@@ -103,7 +103,7 @@ function IdentityCard() {
             value={name}
             maxLength={80}
             onChange={(event) => setName(event.target.value)}
-            className="w-full max-w-sm rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+            className="w-full max-w-sm rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
           {issue && changed && <p className="mt-1.5 text-xs text-red">{issue}</p>}
         </div>
@@ -284,7 +284,7 @@ function AvailabilityCard() {
               id="motivo"
               value={reason}
               onChange={(event) => setReason(oneOf(AWAY_REASONS, event.target.value) ?? reason)}
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
             >
               {AWAY_REASONS.map((item) => (
                 <option key={item} value={item}>
@@ -305,7 +305,7 @@ function AvailabilityCard() {
               type="date"
               value={until}
               onChange={(event) => setUntil(event.target.value)}
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
             />
           </div>
         </div>
@@ -411,7 +411,7 @@ function PasswordField({
         value={value}
         autoComplete={autoComplete}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
     </div>
   );

@@ -39,7 +39,7 @@ export default function MantenimientoPage() {
                 aria-label="Área"
                 value={areaId ?? ""}
                 onChange={(event) => setAreaId(event.target.value || undefined)}
-                className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs text-[var(--content-ink)]"
+                className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-3 py-2 text-xs text-[var(--content-ink)]"
               >
                 <option value="">Todas las áreas</option>
                 {data.areas.map((area) => (

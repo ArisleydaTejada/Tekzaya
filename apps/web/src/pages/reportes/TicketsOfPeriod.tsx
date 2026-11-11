@@ -99,16 +99,17 @@ export function TicketsOfPeriod({
           Tickets del período
         </h2>
         <div className="no-print flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-1.5 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
             <SearchIcon className="h-3.5 w-3.5 text-[var(--content-ink-dim)]" />
             <input
               value={filters.q ?? ""}
               onChange={(event) => onFiltersChange({ ...filters, q: event.target.value || undefined })}
               placeholder="Título o descripción"
+              aria-label="Buscar por título o descripción"
               className="w-40 bg-transparent text-xs text-[var(--content-ink)] outline-none"
             />
           </div>
-          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-1.5 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
             <span className="text-xs text-[var(--content-ink-dim)]">N.º</span>
             <input
               value={filters.numbers ?? ""}
@@ -116,6 +117,7 @@ export function TicketsOfPeriod({
                 onFiltersChange({ ...filters, numbers: event.target.value || undefined })
               }
               placeholder="TK-000123, 45"
+              aria-label="Filtrar por número de ticket"
               className="w-28 bg-transparent text-xs text-[var(--content-ink)] outline-none"
             />
           </div>
@@ -253,7 +255,7 @@ export function TicketsOfPeriod({
               aria-label="Filas por página"
               value={limit}
               onChange={(event) => setLimit(Number(event.target.value))}
-              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1 text-xs text-[var(--content-ink)]"
+              className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2 py-1 text-xs text-[var(--content-ink)]"
             >
               {[25, 50, 100].map((value) => (
                 <option key={value} value={value}>
@@ -475,7 +477,7 @@ function FilterPanel({
             onChange={(event) =>
               set({ ageDaysMin: event.target.value ? Number(event.target.value) : undefined })
             }
-            className="w-24 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+            className="w-24 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
           />
         </Group>
       </div>
@@ -527,7 +529,7 @@ function FilterPanel({
             onChange={(event) =>
               set({ merged: oneOf(MERGED_KINDS, event.target.value) })
             }
-            className="rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-[11px] text-[var(--content-ink)]"
+            className="rounded-full border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-0.5 text-[11px] text-[var(--content-ink)]"
           >
             <option value="">Fusión: cualquiera</option>
             <option value="duplicate">Es un duplicado</option>
@@ -611,7 +613,7 @@ function DateInput({ value, onChange }: { value?: string; onChange: (value?: str
       type="date"
       value={value ?? ""}
       onChange={(event) => onChange(event.target.value || undefined)}
-      className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+      className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
     />
   );
 }
@@ -635,7 +637,7 @@ function Comparison({
         onChange={(event) =>
           onChange(oneOf(COMPARATORS, event.target.value), value)
         }
-        className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+        className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
       >
         <option value="">—</option>
         <option value="gt">más de</option>
@@ -647,7 +649,7 @@ function Comparison({
         aria-label={`${label}: horas laborales`}
         value={value ?? ""}
         onChange={(event) => onChange(op, event.target.value ? Number(event.target.value) : undefined)}
-        className="w-20 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
+        className="w-20 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
       />
     </div>
   );

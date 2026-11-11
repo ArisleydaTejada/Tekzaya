@@ -94,7 +94,7 @@ export function AssetPicker({
           onChange={(event) => setSearch(event.target.value)}
           aria-label="Buscar equipo"
           placeholder="Número, nombre, marca, serie o ubicación…"
-          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
+          className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
         />
       </div>
 

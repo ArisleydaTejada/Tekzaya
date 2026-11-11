@@ -154,7 +154,7 @@ export function WidgetEditor({
             <input
               value={draft.title}
               onChange={(event) => set({ title: event.target.value })}
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-1.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2.5 py-1.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
             />
           </Row>
 
@@ -200,7 +200,7 @@ export function WidgetEditor({
                                     ),
                                   })
                                 }
-                                className="rounded border border-[var(--content-border)] bg-[var(--content-bg)] px-1 py-0.5 text-[11px] text-[var(--content-ink)]"
+                                className="rounded border border-[var(--field-border)] bg-[var(--content-bg)] px-1 py-0.5 text-[11px] text-[var(--content-ink)]"
                               >
                                 {measure.aggregations.map((option) => (
                                   <option key={option} value={option}>
@@ -554,7 +554,7 @@ function Select({
       aria-label={label}
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-2.5 py-1.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
+      className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2.5 py-1.5 text-xs text-[var(--content-ink)] outline-none focus:border-accent"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>

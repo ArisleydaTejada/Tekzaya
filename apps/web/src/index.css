@@ -65,6 +65,8 @@
   --content-ink: var(--color-placard-ink);
   --content-ink-dim: var(--color-placard-ink-dim);
   --content-shadow: var(--shadow-placard);
+  /* Borde de los campos: 3:1 contra la tarjeta y el lienzo (WCAG 1.4.11); el de las tarjetas no lo necesita. */
+  --field-border: #808897;
 
   /*
    * La barra lateral es lo único del cromo que sigue al tema; la plancha del login
@@ -142,6 +144,7 @@
   --content-ink: var(--color-panel-ink);
   --content-ink-dim: var(--color-panel-ink-dim);
   --content-shadow: var(--shadow-instrument);
+  --field-border: #7a7290;
   color-scheme: dark;
 
   /*
@@ -230,6 +233,24 @@
     outline-offset: 2px;
   }
 
+  /* El preflight deja los botones con la flecha; un control que se puede usar lo dice con el cursor. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  label:has(> input:not(:disabled)),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   .tabular {
     font-variant-numeric: tabular-nums;
   }
@@ -272,6 +293,7 @@
     --content-bg: #ffffff;
     --content-surface: #ffffff;
     --content-border: #d6d9e0;
+    --field-border: #808897;
     --content-ink: #12141a;
     --content-ink-dim: #5b6472;
     --content-shadow: none;

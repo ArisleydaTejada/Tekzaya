@@ -87,7 +87,7 @@ export function WorkOrdersOfPeriod({
   };
 
   const selectClass =
-    "rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]";
+    "rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2 py-1.5 text-xs text-[var(--content-ink)]";
 
   return (
     <section id="ordenes-del-periodo" className="mt-8">
@@ -96,7 +96,7 @@ export function WorkOrdersOfPeriod({
           Órdenes de trabajo del período
         </h2>
         <div className="no-print flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-1.5 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
             <SearchIcon className="h-3.5 w-3.5 text-[var(--content-ink-dim)]" />
             <input
               value={filters.q ?? ""}
@@ -202,7 +202,7 @@ export function WorkOrdersOfPeriod({
               aria-label="Filas por página"
               value={limit}
               onChange={(event) => setLimit(Number(event.target.value))}
-              className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-1 text-xs text-[var(--content-ink)]"
+              className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2 py-1 text-xs text-[var(--content-ink)]"
             >
               {[25, 50, 100].map((value) => (
                 <option key={value} value={value}>

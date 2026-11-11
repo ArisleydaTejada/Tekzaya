@@ -626,7 +626,7 @@ export default function TicketDetailPage() {
 
                     patch.mutate({ status: next });
                   }}
-                  className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs text-[var(--content-ink)]"
+                  className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs text-[var(--content-ink)]"
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -724,10 +724,10 @@ export default function TicketDetailPage() {
               )}
 
               <div
-                className={`rounded-xl border p-3 ${
+                className={`rounded-xl border p-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 ${
                   composerTab === "internal"
-                    ? "border-amber/40 bg-amber/10"
-                    : "border-[var(--content-border)] bg-[var(--content-bg)]"
+                    ? "border-amber/70 bg-amber/10"
+                    : "border-[var(--field-border)] bg-[var(--content-bg)]"
                 }`}
               >
                 <div className="relative">
@@ -1540,7 +1540,7 @@ function WorkOrderModal({
           value={title}
           maxLength={120}
           onChange={(event) => setTitle(event.target.value)}
-          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+          className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
         />
       </label>
       <label className="mb-4 block">
@@ -1552,7 +1552,7 @@ function WorkOrderModal({
           rows={4}
           maxLength={5000}
           onChange={(event) => setDescription(event.target.value)}
-          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+          className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
         />
       </label>
 
@@ -1688,7 +1688,7 @@ function CsatPanel({ ticket, onAnswered }: { ticket: TicketDetail; onAnswered: (
         maxLength={1000}
         aria-label="Comentario de la calificación"
         placeholder="¿Algo que quieras añadir? (opcional)"
-        className="mt-3 w-full resize-none rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] placeholder:text-[var(--content-ink-dim)]"
+        className="mt-3 w-full resize-none rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] placeholder:text-[var(--content-ink-dim)]"
       />
       {error && <p className="mt-2 text-xs text-red">{error}</p>}
       <button
@@ -1791,7 +1791,7 @@ function AssignModal({
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Buscar en el área…"
-        className="mb-3 w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="mb-3 w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
       <div className="mb-2 flex justify-end">
         <MemberOrderToggle value={order} onChange={setOrder} />
@@ -1942,7 +1942,7 @@ function TransferModal({
       <select
         value={areaId}
         onChange={(event) => setAreaId(event.target.value)}
-        className="mb-3 w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="mb-3 w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       >
         <option value="">Selecciona un área</option>
         {areas
@@ -1961,7 +1961,7 @@ function TransferModal({
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         placeholder="Ej. Es una consulta de nómina, no de sistemas"
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
 
       <p className="mt-3 text-xs text-[var(--content-ink-dim)]">
@@ -2105,7 +2105,7 @@ function MergeModal({
             }
           }}
           placeholder="Ej. TK-000076"
-          className="min-w-0 flex-1 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 font-display text-sm tabular text-[var(--content-ink)] outline-none focus:border-accent"
+          className="min-w-0 flex-1 rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 font-display text-sm tabular text-[var(--content-ink)] outline-none focus:border-accent"
         />
         <button
           type="button"
@@ -2201,7 +2201,7 @@ function MergeModal({
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         placeholder="Ej. Mismo fallo de wifi en Ventas"
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
     </Modal>
   );
@@ -2256,7 +2256,7 @@ function ResolveModal({
         onChange={(event) => setNote(event.target.value)}
         rows={3}
         placeholder="¿Cómo se resolvió el problema?"
-        className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] p-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
       />
       <p className="mt-2 text-xs text-[var(--content-ink-dim)]">
         La nota se publica en la conversación: es lo que el solicitante lee al confirmar.

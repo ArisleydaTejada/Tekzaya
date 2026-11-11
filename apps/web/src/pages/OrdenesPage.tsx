@@ -120,7 +120,7 @@ export default function OrdenesPage() {
             }}
             aria-label="Buscar órdenes"
             placeholder="OT, título o equipo (ACT-0012)…"
-            className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
+            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </div>
         <select
@@ -130,7 +130,7 @@ export default function OrdenesPage() {
             setStatus(oneOf(WORK_ORDER_STATUSES, event.target.value) ?? "");
             setPage(1);
           }}
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Todo estado</option>
           {WORK_ORDER_STATUSES.map((option) => (
@@ -146,7 +146,7 @@ export default function OrdenesPage() {
             setType(oneOf(WORK_ORDER_TYPES, event.target.value) ?? "");
             setPage(1);
           }}
-          className="rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
+          className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-sm text-[var(--content-ink)]"
         >
           <option value="">Todo tipo</option>
           {WORK_ORDER_TYPES.map((option) => (

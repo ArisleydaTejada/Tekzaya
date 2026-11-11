@@ -1466,7 +1466,7 @@ function RetireModal({
           onChange={(event) => setReason(event.target.value)}
           rows={3}
           placeholder="Reparación más cara que un equipo nuevo, fin de vida útil…"
-          className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+          className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
         />
       </label>
     </Modal>
