@@ -439,7 +439,21 @@ export default function TicketDetailPage() {
   const isAgentView = permissions.viewInternalNotes;
   const canResolve = permissions.changeStatus && (SEND_AS_FROM[ticket.status] ?? []).includes("resolved");
 
+  // La cabecera se queda en asignar, estado y resolver; lo ocasional va en "Más".
   const moreActions: DropdownItem[] = [
+    ...(permissions.transfer
+      ? [{ label: "Transferir a otra área…", icon: <ArrowRightIcon className="h-4 w-4" />, onSelect: () => setTransferOpen(true) }]
+      : []),
+    ...(isAgentView && ai?.configured && ai.enabled.classify
+      ? [
+          {
+            label: classify.isPending ? "Clasificando…" : "Clasificar con IA",
+            icon: <SparkleIcon className="h-4 w-4" />,
+            disabled: classify.isPending,
+            onSelect: () => classify.mutate(),
+          },
+        ]
+      : []),
     ...(permissions.merge
       ? [{ label: "Fusionar duplicados…", icon: <MergeIcon className="h-4 w-4" />, onSelect: () => setMergeOpen(true) }]
       : []),
@@ -599,27 +613,6 @@ export default function TicketDetailPage() {
                   className="rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
                 >
                   Asignar
-                </button>
-              )}
-              {permissions.transfer && (
-                <button
-                  onClick={() => setTransferOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
-                >
-                  <ArrowRightIcon className="h-3.5 w-3.5" /> Transferir
-                </button>
-              )}
-              {/* Las dos acciones de IA que trabajan sobre un ticket ya creado.
-                  Ninguna corre sola: el alta no gasta cuota (spec §6.3). */}
-              {isAgentView && ai?.configured && ai.enabled.classify && (
-                <button
-                  onClick={() => classify.mutate()}
-                  disabled={classify.isPending}
-                  title="La IA propone categoría y prioridad para este ticket"
-                  className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-ink hover:bg-accent/15 disabled:opacity-50"
-                >
-                  <SparkleIcon className={`h-3.5 w-3.5 ${classify.isPending ? "animate-pulse" : ""}`} />
-                  {classify.isPending ? "Clasificando…" : "Clasificar con IA"}
                 </button>
               )}
               {/* Lo que se usa de vez en cuando va en "Más": la cabecera se queda en

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { storageStateOf } from "./accounts";
 
 /**
@@ -26,6 +26,7 @@ test.describe("supervisor de IT", () => {
 
   test("la plantilla de disponibilidad pinta MTBF y MTTR en horas laborables", async ({ page }) => {
     await page.goto("/reportes");
+    await openReportsRail(page);
     await page.getByRole("tab", { name: /^Plantillas/ }).click();
     await page.getByRole("group", { name: "Módulo" }).getByRole("button", { name: /^Mantenimiento/ }).click();
     await page.getByRole("tabpanel").getByRole("button", { name: /Disponibilidad por tipo de equipo/ }).click();
@@ -45,3 +46,11 @@ test.describe("empleado de Ventas", () => {
     await expect(page.getByText("Tu área no mantiene equipos")).toBeVisible();
   });
 });
+
+/** El panel de reportes arranca plegado: se abre con su botón si hace falta. */
+async function openReportsRail(page: Page) {
+  const toggle = page.getByRole("button", { name: "Reportes", exact: true });
+  await expect(toggle).toBeVisible();
+
+  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+}

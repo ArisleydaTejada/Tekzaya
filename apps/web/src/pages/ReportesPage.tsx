@@ -66,12 +66,13 @@ const EMPTY: Omit<Draft, "scope"> = {
  */
 const RAIL_KEY = "tekzaya-reportes-rail";
 
+/** Plegado por defecto: el lienzo es lo que se viene a ver; la biblioteca se abre con "Reportes". */
 function readRailOpen(): boolean {
   try {
-    return window.localStorage.getItem(RAIL_KEY) !== "0";
+    return window.localStorage.getItem(RAIL_KEY) === "1";
   } catch {
-    /* modo privado o almacenamiento bloqueado: abierto, como siempre */
-    return true;
+    /* modo privado o almacenamiento bloqueado: plegado */
+    return false;
   }
 }
 

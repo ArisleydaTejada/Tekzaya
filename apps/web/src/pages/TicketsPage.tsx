@@ -561,6 +561,7 @@ export default function TicketsPage() {
           onSort={sortBy}
           selected={selected}
           onSelectedChange={setSelected}
+          sameArea={scope === "area"}
         />
       ) : view === "grupos" ? (
         <GroupedView tickets={items} />
@@ -915,6 +916,7 @@ function ListView({
   onSort,
   selected,
   onSelectedChange,
+  sameArea = false,
 }: {
   tickets: TicketListItem[];
   sort: TicketSort;
@@ -922,6 +924,8 @@ function ListView({
   onSort: (column: TicketSort) => void;
   selected: string[];
   onSelectedChange: (next: string[]) => void;
+  /** Todas las filas son del área de quien mira: no hace falta repetir el chip. */
+  sameArea?: boolean;
 }) {
   const pageIds = tickets.map((ticket) => ticket.id);
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
@@ -1017,7 +1021,7 @@ function ListView({
               <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
               <Th label="Título" column="title" sort={sort} dir={dir} onSort={onSort} />
               <Th label="Solicitante" column="requester" sort={sort} dir={dir} onSort={onSort} />
-              <Th label="Área / categoría" column="area" sort={sort} dir={dir} onSort={onSort} />
+              <Th label={sameArea ? "Categoría" : "Área / categoría"} column="area" sort={sort} dir={dir} onSort={onSort} />
               {/* Un ticket puede tener varios responsables: no hay un valor por el
                   que ordenar sin inventarse cuál de ellos manda. */}
               <Th label="Responsables" />
@@ -1065,9 +1069,11 @@ function ListView({
                   {ticket.requester.name}
                 </td>
                 <td className="px-3 py-2.5">
-                  <AreaTag area={ticket.area} />
+                  {/* En "Mi área" todas las filas son de la misma área: el chip repetido solo
+                      hacía saltar de línea la categoría. Basta con la categoría. */}
+                  {!sameArea && <AreaTag area={ticket.area} />}
                   {ticket.categoryName && (
-                    <span className="ml-1.5 text-xs text-[var(--content-ink-dim)]">
+                    <span className={`${sameArea ? "" : "ml-1.5 "}text-xs text-[var(--content-ink-dim)]`}>
                       {ticket.categoryName}
                     </span>
                   )}

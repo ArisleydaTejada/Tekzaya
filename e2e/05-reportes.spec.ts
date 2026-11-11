@@ -31,6 +31,7 @@ const KPI_WIDGET = {
 };
 
 async function expectChartsRendered(page: Page) {
+  await openReportsRail(page);
   await page.getByRole("tab", { name: /^Plantillas/ }).click();
   await page.getByRole("tabpanel").getByRole("listitem").first().getByRole("button").first().click();
   await expect(page.getByRole("button", { name: /^Opciones de / }).first()).toBeVisible();
@@ -84,4 +85,12 @@ for (const role of ["admin", "rrhh"] as const) {
     await expectChartsRendered(page);
     await context.close();
   });
+}
+
+/** El panel de reportes arranca plegado: se abre con su botón si hace falta. */
+async function openReportsRail(page: Page) {
+  const toggle = page.getByRole("button", { name: "Reportes", exact: true });
+  await expect(toggle).toBeVisible();
+
+  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
 }
