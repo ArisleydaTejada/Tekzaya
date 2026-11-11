@@ -24,11 +24,12 @@ import { AssetFormModal } from "../components/AssetFormModal";
 import { AssetStatusBadge, WarrantyBadge } from "../components/assets";
 import { Avatar } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
-import { DownloadIcon, PlusIcon, SearchIcon, WrenchIcon } from "../components/icons";
+import { ChevronDownIcon, DownloadIcon, FilterIcon, PlusIcon, SearchIcon, WrenchIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { Thumb } from "../components/Thumb";
 import { oneOf } from "../lib/oneOf";
+import { useMediaQuery } from "../lib/useMediaQuery";
 
 const PAGE_SIZE = 25;
 
@@ -64,6 +65,9 @@ export default function ActivosPage() {
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Sin columna lateral (`lg`), resumen y filtros irían tras toda la lista: suben sobre ella.
+  const wide = useMediaQuery("(min-width: 64rem)");
 
   const query: Partial<AssetListQuery> = {
     page,
@@ -95,6 +99,57 @@ export default function ActivosPage() {
   const countsTotal = counts ? ASSET_STATUSES.reduce((sum, status) => sum + counts[status], 0) : 0;
   const canCreate = Boolean(me && (isAdmin(me) || me.isAreaSupervisor));
   const filtering = search.trim() !== "" || Object.values(filters).some(Boolean);
+
+  // El estado tiene su fila de fichas en el móvil; aquí solo cuentan los que esconde el botón.
+  const hiddenFilters = [filters.type, filters.areaId, filters.usedByAreaId, filters.location, filters.warranty].filter(Boolean).length;
+
+  const filterFields = (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+      <FilterSelect label="Tipo" value={filters.type} onChange={(value) => filter("type", oneOf(ASSET_TYPES, value) ?? "")}>
+        <option value="">Todos los tipos</option>
+        {ASSET_TYPES.map((type) => (
+          <option key={type} value={type}>
+            {ASSET_TYPE_LABEL[type]}
+          </option>
+        ))}
+      </FilterSelect>
+      <FilterSelect label="Área responsable" value={filters.areaId} onChange={(value) => filter("areaId", value)}>
+        <option value="">Todas</option>
+        {areas.map((area) => (
+          <option key={area.id} value={area.id}>
+            {area.name}
+          </option>
+        ))}
+      </FilterSelect>
+      {/* Un área sin equipos a cargo solo ve los que usa ella: el filtro sobraría. */}
+      {(data?.maintainsAssets ?? false) && (
+        <FilterSelect label="Área que lo usa" value={filters.usedByAreaId} onChange={(value) => filter("usedByAreaId", value)}>
+          <option value="">Todas</option>
+          {areas.map((area) => (
+            <option key={area.id} value={area.id}>
+              {area.name}
+            </option>
+          ))}
+        </FilterSelect>
+      )}
+      <FilterSelect label="Ubicación" value={filters.location} onChange={(value) => filter("location", value)}>
+        <option value="">Todas</option>
+        {locations.map((place) => (
+          <option key={place} value={place}>
+            {place}
+          </option>
+        ))}
+      </FilterSelect>
+      <FilterSelect label="Garantía" value={filters.warranty} onChange={(value) => filter("warranty", oneOf(WARRANTY_STATES, value) ?? "")}>
+        <option value="">Cualquiera</option>
+        {WARRANTY_STATES.map((state) => (
+          <option key={state} value={state}>
+            {WARRANTY_STATE_LABEL[state]}
+          </option>
+        ))}
+      </FilterSelect>
+    </div>
+  );
 
   function filter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -139,20 +194,82 @@ export default function ActivosPage() {
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="min-w-0 lg:order-1">
-          <div className="relative mb-3 max-w-md">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-ink-dim)]" />
-            <input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-              aria-label="Buscar activos"
-              placeholder="Buscar por número, nombre, marca o serie…"
-              className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
-            />
+        <div className="min-w-0">
+          <div className="mb-3 flex gap-2">
+            <div className="relative min-w-0 max-w-md flex-1">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-ink-dim)]" />
+              <input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                aria-label="Buscar activos"
+                placeholder="Buscar por número, nombre, marca o serie…"
+                className="w-full rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] py-2 pl-9 pr-3 text-sm text-[var(--content-ink)] outline-none placeholder:text-[var(--content-ink-dim)] focus:border-accent focus:ring-2 focus:ring-accent/25"
+              />
+            </div>
+            {!wide && (
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-expanded={filtersOpen}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 text-sm font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+              >
+                <FilterIcon className="h-4 w-4 text-[var(--content-ink-dim)]" />
+                Filtros
+                {hiddenFilters > 0 && (
+                  <span className="rounded-full bg-accent px-1.5 text-[10px] font-semibold tabular text-white">{hiddenFilters}</span>
+                )}
+                <ChevronDownIcon className={`h-3.5 w-3.5 text-[var(--content-ink-dim)] transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+              </button>
+            )}
           </div>
+
+          {!wide && (
+            <>
+              {filtersOpen && (
+                <Plate className="mb-3 p-4">
+                  {filterFields}
+                  {hiddenFilters > 0 && (
+                    <button
+                      onClick={() => {
+                        setFilters((current) => ({ ...NO_FILTERS, status: current.status }));
+                        setPage(1);
+                      }}
+                      className="mt-3 text-xs font-medium text-accent-ink hover:underline"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </Plate>
+              )}
+              <ul className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" aria-label="Por estado">
+                {ASSET_STATUSES.map((status) => {
+                  const active = filters.status === status;
+
+                  return (
+                    <li key={status} className="shrink-0">
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => filter("status", active ? "" : status)}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                          active
+                            ? "border-accent/40 bg-accent/10 text-[var(--content-ink)]"
+                            : "border-[var(--content-border)] bg-[var(--content-surface)] text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${SUMMARY_BAR[status]}`} aria-hidden="true" />
+                        {ASSET_STATUS_LABEL[status]}
+                        <span className="font-display font-semibold tabular">{counts?.[status] ?? 0}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
 
           {isError ? (
             <Plate className="py-16 text-center text-sm text-red">
@@ -215,103 +332,61 @@ export default function ActivosPage() {
           </div>
         </div>
 
-        <aside className="space-y-4 lg:order-2" aria-label="Resumen y filtros">
-          <Plate className="p-4">
-            <h2 className="mb-3 font-display text-sm font-semibold text-[var(--content-ink)]">Por estado</h2>
-            <ul className="space-y-1">
-              {ASSET_STATUSES.map((status) => {
-                const count = counts?.[status] ?? 0;
-                const active = filters.status === status;
-
-                return (
-                  <li key={status}>
-                    <button
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => filter("status", active ? "" : status)}
-                      className={`w-full rounded-lg px-2.5 py-2 text-left transition-colors ${
-                        active ? "bg-accent/10 ring-1 ring-accent/40" : "hover:bg-[var(--content-bg)]"
-                      }`}
-                    >
-                      <span className="flex items-center justify-between text-sm">
-                        <span className="text-[var(--content-ink)]">{ASSET_STATUS_LABEL[status]}</span>
-                        <span className="font-display font-semibold tabular text-[var(--content-ink)]">{count}</span>
-                      </span>
-                      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[var(--content-border)]">
-                        <span
-                          className={`block h-full rounded-full ${SUMMARY_BAR[status]}`}
-                          style={{ width: `${countsTotal ? Math.round((count / countsTotal) * 100) : 0}%` }}
-                        />
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </Plate>
-
-          <Plate className="p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">Filtros</h2>
-              {Object.values(filters).some(Boolean) && (
-                <button
-                  onClick={() => {
-                    setFilters(NO_FILTERS);
-                    setPage(1);
-                  }}
-                  className="text-xs font-medium text-accent-ink hover:underline"
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <FilterSelect label="Tipo" value={filters.type} onChange={(value) => filter("type", oneOf(ASSET_TYPES, value) ?? "")}>
-                <option value="">Todos los tipos</option>
-                {ASSET_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {ASSET_TYPE_LABEL[type]}
-                  </option>
-                ))}
-              </FilterSelect>
-              <FilterSelect label="Área responsable" value={filters.areaId} onChange={(value) => filter("areaId", value)}>
-                <option value="">Todas</option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </FilterSelect>
-              {/* Un área sin equipos a cargo solo ve los que usa ella: el filtro sobraría. */}
-              {(data?.maintainsAssets ?? false) && (
-                <FilterSelect label="Área que lo usa" value={filters.usedByAreaId} onChange={(value) => filter("usedByAreaId", value)}>
-                  <option value="">Todas</option>
-                  {areas.map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name}
-                    </option>
-                  ))}
-                </FilterSelect>
-              )}
-              <FilterSelect label="Ubicación" value={filters.location} onChange={(value) => filter("location", value)}>
-                <option value="">Todas</option>
-                {locations.map((place) => (
-                  <option key={place} value={place}>
-                    {place}
-                  </option>
-                ))}
-              </FilterSelect>
-              <FilterSelect label="Garantía" value={filters.warranty} onChange={(value) => filter("warranty", oneOf(WARRANTY_STATES, value) ?? "")}>
-                <option value="">Cualquiera</option>
-                {WARRANTY_STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {WARRANTY_STATE_LABEL[state]}
-                  </option>
-                ))}
-              </FilterSelect>
-            </div>
-          </Plate>
-        </aside>
+        {wide && (
+          <aside className="space-y-4" aria-label="Resumen y filtros">
+            <Plate className="p-4">
+              <h2 className="mb-3 font-display text-sm font-semibold text-[var(--content-ink)]">Por estado</h2>
+              <ul className="space-y-1">
+                {ASSET_STATUSES.map((status) => {
+                  const count = counts?.[status] ?? 0;
+                  const active = filters.status === status;
+  
+                  return (
+                    <li key={status}>
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => filter("status", active ? "" : status)}
+                        className={`w-full rounded-lg px-2.5 py-2 text-left transition-colors ${
+                          active ? "bg-accent/10 ring-1 ring-accent/40" : "hover:bg-[var(--content-bg)]"
+                        }`}
+                      >
+                        <span className="flex items-center justify-between text-sm">
+                          <span className="text-[var(--content-ink)]">{ASSET_STATUS_LABEL[status]}</span>
+                          <span className="font-display font-semibold tabular text-[var(--content-ink)]">{count}</span>
+                        </span>
+                        <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[var(--content-border)]">
+                          <span
+                            className={`block h-full rounded-full ${SUMMARY_BAR[status]}`}
+                            style={{ width: `${countsTotal ? Math.round((count / countsTotal) * 100) : 0}%` }}
+                          />
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Plate>
+  
+            <Plate className="p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">Filtros</h2>
+                {Object.values(filters).some(Boolean) && (
+                  <button
+                    onClick={() => {
+                      setFilters(NO_FILTERS);
+                      setPage(1);
+                    }}
+                    className="text-xs font-medium text-accent-ink hover:underline"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              {filterFields}
+            </Plate>
+          </aside>
+        )}
       </div>
 
       <AssetFormModal
