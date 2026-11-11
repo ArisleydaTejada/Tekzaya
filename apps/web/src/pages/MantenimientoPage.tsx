@@ -8,7 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type ComponentType, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getMaintenanceDashboard, maintenanceKeys } from "../api/maintenance";
-import { AlertIcon, BoxIcon, ChartIcon, ClipboardIcon, ShieldIcon, WrenchIcon } from "../components/icons";
+import { AlertIcon, BoxIcon, ChartIcon, ClipboardIcon, WrenchIcon } from "../components/icons";
+import { GaugeDial } from "../components/GaugeDial";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { StatTile } from "../components/StatTile";
@@ -82,17 +83,32 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
 
   return (
     <>
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
+      {/* La lectura de la semana —¿se están haciendo los preventivos?— va en el dial; los
+          contadores la acompañan al lado. */}
+      <div className="mb-5 grid gap-3 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-4">
+        <Linked to="/preventivos">
+          <GaugeDial
+            id="maintenance-preventives"
+            label="Preventivos de la semana"
+            featured
+            className="h-full"
+            value={kpis.preventivesThisWeek.total ? (kpis.preventivesThisWeek.done / kpis.preventivesThisWeek.total) * 100 : 0}
+            displayValue={
+              kpis.preventivesThisWeek.total ? `${kpis.preventivesThisWeek.done}/${kpis.preventivesThisWeek.total}` : "—"
+            }
+            tone={kpis.preventivesThisWeek.total === 0 ? "neutral" : pending === 0 ? "green" : "steel"}
+            caption={
+              kpis.preventivesThisWeek.total
+                ? pending === 0
+                  ? "Todos hechos"
+                  : `${pending} por hacer`
+                : "Ninguno programado"
+            }
+          />
+        </Linked>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Linked to="/ordenes">
           <StatTile label="Órdenes abiertas" value={String(kpis.openWorkOrders)} icon={<ClipboardIcon className="h-4 w-4" />} caption="Sin completar ni cancelar" />
-        </Linked>
-        <Linked to="/preventivos">
-          <StatTile
-            label="Preventivos de la semana"
-            value={String(kpis.preventivesThisWeek.total)}
-            icon={<ShieldIcon className="h-4 w-4" />}
-            caption={kpis.preventivesThisWeek.total ? `${kpis.preventivesThisWeek.done} hechos · ${pending} por hacer` : "Ninguno programado"}
-          />
         </Linked>
         <Linked to="/preventivos">
           <StatTile
@@ -110,7 +126,7 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             caption={kpis.lowStockParts ? "Conviene reponer" : "Almacén en orden"}
           />
         </Linked>
-        {/* Fila entera hasta `xl`: el importe no cabe en media fila de móvil y, siendo la quinta, cierra la rejilla de dos. */}
+        {/* El importe no cabe en media fila de móvil: ocupa la fila entera y, siendo la cuarta, cierra la rejilla. */}
         <div className="col-span-2 xl:col-span-1">
           <StatTile
             label="Costo del mes"
@@ -119,6 +135,7 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             caption="Repuestos y servicios externos"
           />
         </div>
+      </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

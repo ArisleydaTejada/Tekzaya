@@ -27,6 +27,7 @@ import { Avatar } from "../components/Avatar";
 import { PriorityBadge, SlaTag } from "../components/badges";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
+import { GaugeDial, type GaugeTone } from "../components/GaugeDial";
 import { StatTile } from "../components/StatTile";
 import {
   ArrowRightIcon,
@@ -188,6 +189,9 @@ export default function DashboardPage() {
         }
       />
 
+      {overview.data?.kpis.kind === "area" ? (
+        <AreaTiles kpis={overview.data.kpis} />
+      ) : (
       <KpiRow>
         {overview.isPending || !overview.data ? (
           <>
@@ -200,12 +204,11 @@ export default function DashboardPage() {
               />
             ))}
           </>
-        ) : overview.data.kpis.kind === "personal" ? (
-          <PersonalTiles kpis={overview.data.kpis} />
         ) : (
-          <AreaTiles kpis={overview.data.kpis} />
+          overview.data.kpis.kind === "personal" && <PersonalTiles kpis={overview.data.kpis} />
         )}
       </KpiRow>
+      )}
 
       {personal ? (
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -315,38 +318,29 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
   );
 }
 
+/** Umbrales del dial: por debajo del 75 % el SLA se está incumpliendo de forma sostenida. */
+function slaTone(compliance: number | null): GaugeTone {
+  if (compliance === null) return "neutral";
+
+  if (compliance >= 90) return "green";
+
+  return compliance >= 75 ? "amber" : "red";
+}
+
+/**
+ * La pregunta del supervisor es "¿cumplimos el SLA?": esa lectura va en el dial de instrumento,
+ * y los contadores la acompañan al lado en vez de competir con ella en la misma fila.
+ */
 function AreaTiles({ kpis }: { kpis: AreaKpis }) {
   return (
-    <>
-      <Link to="/tickets?scope=area">
-        <StatTile
-          label="Tickets pendientes"
-          value={String(kpis.pending)}
-          icon={<TicketIcon className="h-4 w-4" />}
-          caption={`${kpis.unassigned} sin asignar`}
-        />
-      </Link>
-      <Link to="/tickets?scope=area">
-        <StatTile
-          label="Tickets resueltos"
-          value={String(kpis.resolved)}
-          icon={<CheckIcon className="h-4 w-4" />}
-        />
-      </Link>
-      <StatTile
-        label="T. medio 1.ª respuesta"
-        value={kpis.firstResponseHours === null ? "—" : `${kpis.firstResponseHours.toFixed(1)} h`}
-        icon={<ClockIcon className="h-4 w-4" />}
-        caption={
-          kpis.firstResponseMedianHours === null
-            ? "sin respuestas en el período"
-            : `mediana ${kpis.firstResponseMedianHours.toFixed(1)} h`
-        }
-      />
-      <StatTile
+    <div className="mb-6 grid gap-3 sm:grid-cols-[13rem_minmax(0,1fr)]">
+      <GaugeDial
+        id="dashboard-sla"
         label="Cumplimiento SLA"
-        value={kpis.slaCompliance === null ? "—" : `${kpis.slaCompliance}%`}
-        icon={<ShieldIcon className="h-4 w-4" />}
+        featured
+        value={kpis.slaCompliance ?? 0}
+        displayValue={kpis.slaCompliance === null ? "—" : `${kpis.slaCompliance}%`}
+        tone={slaTone(kpis.slaCompliance)}
         caption={
           kpis.csatAverage !== null ? (
             <span className="inline-flex items-center gap-1">
@@ -357,7 +351,35 @@ function AreaTiles({ kpis }: { kpis: AreaKpis }) {
           )
         }
       />
-    </>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Link to="/tickets?scope=area">
+          <StatTile
+            label="Tickets pendientes"
+            value={String(kpis.pending)}
+            icon={<TicketIcon className="h-4 w-4" />}
+            caption={`${kpis.unassigned} sin asignar`}
+          />
+        </Link>
+        <Link to="/tickets?scope=area">
+          <StatTile
+            label="Tickets resueltos"
+            value={String(kpis.resolved)}
+            icon={<CheckIcon className="h-4 w-4" />}
+          />
+        </Link>
+        <StatTile
+          className="col-span-2 lg:col-span-1"
+          label="T. medio 1.ª respuesta"
+          value={kpis.firstResponseHours === null ? "—" : `${kpis.firstResponseHours.toFixed(1)} h`}
+          icon={<ClockIcon className="h-4 w-4" />}
+          caption={
+            kpis.firstResponseMedianHours === null
+              ? "sin respuestas en el período"
+              : `mediana ${kpis.firstResponseMedianHours.toFixed(1)} h`
+          }
+        />
+      </div>
+    </div>
   );
 }
 

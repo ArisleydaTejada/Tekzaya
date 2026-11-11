@@ -554,6 +554,19 @@ export default function TicketDetailPage() {
                   </span>
                 )}
                 <PriorityBadge priority={ticket.priority} />
+                {/* Lo que hizo la IA queda a la vista del equipo: el área la eligió ella y con
+                    qué seguridad. Solo si la persona la mantuvo; si la cambió, ya no es su elección. */}
+                {isAgentView &&
+                  ticket.ai?.suggestedAreaId === ticket.area.id &&
+                  ticket.ai.areaConfidence !== undefined && (
+                    <span
+                      title="El área de este ticket la propuso la IA al crearlo"
+                      className="inline-flex items-center gap-1 rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent-ink"
+                    >
+                      <SparkleIcon className="h-3 w-3" aria-hidden="true" />
+                      Área por IA · {Math.round(ticket.ai.areaConfidence * 100)}%
+                    </span>
+                  )}
                 {/* El margen del SLA en ficha ("-4h"); el detalle de cada plazo se abre al pasar por encima. */}
                 <SlaTimeline sla={ticket.sla} status={ticket.status} />
               </div>

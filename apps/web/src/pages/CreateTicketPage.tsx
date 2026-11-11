@@ -515,28 +515,30 @@ export default function CreateTicketPage() {
           )}
 
           {/* Un solo botón para los dos campos que siguen: es una clasificación,
-              no dos preguntas, y así cuesta una sola llamada al modelo. */}
+              no dos preguntas, y así cuesta una sola llamada al modelo. Mientras falta
+              texto, el medidor dice cuánto: la IA está a la vista desde el principio,
+              no como un botón apagado. */}
           {aiSuggests && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={classifyWithAi}
-                disabled={!longEnough || analyzing}
-                title={
-                  longEnough
-                    ? "La IA propone departamento y categoría a partir de lo que escribiste"
-                    : "Escribe primero el título y la descripción"
-                }
-                className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-ink transition-colors hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <SparkleIcon className={analyzing ? "animate-pulse" : ""} />
-                {analyzing ? "Clasificando…" : "Clasificar con IA"}
-              </button>
-              <span className="text-xs text-[var(--content-ink-dim)]">
-                {longEnough
-                  ? "Rellena departamento y categoría; puedes cambiarlos."
-                  : "Disponible con al menos 20 caracteres."}
-              </span>
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2.5">
+              <AiReadiness progress={Math.min(1, `${title} ${description}`.trim().length / 20)} analyzing={analyzing} />
+              <p className="min-w-0 flex-1 text-xs leading-snug text-[var(--content-ink)]">
+                {analyzing
+                  ? "La IA está leyendo tu solicitud…"
+                  : longEnough
+                    ? "La IA puede elegir el área y la categoría por ti; luego puedes cambiarlas."
+                    : "Cuenta un poco más del problema y la IA podrá elegir el área por ti."}
+              </p>
+              {longEnough && (
+                <button
+                  type="button"
+                  onClick={classifyWithAi}
+                  disabled={analyzing}
+                  className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-60"
+                >
+                  <SparkleIcon className={analyzing ? "animate-pulse" : ""} />
+                  {analyzing ? "Clasificando…" : "Clasificar con IA"}
+                </button>
+              )}
             </div>
           )}
           {aiError && <p className="-mt-2 text-xs text-amber">{aiError}</p>}
@@ -750,6 +752,30 @@ function chooseMentioned(items: readonly AssetPickerItem[]): MentionChoice {
   }
 
   return NO_MENTION;
+}
+
+/** Medidor de instrumento en miniatura: cuánto texto falta para que la IA pueda clasificar. */
+function AiReadiness({ progress, analyzing }: { progress: number; analyzing: boolean }) {
+  const r = 9;
+  const length = 2 * Math.PI * r;
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7 shrink-0 -rotate-90" aria-hidden="true">
+      <circle cx="12" cy="12" r={r} fill="none" stroke="currentColor" strokeWidth="3" className="text-accent/20" />
+      <circle
+        cx="12"
+        cy="12"
+        r={r}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={length}
+        strokeDashoffset={length * (1 - progress)}
+        className={`text-accent-ink transition-[stroke-dashoffset] duration-300 ease-out ${analyzing ? "animate-pulse" : ""}`}
+      />
+    </svg>
+  );
 }
 
 const FIELD_ORDER = ["title", "description", "areaId"] as const;
