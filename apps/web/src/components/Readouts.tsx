@@ -31,7 +31,7 @@ export function Readout({ label, value, caption, icon, to }: ReadoutProps) {
         <span className="block text-sm text-[var(--content-ink)]">{label}</span>
         {caption && <span className="block text-xs text-[var(--content-ink-dim)]">{caption}</span>}
       </span>
-      <span className="shrink-0 font-display text-2xl font-semibold tabular leading-none text-[var(--content-ink)]">{value}</span>
+      <span data-readout-value className="shrink-0 font-display text-2xl font-semibold tabular leading-none text-[var(--content-ink)]">{value}</span>
     </>
   );
 

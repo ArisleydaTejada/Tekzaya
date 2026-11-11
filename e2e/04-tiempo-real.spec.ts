@@ -9,8 +9,8 @@ import { storageStateOf } from "./accounts";
  */
 
 async function tileValue(tile: Locator): Promise<number> {
-  // El número es el único párrafo de la tarjeta; el pie ("8 sin asignar") va aparte.
-  const text = (await tile.locator("p").first().textContent()) ?? "";
+  // La cifra va marcada en la lectura; el pie ("8 sin asignar") va aparte.
+  const text = (await tile.locator("[data-readout-value]").textContent()) ?? "";
   const value = Number(text.trim());
   if (!Number.isInteger(value)) throw new Error(`La tarjeta no tiene número: «${text}»`);
   return value;
