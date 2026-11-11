@@ -79,6 +79,7 @@ import { Modal } from "../components/Modal";
 import { Plate } from "../components/Plate";
 import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
 import { oneOf } from "../lib/oneOf";
+import { useMediaQuery } from "../lib/useMediaQuery";
 
 /** Estados a los que se puede saltar desde el desplegable; el servidor valida el resto. */
 /**
@@ -198,6 +199,8 @@ export default function TicketDetailPage() {
   const { number = "" } = useParams();
   const queryClient = useQueryClient();
   const { me } = useAuth();
+  // Con la columna lateral a la vista (`xl`), los datos van en ella; si no, plegados bajo la cabecera.
+  const wide = useMediaQuery("(min-width: 80rem)");
 
   // Nada en esta página decide permisos por su cuenta: `ticket.permissions` viene
   // resuelto por el servidor, que es quien vuelve a comprobarlos en cada llamada.
@@ -458,6 +461,55 @@ export default function TicketDetailPage() {
     }
   }
 
+  const detailRows = (
+    <>
+      <DetailRow label="Solicitante" value={ticket.requester.name} />
+      {requesterArea && (
+        <DetailRow label="Área del solicitante" value={<AreaTag area={requesterArea} />} />
+      )}
+      {ticket.createdBy.id !== ticket.requester.id && (
+        <DetailRow label="Registrado por" value={ticket.createdBy.name} />
+      )}
+      {ticket.additionalRequesters.length > 0 && (
+        <DetailRow
+          label="También lo reportaron"
+          value={ticket.additionalRequesters.map((person) => person.name).join(", ")}
+        />
+      )}
+      <DetailRow label="Área" value={<AreaTag area={ticket.area} />} />
+      <DetailRow label="Categoría" value={ticket.categoryName ?? "Sin categoría"} />
+      <DetailRow
+        label="Responsables"
+        value={
+          ticket.assignees.length ? (
+            <AvatarStack users={ticket.assignees} max={5} />
+          ) : (
+            <span className="text-[var(--content-ink-dim)]">Sin asignar</span>
+          )
+        }
+      />
+      <DetailRow label="Creado" value={formatWhen(ticket.createdAt)} />
+      {ticket.sla.firstResponseAt && (
+        <DetailRow label="1.ª respuesta" value={formatWhen(ticket.sla.firstResponseAt)} />
+      )}
+      <DetailRow
+        label="SLA respuesta"
+        value={<SlaTag state={ticket.responseState} status={ticket.status} />}
+      />
+      <DetailRow
+        label="SLA resolución"
+        value={<SlaTag state={ticket.resolutionState} status={ticket.status} />}
+      />
+      {/* "Vence" solo tiene sentido mientras falte por vencer. */}
+      <DetailRow
+        label={settled ? "Cerrado" : "Vence"}
+        value={formatDateTime(
+          settled ? (ticket.sla.settledAt ?? ticket.resolutionDueAt) : ticket.resolutionDueAt,
+        )}
+      />
+    </>
+  );
+
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-4">
@@ -595,6 +647,27 @@ export default function TicketDetailPage() {
             </p>
           )}
         </Plate>
+
+        {/* Sin columna lateral, los datos irían tras toda la conversación: suben aquí, plegados, con lo que más se consulta a la vista. */}
+        {!wide && (
+          <Plate className="text-sm">
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+                <span className="font-medium text-[var(--content-ink)]">Detalles</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <SlaTag state={ticket.resolutionState} status={ticket.status} />
+                  {ticket.assignees.length ? (
+                    <AvatarStack users={ticket.assignees} />
+                  ) : (
+                    <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>
+                  )}
+                  <ChevronDownIcon className="h-4 w-4 shrink-0 text-[var(--content-ink-dim)] transition-transform group-open:rotate-180" />
+                </span>
+              </summary>
+              <div className="space-y-3 border-t border-[var(--content-border)] px-4 pb-4 pt-3">{detailRows}</div>
+            </details>
+          </Plate>
+        )}
 
         {isAgentView && ai?.configured && ai.enabled.summary && (
           <SummaryPanel ticketId={ticket.id} />
@@ -773,52 +846,7 @@ export default function TicketDetailPage() {
       </div>
 
       <div className="space-y-4">
-        <Plate className="space-y-3 p-4 text-sm">
-          <DetailRow label="Solicitante" value={ticket.requester.name} />
-          {requesterArea && (
-            <DetailRow label="Área del solicitante" value={<AreaTag area={requesterArea} />} />
-          )}
-          {ticket.createdBy.id !== ticket.requester.id && (
-            <DetailRow label="Registrado por" value={ticket.createdBy.name} />
-          )}
-          {ticket.additionalRequesters.length > 0 && (
-            <DetailRow
-              label="También lo reportaron"
-              value={ticket.additionalRequesters.map((person) => person.name).join(", ")}
-            />
-          )}
-          <DetailRow label="Área" value={<AreaTag area={ticket.area} />} />
-          <DetailRow label="Categoría" value={ticket.categoryName ?? "Sin categoría"} />
-          <DetailRow
-            label="Responsables"
-            value={
-              ticket.assignees.length ? (
-                <AvatarStack users={ticket.assignees} max={5} />
-              ) : (
-                <span className="text-[var(--content-ink-dim)]">Sin asignar</span>
-              )
-            }
-          />
-          <DetailRow label="Creado" value={formatWhen(ticket.createdAt)} />
-          {ticket.sla.firstResponseAt && (
-            <DetailRow label="1.ª respuesta" value={formatWhen(ticket.sla.firstResponseAt)} />
-          )}
-          <DetailRow
-            label="SLA respuesta"
-            value={<SlaTag state={ticket.responseState} status={ticket.status} />}
-          />
-          <DetailRow
-            label="SLA resolución"
-            value={<SlaTag state={ticket.resolutionState} status={ticket.status} />}
-          />
-          {/* "Vence" solo tiene sentido mientras falte por vencer. */}
-          <DetailRow
-            label={settled ? "Cerrado" : "Vence"}
-            value={formatDateTime(
-              settled ? (ticket.sla.settledAt ?? ticket.resolutionDueAt) : ticket.resolutionDueAt,
-            )}
-          />
-        </Plate>
+        {wide && <Plate className="space-y-3 p-4 text-sm">{detailRows}</Plate>}
 
         <AssetCard
           ticket={ticket}
