@@ -259,11 +259,20 @@ function subtitleOf(overview: StatsOverview | undefined): string {
     return `${subject} tiene ${pending} ${pending === 1 ? "ticket" : "tickets"} sin resolver, ${unassigned} sin asignar.`;
   }
 
-  const pending = overview.kpis.pendingForMe;
+  const { pendingForMe: pending, areaPending, urgent } = overview.kpis;
 
-  return pending > 0
-    ? `Tienes ${pending} ${pending === 1 ? "ticket" : "tickets"} que requieren tu atención.`
-    : "No tienes tickets pendientes por ahora.";
+  if (pending > 0) return `Tienes ${pending} ${pending === 1 ? "ticket" : "tickets"} que requieren tu atención.`;
+
+  // Sin nada asignado, "no tienes pendientes" contradecía a las fichas del área de al lado.
+  if (areaPending > 0) {
+    const urgentNote = urgent > 0 ? `, ${urgent} ${urgent === 1 ? "urgente" : "urgentes"}` : "";
+
+    return `Nada asignado a ti por ahora. Tu área tiene ${areaPending} ${
+      areaPending === 1 ? "ticket pendiente" : "tickets pendientes"
+    }${urgentNote}.`;
+  }
+
+  return "Ni tú ni tu área tienen tickets pendientes.";
 }
 
 function KpiRow({ children }: { children: React.ReactNode }) {

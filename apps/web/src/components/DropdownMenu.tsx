@@ -16,7 +16,8 @@ const MENU_WIDTH = 216;
  * En un portal y con posición fija: las tablas con scroll horizontal recortarían un menú en la celda.
  * Por eso también se cierra al desplazar la página.
  */
-export function DropdownMenu({ label, items }: { label: string; items: DropdownItem[] }) {
+/** Con `text`, el disparador muestra la palabra junto al icono (p. ej. "Más" en una barra de botones). */
+export function DropdownMenu({ label, items, text }: { label: string; items: DropdownItem[]; text?: string }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -85,14 +86,21 @@ export function DropdownMenu({ label, items }: { label: string; items: DropdownI
         ref={trigger}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label={label}
+        aria-label={text ? undefined : label}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`rounded-md p-1.5 text-[var(--content-ink-dim)] transition-colors hover:bg-[var(--content-bg)] hover:text-[var(--content-ink)] ${
-          open ? "bg-[var(--content-bg)] text-[var(--content-ink)]" : ""
-        }`}
+        className={
+          text
+            ? `flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] transition-colors hover:bg-[var(--content-bg)] ${
+                open ? "bg-[var(--content-bg)]" : ""
+              }`
+            : `rounded-md p-1.5 text-[var(--content-ink-dim)] transition-colors hover:bg-[var(--content-bg)] hover:text-[var(--content-ink)] ${
+                open ? "bg-[var(--content-bg)] text-[var(--content-ink)]" : ""
+              }`
+        }
       >
-        <MoreIcon className="h-4 w-4" />
+        <MoreIcon className={text ? "h-3.5 w-3.5" : "h-4 w-4"} />
+        {text}
       </button>
       {open &&
         createPortal(

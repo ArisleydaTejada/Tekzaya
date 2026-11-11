@@ -103,7 +103,8 @@ export const createTicketInput = z.object({
     .trim()
     .min(10, "Describe el problema con al menos 10 caracteres")
     .max(5000, "Máximo 5000 caracteres"),
-  areaId: objectId,
+  // Vacío es "no eligió área", no un identificador mal formado: el mensaje dice qué hacer.
+  areaId: z.string().min(1, "Elige el área que atenderá tu solicitud").pipe(objectId),
   categoryId: objectId.optional(),
   /** Crear en nombre de un compañero de la misma área; el backend lo verifica. */
   requesterId: objectId.optional(),

@@ -37,7 +37,7 @@ test("un ticket nuevo sube el tablero del supervisor y suena la campana, sin rec
   await employee
     .getByLabel("Descripción")
     .fill("Algunas teclas dejaron de funcionar después de derramar café sobre el teclado.");
-  await employee.getByLabel("Departamento de destino").selectOption({ label: "IT y Sistemas" });
+  await employee.getByLabel("Área de destino").selectOption({ label: "IT y Sistemas" });
   await employee.getByRole("button", { name: "Enviar solicitud" }).click();
   await expect(employee.getByRole("heading", { name: "¡Ticket creado!" })).toBeVisible();
 

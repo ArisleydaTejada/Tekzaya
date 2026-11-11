@@ -75,6 +75,7 @@ import {
 } from "../components/icons";
 import { AwayTag, LoadBar } from "../components/Workload";
 import { MemberOrderToggle, sortMembers, type MemberOrder } from "../components/MemberOrder";
+import { DropdownMenu, type DropdownItem } from "../components/DropdownMenu";
 import { Modal } from "../components/Modal";
 import { Plate } from "../components/Plate";
 import { formatBytes, formatDateTime, formatWhen } from "../lib/format";
@@ -436,6 +437,24 @@ export default function TicketDetailPage() {
 
   const permissions = ticket.permissions;
   const isAgentView = permissions.viewInternalNotes;
+  const canResolve = permissions.changeStatus && (SEND_AS_FROM[ticket.status] ?? []).includes("resolved");
+
+  const moreActions: DropdownItem[] = [
+    ...(permissions.merge
+      ? [{ label: "Fusionar duplicados…", icon: <MergeIcon className="h-4 w-4" />, onSelect: () => setMergeOpen(true) }]
+      : []),
+    ...(isAgentView && ai?.configured && ai.enabled.detectIncidents
+      ? [
+          {
+            label: findIncident.isPending ? "Buscando incidente…" : "Buscar incidente",
+            icon: <AlertIcon className="h-4 w-4" />,
+            disabled: findIncident.isPending,
+            onSelect: () => findIncident.mutate(),
+          },
+        ]
+      : []),
+  ];
+
   // El reloj del SLA paró: ni cuenta atrás ni colores de alerta (spec §5.3).
   const settled = isSettledStatus(ticket.status);
   const canWrite = permissions.replyPublicly || permissions.writeInternalNote;
@@ -577,14 +596,6 @@ export default function TicketDetailPage() {
                   <ArrowRightIcon className="h-3.5 w-3.5" /> Transferir
                 </button>
               )}
-              {permissions.merge && (
-                <button
-                  onClick={() => setMergeOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
-                >
-                  <MergeIcon className="h-3.5 w-3.5" /> Fusionar…
-                </button>
-              )}
               {/* Las dos acciones de IA que trabajan sobre un ticket ya creado.
                   Ninguna corre sola: el alta no gasta cuota (spec §6.3). */}
               {isAgentView && ai?.configured && ai.enabled.classify && (
@@ -598,17 +609,9 @@ export default function TicketDetailPage() {
                   {classify.isPending ? "Clasificando…" : "Clasificar con IA"}
                 </button>
               )}
-              {isAgentView && ai?.configured && ai.enabled.detectIncidents && (
-                <button
-                  onClick={() => findIncident.mutate()}
-                  disabled={findIncident.isPending}
-                  title="Busca si varios tickets recientes describen el mismo problema"
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50"
-                >
-                  <AlertIcon className="h-3.5 w-3.5" />
-                  {findIncident.isPending ? "Buscando…" : "Buscar incidente"}
-                </button>
-              )}
+              {/* Lo que se usa de vez en cuando va en "Más": la cabecera se queda en
+                  las decisiones de cada día y el botón de resolver no compite. */}
+              {moreActions.length > 0 && <DropdownMenu label="Más acciones" text="Más" items={moreActions} />}
               {permissions.changeStatus && (
                 <select
                   aria-label="Estado del ticket"
@@ -634,6 +637,16 @@ export default function TicketDetailPage() {
                     </option>
                   ))}
                 </select>
+              )}
+              {/* Resolver es el cierre del trabajo: botón propio en vez de una opción
+                  más del desplegable. Abre el modal que pide la nota para el solicitante. */}
+              {canResolve && (
+                <button
+                  onClick={() => setResolveOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim"
+                >
+                  <CheckIcon className="h-3.5 w-3.5" /> Resolver
+                </button>
               )}
             </div>
           </div>

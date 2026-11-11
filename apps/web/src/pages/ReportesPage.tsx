@@ -469,14 +469,22 @@ export default function ReportesPage() {
             closeRailIfStacked();
           }}
           onDuplicate={async (id) => {
-            await duplicateSavedReport(id);
-            void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
+            try {
+              await duplicateSavedReport(id);
+              void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : "No se pudo duplicar el reporte.");
+            }
           }}
           onDelete={async (id) => {
-            await deleteSavedReport(id);
-            void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
+            try {
+              await deleteSavedReport(id);
+              void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
 
-            if (draft?.id === id) setDraft(null);
+              if (draft?.id === id) setDraft(null);
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : "No se pudo eliminar el reporte.");
+            }
           }}
         />
       </div>
@@ -747,6 +755,9 @@ function ReportsRail({
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  // Borrar no tiene vuelta atrás: el primer clic solo pide confirmación en la misma fila.
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+
   /* Plegado no deja nada: con botón o columna vacía, el lienzo dejaba un hueco a la derecha. */
   if (!open) return null;
 
@@ -887,18 +898,45 @@ function ReportsRail({
                     STATS_PERIOD_LABEL[report.period]
                   }${report.scopeNarrowed ? " · alcance recortado" : ""}`}
                   onOpen={() => onOpenReport(report)}
+                  pinnedActions={confirmingDelete === report.id}
                   actions={
-                    <>
-                      <button
-                        onClick={() => onDuplicate(report.id)}
-                        className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-                      >
-                        Duplicar
-                      </button>
-                      <button onClick={() => onDelete(report.id)} className="text-red hover:underline">
-                        Eliminar
-                      </button>
-                    </>
+                    confirmingDelete === report.id ? (
+                      <>
+                        <span className="text-[var(--content-ink)]">¿Eliminar este reporte?</span>
+                        <button
+                          autoFocus
+                          onClick={() => {
+                            setConfirmingDelete(null);
+                            onDelete(report.id);
+                          }}
+                          className="font-medium text-red hover:underline"
+                        >
+                          Sí, eliminar
+                        </button>
+                        <button
+                          onClick={() => setConfirmingDelete(null)}
+                          className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => onDuplicate(report.id)}
+                          className="text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                        >
+                          Duplicar
+                        </button>
+                        <button
+                          onClick={() => setConfirmingDelete(report.id)}
+                          aria-label={`Eliminar ${report.title}`}
+                          className="text-red hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )
                   }
                 />
               ))}
@@ -916,6 +954,7 @@ function RailRow({
   active,
   onOpen,
   actions,
+  pinnedActions = false,
 }: {
   title: string;
   /** Para qué sirve el reporte. Trece títulos solos no se distinguen entre sí. */
@@ -924,6 +963,8 @@ function RailRow({
   active: boolean;
   onOpen: () => void;
   actions?: React.ReactNode;
+  /** Deja las acciones a la vista aunque el puntero salga, p. ej. mientras se confirma un borrado. */
+  pinnedActions?: boolean;
 }) {
   return (
     <li
@@ -954,9 +995,14 @@ function RailRow({
         </span>
       </button>
       {/* Duplicar y eliminar solo asoman al pasar por encima: son acciones de
-          mantenimiento, y en una lista de doce estorban todo el rato. */}
+          mantenimiento, y en una lista de doce estorban todo el rato. En pantallas
+          táctiles no hay "encima", así que ahí siempre se ven. */}
       {actions && (
-        <div className="mt-0.5 hidden gap-2 text-[11px] group-focus-within:flex group-hover:flex">
+        <div
+          className={`mt-0.5 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] ${
+            pinnedActions ? "flex" : "hidden group-focus-within:flex group-hover:flex [@media(hover:none)]:flex"
+          }`}
+        >
           {actions}
         </div>
       )}

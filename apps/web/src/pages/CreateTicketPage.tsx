@@ -237,6 +237,11 @@ export default function CreateTicketPage() {
       }
 
       setFieldErrors(errors);
+      // El foco salta al primer campo con error: con el teclado o un lector de
+      // pantalla, el aviso en rojo más abajo pasaría desapercibido.
+      const first = FIELD_ORDER.find((key) => errors[key]);
+
+      if (first) document.getElementById(FIELD_IDS[first])?.focus();
 
       return;
     }
@@ -378,13 +383,15 @@ export default function CreateTicketPage() {
             </div>
             <input
               id="titulo"
+              aria-invalid={Boolean(fieldErrors["title"])}
+              aria-describedby={fieldErrors["title"] ? "titulo-error" : undefined}
               value={title}
               maxLength={120}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Resume el problema en una frase"
-              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              className="w-full rounded-lg border border-[var(--field-border)] aria-[invalid=true]:border-red bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
             />
-            <FieldError messages={fieldErrors["title"]} />
+            <FieldError id="titulo-error" messages={fieldErrors["title"]} />
           </div>
 
           <div>
@@ -398,14 +405,16 @@ export default function CreateTicketPage() {
             </div>
             <textarea
               id="descripcion"
+              aria-invalid={Boolean(fieldErrors["description"])}
+              aria-describedby={fieldErrors["description"] ? "descripcion-error" : undefined}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={5}
               maxLength={5000}
               placeholder="Cuéntanos qué pasó, cuándo empezó y qué has intentado."
-              className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              className="w-full rounded-lg border border-[var(--field-border)] aria-[invalid=true]:border-red bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
             />
-            <FieldError messages={fieldErrors["description"]} />
+            <FieldError id="descripcion-error" messages={fieldErrors["description"]} />
           </div>
 
           {/* Plan A2: un enlace, no un campo. Quien no lo necesita sigue viendo un
@@ -538,16 +547,18 @@ export default function CreateTicketPage() {
                 htmlFor="area"
                 className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]"
               >
-                Departamento de destino
+                Área de destino
               </label>
               <select
                 id="area"
+              aria-invalid={Boolean(fieldErrors["areaId"])}
+              aria-describedby={fieldErrors["areaId"] ? "area-error" : undefined}
                 value={areaId}
                 onChange={(event) => {
                   setAreaId(event.target.value);
                   setCategoryId("");
                 }}
-                className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+                className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] outline-none focus:border-accent aria-[invalid=true]:border-red"
               >
                 <option value="">Selecciona un área</option>
                 {areas.map((item: Area) => (
@@ -556,7 +567,7 @@ export default function CreateTicketPage() {
                   </option>
                 ))}
               </select>
-              <FieldError messages={fieldErrors["areaId"]} />
+              <FieldError id="area-error" messages={fieldErrors["areaId"]} />
 
               <AnimatePresence>
                 {visibleSuggestion && (
@@ -741,10 +752,22 @@ function chooseMentioned(items: readonly AssetPickerItem[]): MentionChoice {
   return NO_MENTION;
 }
 
-function FieldError({ messages }: { messages?: string[] }) {
+const FIELD_ORDER = ["title", "description", "areaId"] as const;
+
+const FIELD_IDS: Record<(typeof FIELD_ORDER)[number], string> = {
+  title: "titulo",
+  description: "descripcion",
+  areaId: "area",
+};
+
+function FieldError({ id, messages }: { id: string; messages?: string[] }) {
   if (!messages?.length) return null;
 
-  return <p className="mt-1.5 text-xs text-red">{messages[0]}</p>;
+  return (
+    <p id={id} className="mt-1.5 text-xs text-red">
+      {messages[0]}
+    </p>
+  );
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {

@@ -214,6 +214,9 @@
     /* Native controls (checkboxes, scrollbars) follow the app theme; a fixed "dark light"
        drew dark unchecked boxes on light surfaces. */
     color-scheme: light;
+    /* La barra superior es fija (h-16): sin este margen, el foco que salta a un
+       campo con error lo dejaba escondido debajo de ella. */
+    scroll-padding-top: 5rem;
   }
 
   body {

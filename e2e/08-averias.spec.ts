@@ -47,12 +47,12 @@ test("crear ticket con equipo → convertir en OT → repararlo → resolver el 
   await expect(mine).toContainText("Diego Castillo");
   await picker.getByRole("region", { name: "Los que usa tu área" }).getByRole("button", { name: new RegExp(PRINTER) }).click();
   await expect(picker).toBeHidden();
-  await employee.page.getByLabel("Departamento de destino").selectOption({ label: "Ventas" });
+  await employee.page.getByLabel("Área de destino").selectOption({ label: "Ventas" });
 
   // El área elegida no es la que mantiene el equipo: se sugiere, no se impone.
   await expect(employee.page.getByText("Este equipo lo mantiene IT y Sistemas.")).toBeVisible();
   await employee.page.getByRole("button", { name: "Enviar el ticket a IT y Sistemas" }).click();
-  await expect(employee.page.getByLabel("Departamento de destino")).toHaveValue(/.+/);
+  await expect(employee.page.getByLabel("Área de destino")).toHaveValue(/.+/);
   await expect(employee.page.getByText("Este equipo lo mantiene IT y Sistemas.")).toHaveCount(0);
 
   await employee.page.getByRole("button", { name: "Enviar solicitud" }).click();
@@ -163,7 +163,7 @@ test.describe("desde la ficha del equipo", () => {
     await expect(page).toHaveURL(/\/tickets\/nuevo\?activo=ACT-\d{4}$/);
     await expect(page.getByText("Equipo afectado")).toBeVisible();
     await expect(page.getByText(laptop)).toBeVisible();
-    await expect(page.getByLabel("Departamento de destino").locator("option:checked")).toHaveText("IT y Sistemas");
+    await expect(page.getByLabel("Área de destino").locator("option:checked")).toHaveText("IT y Sistemas");
 
     // Quitarlo deja el formulario de siempre.
     await page.getByRole("button", { name: "Quitar equipo" }).click();

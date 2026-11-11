@@ -1185,7 +1185,14 @@ function AssetPlans({ asset }: { asset: AssetDetail }) {
               </Link>
               <span className="text-xs text-[var(--content-ink-dim)]">
                 {describeEvery(plan.every, plan.unit)}
-                {plan.assetType ? " · por tipo" : ""} · próxima {formatDay(plan.nextDueAt)}
+                {plan.assetType ? " · por tipo" : ""}
+                {/* Un equipo de baja no recibe más rondas (los planes por tipo lo saltan):
+                    anunciar la "próxima" prometía una visita que no llegará. */}
+                {asset.status === "retired"
+                  ? " · ya no se aplica a este equipo"
+                  : plan.isActive
+                    ? ` · próxima ${formatDay(plan.nextDueAt)}`
+                    : " · en pausa"}
               </span>
             </li>
           ))}

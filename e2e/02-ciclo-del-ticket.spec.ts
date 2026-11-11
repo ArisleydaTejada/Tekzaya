@@ -35,7 +35,7 @@ test("crear → tomar → responder → nota interna → resolver → CSAT", asy
     .fill("La pantalla se queda en negro al encender el equipo de la sala de reuniones.");
   // Sin clave de Gemini no se ofrece clasificar con IA: no se promete lo que no ocurrirá.
   await expect(employee.page.getByRole("button", { name: "Clasificar con IA" })).toHaveCount(0);
-  await employee.page.getByLabel("Departamento de destino").selectOption({ label: "IT y Sistemas" });
+  await employee.page.getByLabel("Área de destino").selectOption({ label: "IT y Sistemas" });
   await employee.page.getByLabel(/Categoría/).selectOption({ label: "Hardware" });
   await employee.page.getByRole("button", { name: "Enviar solicitud" }).click();
 
