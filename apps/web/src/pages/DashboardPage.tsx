@@ -28,6 +28,7 @@ import { PriorityBadge, SlaTag } from "../components/badges";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { GaugeDial, type GaugeTone } from "../components/GaugeDial";
+import { Readout, Readouts } from "../components/Readouts";
 import { StatTile } from "../components/StatTile";
 import {
   ArrowRightIcon,
@@ -207,7 +208,7 @@ export default function DashboardPage() {
       />
 
       {overview.data?.kpis.kind === "area" ? (
-        <AreaTiles kpis={overview.data.kpis} />
+        <AreaTiles kpis={overview.data.kpis} query={query} />
       ) : (
       <KpiRow>
         {overview.isPending || !overview.data ? (
@@ -344,24 +345,42 @@ function slaTone(compliance: number | null): GaugeTone {
   return compliance >= 75 ? "amber" : "red";
 }
 
+/** Si el período no tiene cierres, el dial mira el siguiente más amplio en vez de quedarse en "—". */
+const WIDER_PERIOD: Partial<Record<StatsPeriod, StatsPeriod>> = { day: "week", week: "month", month: "year" };
+const OF_PERIOD: Partial<Record<StatsPeriod, string>> = { week: "de la semana", month: "del mes", year: "del año" };
+
 /**
- * La pregunta del supervisor es "¿cumplimos el SLA?": esa lectura va en el dial de instrumento,
- * y los contadores la acompañan al lado en vez de competir con ella en la misma fila.
+ * La pregunta del supervisor es "¿cumplimos el SLA?": esa lectura va en el dial, y los
+ * contadores la acompañan al lado, en una sola placa con la misma altura.
  */
-function AreaTiles({ kpis }: { kpis: AreaKpis }) {
+function AreaTiles({ kpis, query }: { kpis: AreaKpis; query: StatsRequest }) {
+  const widerPeriod = kpis.slaCompliance === null ? WIDER_PERIOD[query.period] : undefined;
+  const widerQuery: StatsRequest = { ...query, period: widerPeriod ?? query.period };
+
+  const wider = useQuery({
+    queryKey: statsKeys.overview(widerQuery),
+    queryFn: () => getStatsOverview(widerQuery),
+    enabled: Boolean(widerPeriod),
+  });
+
+  const widerKpis = wider.data?.kpis.kind === "area" ? wider.data.kpis : null;
+  const fromWider = kpis.slaCompliance === null && widerKpis?.slaCompliance != null;
+  const compliance = fromWider ? widerKpis!.slaCompliance : kpis.slaCompliance;
+
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-[13rem_minmax(0,1fr)]">
       <GaugeDial
         id="dashboard-sla"
         label="Cumplimiento SLA"
         featured
-        value={kpis.slaCompliance ?? 0}
-        displayValue={kpis.slaCompliance === null ? "—" : `${kpis.slaCompliance}%`}
-        tone={slaTone(kpis.slaCompliance)}
+        value={compliance ?? 0}
+        displayValue={compliance === null ? "—" : `${compliance}%`}
+        tone={slaTone(compliance)}
         caption={
-          // Sin resueltos no hay cumplimiento que medir: el dial vacío lo explica en vez de quedarse mudo.
-          kpis.slaCompliance === null ? (
-            "sin resueltos en el período"
+          fromWider ? (
+            `dato ${OF_PERIOD[widerPeriod!]}: en este período no hubo cierres`
+          ) : compliance === null ? (
+            "sin cierres en el período"
           ) : kpis.csatAverage !== null ? (
             <span className="inline-flex items-center gap-1">
               <StarIcon className="h-3 w-3 text-amber" /> {kpis.csatAverage.toFixed(1)} CSAT
@@ -371,34 +390,31 @@ function AreaTiles({ kpis }: { kpis: AreaKpis }) {
           )
         }
       />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Link to="/tickets?scope=area">
-          <StatTile
-            label="Tickets pendientes"
-            value={String(kpis.pending)}
-            icon={<TicketIcon className="h-4 w-4" />}
-            caption={`${kpis.unassigned} sin asignar`}
-          />
-        </Link>
-        <Link to="/tickets?scope=area">
-          <StatTile
-            label="Tickets resueltos"
-            value={String(kpis.resolved)}
-            icon={<CheckIcon className="h-4 w-4" />}
-          />
-        </Link>
-        <StatTile
-          className="col-span-2 lg:col-span-1"
-          label="T. medio 1.ª respuesta"
+      <Readouts>
+        <Readout
+          to="/tickets?scope=area"
+          label="Tickets pendientes"
+          value={String(kpis.pending)}
+          icon={<TicketIcon className="h-4 w-4" />}
+          caption={`${kpis.unassigned} sin asignar`}
+        />
+        <Readout
+          to="/tickets?scope=settled"
+          label="Resueltos en el período"
+          value={String(kpis.resolved)}
+          icon={<CheckIcon className="h-4 w-4" />}
+        />
+        <Readout
+          label="Primera respuesta"
           value={kpis.firstResponseHours === null ? "—" : `${kpis.firstResponseHours.toFixed(1)} h`}
           icon={<ClockIcon className="h-4 w-4" />}
           caption={
             kpis.firstResponseMedianHours === null
               ? "sin respuestas en el período"
-              : `mediana ${kpis.firstResponseMedianHours.toFixed(1)} h`
+              : `tiempo medio; la mediana es ${kpis.firstResponseMedianHours.toFixed(1)} h`
           }
         />
-      </div>
+      </Readouts>
     </div>
   );
 }

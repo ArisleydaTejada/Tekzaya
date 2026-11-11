@@ -66,6 +66,24 @@ export function ReportChart({
     return <Empty />;
   }
 
+  // Una gráfica de barras o de porciones con un solo dato es una barra solitaria que no compara
+  // nada: se muestra la cifra y se explica cuándo aparecerá la gráfica.
+  const only = result.rows[0]!;
+
+  if (result.rows.length === 1 && !only.split && !SINGLE_ROW_CHARTS.has(widget.chart)) {
+    return (
+      <div className="flex h-full min-h-32 flex-col items-center justify-center gap-1 px-4 text-center">
+        <p className="font-display text-3xl font-semibold tabular text-[var(--content-ink)]">
+          {formatValue(only.values[0] ?? 0, unit, result.currency)}
+        </p>
+        <p className="text-sm text-[var(--content-ink)]">{only.label}</p>
+        <p className="text-xs text-[var(--content-ink-dim)]">
+          Es el único dato del período; con más, aquí aparece la comparación.
+        </p>
+      </div>
+    );
+  }
+
   // Las líneas y áreas se marcan con una guía vertical; barras y porciones, con una banda.
   const cursor = hoverCursor(theme, widget.chart === "line" || widget.chart === "area" ? "line" : "band");
 
@@ -451,12 +469,20 @@ function stackedData(result: ReportQueryResult): StackedData {
   return { data, splits: rest.length ? [...visible, "Otros"] : visible };
 }
 
+/** Gráficas que con una sola fila siguen diciendo algo: la cifra, la tabla o la serie en el tiempo. */
+const SINGLE_ROW_CHARTS = new Set<ReportWidget["chart"]>(["kpi", "table", "line", "area", "radar", "heatmap", "segmented"]);
+
 // Tipos que no son de Recharts
+
+/** Con menos de cinco casos, un "-67 %" es ruido (de 3 a 1), no una tendencia. */
+const MIN_COUNT_FOR_TREND = 5;
 
 function Kpi({ widget, result }: { widget: ReportWidget; result: ReportQueryResult }) {
   const measure = result.measures[0]!;
   const value = result.totals[0] ?? null;
-  const trend = trendOf(value, result.comparison?.totals[0] ?? null);
+  const previous = result.comparison?.totals[0] ?? null;
+  const tooFew = measure.unit === "count" && Math.max(value ?? 0, previous ?? 0) < MIN_COUNT_FOR_TREND;
+  const trend = tooFew ? undefined : trendOf(value, previous);
 
   return (
     <StatTile

@@ -12,7 +12,7 @@ import { AlertIcon, BoxIcon, ChartIcon, ClipboardIcon, WrenchIcon } from "../com
 import { GaugeDial } from "../components/GaugeDial";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
-import { StatTile } from "../components/StatTile";
+import { Readout, Readouts } from "../components/Readouts";
 import { Thumb } from "../components/Thumb";
 import { formatDay, formatQuantity, warrantyCountdown } from "../lib/format";
 
@@ -84,7 +84,7 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
   return (
     <>
       {/* La lectura de la semana —¿se están haciendo los preventivos?— va en el dial; los
-          contadores la acompañan al lado. */}
+          contadores la acompañan al lado, en una sola placa de la misma altura. */}
       <div className="mb-5 grid gap-3 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-4">
         <Linked to="/preventivos">
           <GaugeDial
@@ -102,40 +102,41 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
                 ? pending === 0
                   ? "Todos hechos"
                   : `${pending} por hacer`
-                : "Ninguno programado"
+                : kpis.preventivesOverdue
+                  ? "Nada esta semana; hay vencidos"
+                  : "Nada esta semana; todo al día"
             }
           />
         </Linked>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <Linked to="/ordenes">
-          <StatTile label="Órdenes abiertas" value={String(kpis.openWorkOrders)} icon={<ClipboardIcon className="h-4 w-4" />} caption="Sin completar ni cancelar" />
-        </Linked>
-        <Linked to="/preventivos">
-          <StatTile
+        <Readouts>
+          <Readout
+            to="/ordenes"
+            label="Órdenes abiertas"
+            value={String(kpis.openWorkOrders)}
+            icon={<ClipboardIcon className="h-4 w-4" />}
+            caption="Sin completar ni cancelar"
+          />
+          <Readout
+            to="/preventivos"
             label="Preventivos vencidos"
             value={String(kpis.preventivesOverdue)}
             icon={<AlertIcon className={`h-4 w-4 ${kpis.preventivesOverdue ? "text-red" : ""}`} />}
             caption={kpis.preventivesOverdue ? "Pasaron su fecha sin hacerse" : "Todo al día"}
           />
-        </Linked>
-        <Linked to="/repuestos">
-          <StatTile
+          <Readout
+            to="/repuestos"
             label="Repuestos bajo mínimo"
             value={String(kpis.lowStockParts)}
             icon={<BoxIcon className={`h-4 w-4 ${kpis.lowStockParts ? "text-amber" : ""}`} />}
             caption={kpis.lowStockParts ? "Conviene reponer" : "Almacén en orden"}
           />
-        </Linked>
-        {/* El importe no cabe en media fila de móvil: ocupa la fila entera y, siendo la cuarta, cierra la rejilla. */}
-        <div className="col-span-2 xl:col-span-1">
-          <StatTile
+          <Readout
             label="Costo del mes"
             value={formatMoney(kpis.monthCost, data.currency)}
             icon={<WrenchIcon className="h-4 w-4" />}
             caption="Repuestos y servicios externos"
           />
-        </div>
-      </div>
+        </Readouts>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
