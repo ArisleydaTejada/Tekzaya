@@ -43,10 +43,14 @@ export function AssetStatusBadge({ status }: { status: AssetStatus }) {
   );
 }
 
+/*
+ * Solo "vence pronto" pide actuar, así que solo él lleva color. Una garantía vencida es
+ * un dato, no una alarma: en rojo, casi todo el inventario gritaba a la vez.
+ */
 const WARRANTY_TONE: Record<WarrantyState, string> = {
-  active: "text-green",
+  active: "text-[var(--content-ink)]",
   expiring: "text-amber",
-  expired: "text-red",
+  expired: "text-[var(--content-ink-dim)]",
   none: "text-[var(--content-ink-dim)]",
 };
 

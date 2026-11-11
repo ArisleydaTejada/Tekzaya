@@ -86,43 +86,47 @@
 
   /* Chart-safe steps, validated with scripts/validate_palette.js. Chart fills need more
      chroma and lightness headroom than the small UI dots. */
-  --chart-recibidos: #58479d;
+  --chart-recibidos: #2f6fcb;
   --chart-resueltos: #1f9a63;
   --chart-bar: #2f6fcb;
   --chart-urgente: #e5484d;
   --chart-alta: #c67f1e;
   --chart-media: #2f6fcb;
-  --chart-baja: #1f9a63;
+  --chart-baja: #7c8cae;
   --chart-grid: var(--color-placard-border);
   --chart-axis: var(--color-placard-ink-dim);
 
-  /* Categorical ramp: series are identities, so it skips the reserved red/amber/green trio.
-     Ordered so the first two series differ most; the gray marks the comparison term only. */
-  --chart-cat-1: #58479d;
-  --chart-cat-2: #1f9a63;
-  --chart-cat-3: #2f6fcb;
-  --chart-cat-4: #d6449c;
-  --chart-cat-5: #0e9c8e;
-  --chart-cat-6: #c67f1e;
-  --chart-cat-7: #7c8cae;
+  /* Rampa categórica: las series son identidades, así que no toma el morado (reservado a la IA
+     y a la acción principal) ni el trío rojo/ámbar/verde. Las dos primeras son las más distintas;
+     el gris de comparación marca solo el término de referencia. */
+  --chart-cat-1: #2f6fcb;
+  --chart-cat-2: #d6449c;
+  --chart-cat-3: #0e9c8e;
+  --chart-cat-4: #c67f1e;
+  --chart-cat-5: #7c8cae;
+  --chart-cat-6: #8a6d1e;
+  --chart-cat-7: #a0522d;
   --chart-compare: #9aa3b2;
 
   /*
-   * Estados del ticket: el texto siempre acompaña al color. "Reabierto" es el único sólido
-   * porque pide mirarlo ya; "Fusionado" comparte el gris de "Cancelado".
+   * Estados del ticket: el texto siempre acompaña al color. Abierto y asignado son acero,
+   * no rojo: un ticket recién llegado es lo normal, no una alarma; el rojo queda para lo
+   * vencido, lo urgente y "Reabierto", el único sólido porque pide mirarlo ya.
+   * En progreso es azul (trabajo en marcha) y en espera, ámbar (depende de alguien).
+   * "Fusionado" comparte el gris de "Cancelado".
    */
-  --st-open-bg: #fcd9d9;
-  --st-open-ink: #a3191b;
-  --st-open-border: #f0a9a9;
-  --st-assigned-bg: #fff5f5;
-  --st-assigned-ink: #b8313c;
-  --st-assigned-border: #fbd9dc;
-  --st-in_progress-bg: #fff3e2;
-  --st-in_progress-ink: #a85a07;
-  --st-in_progress-border: #f8d8a8;
-  --st-on_hold-bg: #e5f4fb;
-  --st-on_hold-ink: #0b6a93;
-  --st-on_hold-border: #b5dff1;
+  --st-open-bg: #e6ebf3;
+  --st-open-ink: #33415c;
+  --st-open-border: #c5cee0;
+  --st-assigned-bg: #f4f6fa;
+  --st-assigned-ink: #46536e;
+  --st-assigned-border: #dbe1ec;
+  --st-in_progress-bg: #e7effc;
+  --st-in_progress-ink: #1d5fb8;
+  --st-in_progress-border: #b8cff2;
+  --st-on_hold-bg: #fff3e2;
+  --st-on_hold-ink: #965000;
+  --st-on_hold-border: #f8d8a8;
   --st-resolved-bg: #e4f6ec;
   --st-resolved-ink: #17794c;
   --st-resolved-border: #b3e2c6;
@@ -164,37 +168,37 @@
   --status-red: #ff7a7f;
   --status-green: #39d98a;
 
-  --chart-recibidos: #b5a3cf;
+  --chart-recibidos: #5b8fe0;
   --chart-resueltos: #2fa374;
   --chart-bar: #5b8fe0;
   --chart-urgente: #d9585c;
   --chart-alta: #e0a24a;
   --chart-media: #5b8fe0;
-  --chart-baja: #2fa374;
+  --chart-baja: #9aa8c4;
   --chart-grid: var(--color-panel-bezel);
   --chart-axis: var(--color-panel-ink-dim);
 
-  --chart-cat-1: #b5a3cf;
-  --chart-cat-2: #2fa374;
-  --chart-cat-3: #5b8fe0;
-  --chart-cat-4: #c24e8e;
-  --chart-cat-5: #1d9a78;
-  --chart-cat-6: #e0a24a;
-  --chart-cat-7: #9aa8c4;
+  --chart-cat-1: #5b8fe0;
+  --chart-cat-2: #c24e8e;
+  --chart-cat-3: #1d9a78;
+  --chart-cat-4: #e0a24a;
+  --chart-cat-5: #9aa8c4;
+  --chart-cat-6: #c9a646;
+  --chart-cat-7: #d0805a;
   --chart-compare: #6b7384;
 
-  --st-open-bg: rgba(229, 72, 77, 0.26);
-  --st-open-ink: #ff7d81;
-  --st-open-border: rgba(229, 72, 77, 0.55);
-  --st-assigned-bg: rgba(255, 170, 175, 0.07);
-  --st-assigned-ink: #ffc4c7;
-  --st-assigned-border: rgba(255, 170, 175, 0.24);
-  --st-in_progress-bg: rgba(245, 166, 35, 0.14);
-  --st-in_progress-ink: #f8c47c;
-  --st-in_progress-border: rgba(245, 166, 35, 0.34);
-  --st-on_hold-bg: rgba(86, 182, 230, 0.14);
-  --st-on_hold-ink: #90d4f5;
-  --st-on_hold-border: rgba(86, 182, 230, 0.34);
+  --st-open-bg: rgba(124, 140, 174, 0.26);
+  --st-open-ink: #d3dbea;
+  --st-open-border: rgba(124, 140, 174, 0.55);
+  --st-assigned-bg: rgba(124, 140, 174, 0.08);
+  --st-assigned-ink: #c3cbdb;
+  --st-assigned-border: rgba(124, 140, 174, 0.26);
+  --st-in_progress-bg: rgba(91, 143, 224, 0.16);
+  --st-in_progress-ink: #9cc0f5;
+  --st-in_progress-border: rgba(91, 143, 224, 0.38);
+  --st-on_hold-bg: rgba(245, 166, 35, 0.14);
+  --st-on_hold-ink: #f8c47c;
+  --st-on_hold-border: rgba(245, 166, 35, 0.34);
   --st-resolved-bg: rgba(57, 217, 138, 0.13);
   --st-resolved-ink: #6fe3a8;
   --st-resolved-border: rgba(57, 217, 138, 0.3);

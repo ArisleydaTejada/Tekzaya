@@ -16,7 +16,7 @@ export interface ChartTheme {
 }
 
 const LIGHT: ChartTheme = {
-  categorical: ["#6c5ce7", "#1f9a63", "#2f6fcb", "#d6449c", "#0e9c8e", "#c67f1e", "#7c8cae"],
+  categorical: ["#2f6fcb", "#d6449c", "#0e9c8e", "#c67f1e", "#7c8cae", "#8a6d1e", "#a0522d"],
   compare: "#9aa3b2",
   grid: "#dbe0e9",
   axis: "#5b6472",
@@ -26,7 +26,7 @@ const LIGHT: ChartTheme = {
 };
 
 const DARK: ChartTheme = {
-  categorical: ["#8b7cf6", "#2fa374", "#5b8fe0", "#c24e8e", "#1d9a78", "#e0a24a", "#9aa8c4"],
+  categorical: ["#5b8fe0", "#c24e8e", "#1d9a78", "#e0a24a", "#9aa8c4", "#c9a646", "#d0805a"],
   compare: "#6b7384",
   grid: "#3a3444",
   axis: "#948da3",
