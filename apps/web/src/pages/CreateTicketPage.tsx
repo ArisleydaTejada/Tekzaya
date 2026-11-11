@@ -43,6 +43,7 @@ export default function CreateTicketPage() {
   const { me } = useAuth();
 
   const [onBehalfOf, setOnBehalfOf] = useState<string>("");
+  const [proxyOpen, setProxyOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [areaId, setAreaId] = useState("");
@@ -331,47 +332,6 @@ export default function CreateTicketPage() {
       />
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
         <Plate className="space-y-5 p-5">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
-              Solicitante
-            </label>
-            {onBehalfOf ? (
-              <div className="flex items-center gap-2 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm">
-                <span className="text-[var(--content-ink)]">
-                  {colleagues.find((person) => person.id === onBehalfOf)?.name}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setOnBehalfOf("")}
-                  className="ml-auto text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
-                  aria-label="Quitar solicitante"
-                >
-                  <XIcon className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-[var(--content-ink)]">Yo</span>
-                {/* Solo compañeros del propio área: es lo que el servidor acepta. */}
-                <select
-                  aria-label="Crear en nombre de un compañero"
-                  value=""
-                  onChange={(event) => setOnBehalfOf(event.target.value)}
-                  className="rounded-lg border border-dashed border-[var(--field-border)] bg-transparent px-2 py-1 text-xs text-accent-ink"
-                >
-                  <option value="">Crear en nombre de un compañero…</option>
-                  {colleagues
-                    .filter((person) => person.id !== me?.id)
-                    .map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            )}
-          </div>
-
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <label htmlFor="titulo" className="text-xs font-medium text-[var(--content-ink-dim)]">
@@ -685,7 +645,62 @@ export default function CreateTicketPage() {
             )}
           </AnimatePresence>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
+          {/* Crear en nombre de otra persona es el caso raro: se abre desde el enlace de abajo
+              y no ocupa la cabecera de un formulario que casi siempre es para uno mismo. */}
+          {(proxyOpen || onBehalfOf) && (
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+              Solicitante
+            </label>
+            {onBehalfOf ? (
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm">
+                <span className="text-[var(--content-ink)]">
+                  {colleagues.find((person) => person.id === onBehalfOf)?.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOnBehalfOf("")}
+                  className="ml-auto text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                  aria-label="Quitar solicitante"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-[var(--content-ink)]">Yo</span>
+                {/* Solo compañeros del propio área: es lo que el servidor acepta. */}
+                <select
+                  aria-label="Crear en nombre de un compañero"
+                  autoFocus
+                  value=""
+                  onChange={(event) => setOnBehalfOf(event.target.value)}
+                  className="rounded-lg border border-dashed border-[var(--field-border)] bg-transparent px-2 py-1 text-xs text-accent-ink"
+                >
+                  <option value="">Crear en nombre de un compañero…</option>
+                  {colleagues
+                    .filter((person) => person.id !== me?.id)
+                    .map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+          </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+            {!proxyOpen && !onBehalfOf && colleagues.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setProxyOpen(true)}
+                className="mr-auto text-xs font-medium text-accent-ink hover:underline"
+              >
+                ¿Es para un compañero?
+              </button>
+            )}
             <button
               type="button"
               onClick={() => navigate(-1)}

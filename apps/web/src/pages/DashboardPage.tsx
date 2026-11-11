@@ -24,7 +24,7 @@ import {
 import { areaKeys, listAreas, listTickets, ticketKeys } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
-import { PriorityBadge, SlaTag } from "../components/badges";
+import { PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { GaugeDial, type GaugeTone } from "../components/GaugeDial";
@@ -229,9 +229,10 @@ export default function DashboardPage() {
       )}
 
       {personal ? (
+        // Lo que más mira quien pide ayuda son sus solicitudes: van primero; lo asignado, después.
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AssignedPanel />
           <RequestsPanel />
+          <AssignedPanel />
         </div>
       ) : (
         <AvailabilityPanel query={query} global={activeScope === "global"} />
@@ -305,21 +306,21 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
     <>
       <Link to="/tickets?scope=area">
         <StatTile
-          label="Pendientes del área"
+          label="Sin resolver en tu área"
           value={String(kpis.areaPending)}
           icon={<TicketIcon className="h-4 w-4" />}
         />
       </Link>
       <Link to="/tickets?scope=assigned">
         <StatTile
-          label="Resueltos por mí"
+          label="Resueltos por ti"
           value={String(kpis.resolvedByMe)}
           icon={<CheckIcon className="h-4 w-4" />}
         />
       </Link>
       <Link to="/tickets?scope=assigned">
         <StatTile
-          label="Pendientes para mí"
+          label="Asignados a ti"
           value={String(kpis.pendingForMe)}
           icon={<TicketIcon className="h-4 w-4" />}
         />
@@ -600,6 +601,15 @@ function RequestsPanel() {
  * espera *su* respuesta, si ya le contestaron, o si todavía nadie lo ha tocado.
  */
 function RequestStatus({ ticket }: { ticket: TicketListItem }) {
+  // Ya cerrado: el estado manda. Un ticket fusionado sigue su conversación en el otro.
+  if (ticket.status === "merged") {
+    return <span className="text-xs text-[var(--content-ink-dim)]">Se unió a otro ticket con el mismo problema</span>;
+  }
+
+  if (ticket.status === "resolved" || ticket.status === "closed" || ticket.status === "cancelled") {
+    return <StatusBadge status={ticket.status} />;
+  }
+
   if (ticket.status === "on_hold") {
     return (
       <span className="w-fit rounded-full bg-amber/15 px-2 py-0.5 text-xs font-medium text-amber">
