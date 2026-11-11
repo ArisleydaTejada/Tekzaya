@@ -177,6 +177,8 @@ export function PlanCalendar({
   const [anchor, setAnchor] = useState(localToday);
   const [hidden, setHidden] = useState<ReadonlySet<Kind>>(new Set());
   const [hiddenAreas, setHiddenAreas] = useState<ReadonlySet<string>>(new Set());
+  /** El día tocado en la rejilla del móvil; `null` muestra todo el periodo. */
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
 
   const { from, to } = rangeOf(view, anchor);
 
@@ -369,13 +371,37 @@ export function PlanCalendar({
         </Plate>
       ) : (
         <>
-          {/* En el móvil, la agenda: siete columnas no caben en 360 px. */}
-          <Agenda
-            days={days.filter((day) => view === "week" || day.startsWith(visibleMonth))}
-            byDay={byDay}
-            today={today}
-            actionsOf={actionsOf}
-          />
+          {/* En el móvil, las tarjetas no caben en siete columnas: rejilla con puntos y, debajo, la agenda. */}
+          <div className="space-y-4 sm:hidden">
+            <MiniGrid
+              days={days}
+              view={view}
+              visibleMonth={visibleMonth}
+              byDay={byDay}
+              today={today}
+              picked={pickedDay && days.includes(pickedDay) ? pickedDay : null}
+              onPick={(day) => setPickedDay((current) => (current === day ? null : day))}
+            />
+            {pickedDay && days.includes(pickedDay) ? (
+              <div>
+                <Agenda days={[pickedDay]} byDay={byDay} today={today} actionsOf={actionsOf} empty="Nada programado este día." />
+                <button
+                  onClick={() => setPickedDay(null)}
+                  className="mt-2 text-xs font-medium text-accent-ink hover:underline"
+                >
+                  {view === "month" ? "Ver todo el mes" : "Ver toda la semana"}
+                </button>
+              </div>
+            ) : (
+              <Agenda
+                days={days.filter((day) => view === "week" || day.startsWith(visibleMonth))}
+                byDay={byDay}
+                today={today}
+                actionsOf={actionsOf}
+                empty="Nada programado en estas fechas."
+              />
+            )}
+          </div>
 
           <Plate className="hidden overflow-hidden sm:block">
             <div className="grid grid-cols-7 border-b border-[var(--content-border)]">
@@ -515,29 +541,101 @@ function CalendarCard({ item, actions }: { item: CalendarItem; actions: Dropdown
   );
 }
 
+/** La rejilla del móvil: el número del día y un punto por preventivo, con su estado en el color y en la etiqueta. */
+function MiniGrid({
+  days,
+  view,
+  visibleMonth,
+  byDay,
+  today,
+  picked,
+  onPick,
+}: {
+  days: string[];
+  view: View;
+  visibleMonth: string;
+  byDay: Map<string, CalendarItem[]>;
+  today: string;
+  picked: string | null;
+  onPick: (day: string) => void;
+}) {
+  return (
+    <Plate className="p-2">
+      <div className="grid grid-cols-7">
+        {WEEKDAYS.map((name) => (
+          <span
+            key={name}
+            className="py-1.5 text-center font-display text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--content-ink-dim)]"
+          >
+            {name.slice(0, 2)}
+          </span>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {days.map((day) => {
+          const outside = view === "month" && !day.startsWith(visibleMonth);
+          const dayItems = byDay.get(day) ?? [];
+          const isPicked = day === picked;
+          const count = dayItems.length;
+
+          return (
+            <button
+              key={day}
+              type="button"
+              aria-pressed={isPicked}
+              aria-label={`${format(day, { weekday: "long", day: "numeric", month: "long" })}${day === today ? ", hoy" : ""}: ${
+                count === 0 ? "nada programado" : `${count} ${count === 1 ? "preventivo" : "preventivos"}`
+              }`}
+              onClick={() => onPick(day)}
+              className={`flex h-12 flex-col items-center justify-center gap-1 rounded-lg transition-colors ${
+                isPicked ? "bg-accent/12 ring-1 ring-accent/40" : "hover:bg-[var(--content-bg)]"
+              }`}
+            >
+              <span
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-display text-sm tabular ${
+                  day === today
+                    ? "bg-accent font-semibold text-white"
+                    : outside
+                      ? "text-[var(--content-ink-dim)]/60"
+                      : "text-[var(--content-ink)]"
+                }`}
+              >
+                {Number(day.slice(8))}
+              </span>
+              <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
+                {dayItems.slice(0, 3).map((item) => (
+                  <span key={keyOf(item)} className={`h-1.5 w-1.5 rounded-full ${KIND[kindOf(item)].swatch}`} />
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </Plate>
+  );
+}
+
 function Agenda({
   days,
   byDay,
   today,
   actionsOf,
+  empty,
 }: {
   days: string[];
   byDay: Map<string, CalendarItem[]>;
   today: string;
   actionsOf: (item: CalendarItem) => DropdownItem[];
+  empty: string;
 }) {
   const busy = days.filter((day) => byDay.has(day));
 
   if (!busy.length) {
-    return (
-      <Plate className="py-10 text-center text-sm text-[var(--content-ink-dim)] sm:hidden">
-        Nada programado en estas fechas.
-      </Plate>
-    );
+    return <Plate className="py-10 text-center text-sm text-[var(--content-ink-dim)]">{empty}</Plate>;
   }
 
   return (
-    <ul className="space-y-4 sm:hidden">
+    <ul className="space-y-4">
       {busy.map((day) => (
         <li key={day}>
           <h3
