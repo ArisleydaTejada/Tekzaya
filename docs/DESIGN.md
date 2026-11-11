@@ -2,12 +2,13 @@
 name: Tekzaya
 description: Panel de instrumentos nocturno para soporte interno asistido por IA.
 colors:
-  panel: "#0b0c10"
-  panel-surface: "#14171d"
-  panel-surface-2: "#1b1f27"
-  panel-bezel: "#272b34"
-  panel-ink: "#f5f7fa"
-  panel-ink-dim: "#8b93a3"
+  panel: "#221f2c"
+  panel-surface: "#201c29"
+  panel-surface-2: "#292432"
+  panel-bezel: "#3a3444"
+  panel-seam: "#58506a"
+  panel-ink: "#f5f3f7"
+  panel-ink-dim: "#948da3"
   placard: "#eceff5"
   placard-surface: "#ffffff"
   placard-border: "#dbe0e9"
@@ -17,26 +18,38 @@ colors:
   accent-soft: "#b5a3cf"
   accent-dim: "#463a7e"
   steel: "#7c8cae"
-  green: "#39d98a"
-  amber: "#f5a623"
-  red: "#e5484d"
-  chart-alta: "#d6449c"
-  chart-urgente: "#2f6fcb"
-  chart-media: "#0e9c8e"
-  chart-bar: "#2f6fcb"
+  green: "#15703f"
+  amber: "#965000"
+  red: "#b42318"
+  green-dark: "#39d98a"
+  amber-dark: "#f5a623"
+  red-dark: "#ff7a7f"
+  chart-cat-1: "#2f6fcb"
+  chart-cat-2: "#d6449c"
+  chart-cat-3: "#0e9c8e"
+  chart-cat-4: "#c67f1e"
+  chart-cat-5: "#7c8cae"
+  chart-cat-6: "#8a6d1e"
+  chart-cat-7: "#a0522d"
 typography:
   display:
-    fontFamily: "Big Shoulders Variable, Arial Narrow, sans-serif"
+    fontFamily: "Oswald Variable, Arial Narrow, sans-serif"
     fontSize: "1.875rem"
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "-0.01em"
   label:
-    fontFamily: "Big Shoulders Variable, Arial Narrow, sans-serif"
+    fontFamily: "Oswald Variable, Arial Narrow, sans-serif"
     fontSize: "0.625rem"
     fontWeight: 500
     lineHeight: 1.2
     letterSpacing: "0.14em"
+  caption:
+    fontFamily: "Hanken Grotesk Variable, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: "normal"
   body:
     fontFamily: "Hanken Grotesk Variable, system-ui, sans-serif"
     fontSize: "0.875rem"
@@ -114,41 +127,43 @@ Paleta de instrumento: negro casi puro para el panel, blanco cálido para la pla
 - **Acero** (`#7c8cae`): segundo tono neutro para diferenciar un dial "positivo" (p. ej. "Resueltos por mí") de los contadores neutros sin pedir prestado un color semántico reservado.
 
 ### Neutral
-- **Panel** (`#0b0c10`): fondo del instrumento, a toda superficie (estrategia Drenched).
-- **Superficie del panel** (`#14171d` / `#1b1f27`): placas y tarjetas sobre el panel oscuro.
-- **Bisel del panel** (`#272b34`): bordes, remaches y anillos de bisel de los diales.
-- **Tinta del panel** (`#f5f7fa` texto principal / `#8b93a3` texto secundario).
+- **Panel** (`#221f2c`): carbón violáceo, no negro azulado; fondo del instrumento a toda superficie (estrategia Drenched).
+- **Superficie del panel** (`#201c29` / `#292432`): placas y tarjetas sobre el panel oscuro, y el lienzo del tema oscuro.
+- **Bisel del panel** (`#3a3444`): bordes, remaches y anillos de bisel de los diales. **Costura** (`#58506a`): el brillo de la costura de montaje del login.
+- **Tinta del panel** (`#f5f3f7` texto principal / `#948da3` texto secundario).
 - **Placard** (`#eceff5`): fondo de la placa clara, a toda superficie.
 - **Superficie de la placa** (`#ffffff`): campos, botones y tarjetas sobre la placa clara.
 - **Borde de la placa** (`#dbe0e9`).
 - **Tinta de la placa** (`#12141a` texto principal / `#5b6472` texto secundario).
 
 ### Chart categorical (identity, not a reading)
-Cuando un color codifica una **categoría** en una gráfica (p. ej. prioridad como porción de una dona) en vez de una **lectura de estado** (SLA, éxito/error), nunca toma prestado el índigo ni el trío semántico — se validan con `scripts/validate_palette.js` de la skill `dataviz` y viven fuera de esas dos familias reservadas.
-- **Magenta** (`#d6449c` / osc. `#c24e8e`): identidad de categoría "Alta" en gráficas.
-- **Azul de gráfica** (`#2f6fcb` / osc. `#5b8fe0`): identidad de categoría "Urgente" en gráficas, y barra única (magnitud, una sola serie) en "Tickets por categoría".
-- **Verde azulado** (`#0e9c8e` / osc. `#1d9a78`): identidad de categoría "Media" en gráficas.
-- La categoría "Baja" reutiliza **Acero** (el neutro), nunca un cuarto tono vivo: la prioridad más baja no compite visualmente con las demás.
+Cuando un color codifica una **categoría** en una gráfica (área, persona, categoría) en vez de una **lectura de estado** (SLA, éxito/error), nunca toma prestado el índigo ni el trío semántico. La rampa `--chart-cat-1…7` es, en orden: azul `#2f6fcb`, magenta `#d6449c`, verde azulado `#0e9c8e`, ocre `#c67f1e`, acero `#7c8cae`, oliva `#8a6d1e` y siena `#a0522d` (en oscuro, sus versiones aclaradas). Las dos primeras son las más distintas entre sí.
+- La serie "Recibidos" es azul, no índigo: el índigo es de la IA.
+- En las gráficas por prioridad, "Urgente" es rojo (es una lectura, ver abajo) y "Baja" es **Acero**: la prioridad más baja no compite con las demás ni se confunde con el verde de "resuelto".
+
+### Estados del ticket
+El texto siempre acompaña al color. **Abierto** y **Asignado** son acero (un ticket recién llegado es lo normal, no una alarma); **En progreso**, azul (trabajo en marcha); **En espera**, ámbar (depende de alguien); **Resuelto**, verde; **Cerrado**, **Cancelado** y **Fusionado**, grises. **Reabierto** es el único sólido y rojo, porque pide mirarlo ya. Una garantía vencida es un dato (texto atenuado); solo "Vence pronto" lleva ámbar.
 
 ### Named Rules
 **The Reserved Glow Rule.** El índigo vivo solo puede significar "la IA está actuando" o "esta es la acción principal". Si un elemento no es ninguna de las dos cosas, no lleva índigo — incluida la identidad de una categoría en una gráfica.
 
-**The Semantic Three Rule.** Verde (`#39d98a`) = SLA en tiempo / éxito. Ámbar (`#f5a623`) = SLA en riesgo / advertencia. Rojo (`#e5484d`) = SLA vencido / urgente / error. Estos tres colores son una **lectura de estado**, nunca una identidad de categoría: una gráfica que agrupa por prioridad, área o persona usa la paleta "Chart categorical" de arriba, no este trío, aunque prioridad y SLA compartan pantalla (ver "Resueltos por persona" y la tabla "Tickets del período" en Reportes, donde ambos vocabularios conviven sin pisarse).
+**The Semantic Three Rule.** Verde = SLA en tiempo / éxito. Ámbar = SLA en riesgo / advertencia. Rojo = SLA vencido / urgente / error. Sobre claro son tonos oscuros que pasan AA (`#15703f`, `#965000`, `#b42318`); sobre oscuro, los vivos (`#39d98a`, `#f5a623`, `#ff7a7f`). Estos tres colores son una **lectura de estado**, nunca una identidad de categoría: una gráfica que agrupa por prioridad, área o persona usa la paleta "Chart categorical" de arriba, no este trío, aunque prioridad y SLA compartan pantalla (ver "Resueltos por persona" y la tabla "Tickets del período" en Reportes, donde ambos vocabularios conviven sin pisarse).
 
 **The SLA Needle Rule.** SLA y prioridad son dos lecturas distintas y llevan dos marcas distintas: la prioridad es un punto de color sólido (`PriorityBadge`); el SLA es la mini-aguja de instrumento (`SlaNeedleIcon`, un arco + aguja en miniatura). Nunca el mismo glifo para ambas, aunque compartan color en un caso puntual.
 
 ## Typography
 
-**Display Font:** Big Shoulders Variable (con Arial Narrow, sans-serif)
+**Display Font:** Oswald Variable (con Arial Narrow, sans-serif)
 **Body Font:** Hanken Grotesk Variable (con system-ui, sans-serif)
 
-**Character:** Big Shoulders es condensada, mayúscula y de números tabulares — la voz de las placas, los diales y los números de ticket. Hanken Grotesk es una humanista neutra que lleva todo el texto de trabajo: formularios, párrafos, botones largos. El contraste entre ambas es lo que separa "instrumento" de "tarea".
+**Character:** Oswald es condensada, mayúscula y de números tabulares — la voz de las placas, los diales y los números de ticket. Hanken Grotesk es una humanista neutra que lleva todo el texto de trabajo: formularios, párrafos, botones largos. El contraste entre ambas es lo que separa "instrumento" de "tarea".
 
 ### Hierarchy
 - **Display** (600, 1.875rem/tight, -0.01em): títulos de pantalla ("Bienvenido de nuevo"), wordmark "TEKZAYA".
 - **Title** (600, 1.0625rem–1.3125rem): números protagonistas dentro de los diales (cifras tabulares).
 - **Label** (500, 0.625rem, tracking 0.14em, mayúsculas): etiquetas grabadas de los diales, micro-etiquetas de estado ("dato de ejemplo").
 - **Body** (400, 0.875rem/1.5): todo el texto de formulario, párrafos y botones.
+- **Caption** (400, 0.75rem): metadatos, ayudas bajo un campo, chips de SLA, notas de una fila. Es el tamaño más pequeño para texto que se lee; por debajo solo quedan la etiqueta de placa (Label) y los contadores numéricos en píldora.
 
 ### Named Rules
 **The Plate Label Rule.** Una etiqueta en mayúsculas y tracking amplio solo existe dentro de una placa de instrumento (bajo un dial, en una franja de estado) — nunca flotando sola sobre un encabezado como un eyebrow/kicker. Esa forma está prohibida por el piso de calidad del sistema; la etiqueta de placa es un objeto físico, no un adorno tipográfico.
@@ -157,9 +172,9 @@ Cuando un color codifica una **categoría** en una gráfica (p. ej. prioridad co
 
 Login: dos columnas a `lg` (≥1024px), 54%/46% con una costura de 8px entre ambas; por debajo de `lg` el panel de instrumentos se oculta y la placa ocupa todo el ancho, pero conserva una vista compacta del dial protagonista + la franja de ticket para no perder la tesis de "la IA ya está trabajando". El panel de instrumentos usa una cuadrícula de 3 columnas para sus seis diales, con separación de 12px (`gap-3`). Espaciado mayor entre bloques (32px, `mb-8`) y menor dentro de un componente (12–16px). Ancho máximo del formulario: `max-w-sm` (24rem).
 
-**El resto de la app (shell interior):** la barra lateral y la superior son el marco de cabina — quedan en material oscuro (`bg-panel`) en **ambos** temas; solo el área de contenido cambia de placa clara a panel oscuro con el selector de tema. Esto se implementa con variables CSS reactivas al tema (`--content-bg`, `--content-surface`, `--content-border`, `--content-ink`, `--content-ink-dim`, `--content-shadow`, más `--chart-*` para las gráficas), redeclaradas bajo `[data-theme="dark"]`; los componentes de contenido nunca usan directamente `bg-placard`/`bg-panel`, siempre las variables `--content-*`. Los diales conservan su cara oscura interna (vidrio de instrumento) en ambos temas — solo la placa que los contiene cambia; ver Shapes.
+**El resto de la app (shell interior):** la barra lateral y la superior siguen al tema de quien mira (`--rail-*`), igual que el área de contenido, que cambia de placa clara a panel oscuro con el selector de tema. Los tableros abren con **un dial protagonista** (cumplimiento de SLA en el tablero de área, preventivos de la semana en el panel de mantenimiento) y los contadores a su lado. Esto se implementa con variables CSS reactivas al tema (`--content-bg`, `--content-surface`, `--content-border`, `--content-ink`, `--content-ink-dim`, `--content-shadow`, más `--chart-*` para las gráficas), redeclaradas bajo `[data-theme="dark"]`; los componentes de contenido nunca usan directamente `bg-placard`/`bg-panel`, siempre las variables `--content-*`. Los diales conservan su cara oscura interna (vidrio de instrumento) en ambos temas — solo la placa que los contiene cambia; ver Shapes.
 
-**Lista compacta plegable:** una pantalla de detalle de un solo registro dentro de una lista más grande (p. ej. detalle de ticket) añade una tercera columna angosta (`220–240px`, colapsable a un riel de ~44px) con esa lista, para saltar entre registros sin volver atrás. Oculta por debajo de `xl` y para quien solo lee su propio registro (el solicitante).
+**Pestañas de registros:** el detalle de ticket abre cada registro en una pestaña de la barra superior, al estilo de un navegador, para saltar entre tickets sin volver a la lista. Por debajo de 80rem, los datos del ticket se pliegan bajo la cabecera en un resumen «Detalles».
 
 ## Elevation & Depth
 
@@ -194,13 +209,13 @@ Radios: 8px (`rounded-lg`) para tarjetas de estado semántico, 12px (`rounded-xl
 - **Error:** borde rojo sólido.
 
 ### Diales de instrumento (Gauge)
-Componente de firma del sistema, reutilizado para todo KPI del tablero y de Reportes, nunca solo en el login. Círculo con bisel metálico de dos capas, cara con gradiente radial (siempre oscura, en ambos temas — ver Layout), arco de 270° (hueco de 90° abajo) que se llena según el valor con física de resorte amortiguado, aguja con el mismo comportamiento, cifra central en Big Shoulders con números tabulares, y una placa de etiqueta grabada (`bg-panel`, texto en mayúsculas) en la base. Cuatro remaches en las esquinas de la tarjeta contenedora (misma tarjeta, exterior consciente del tema vía `--content-surface`/`--content-border`) y una veta de puntos muy sutil sobre toda la placa. El dial "protagonista" (mayor tamaño + resplandor) es el único que anima su color en vivo — representa a la IA clasificando. Acepta una leyenda opcional bajo la etiqueta (nunca el glifo `★`; usa el icono de estrella dibujado).
+Componente de firma del sistema, reutilizado para todo KPI del tablero y de Reportes, nunca solo en el login. Círculo con bisel metálico de dos capas, cara con gradiente radial (siempre oscura, en ambos temas — ver Layout), arco de 270° (hueco de 90° abajo) que se llena según el valor con física de resorte amortiguado, aguja con el mismo comportamiento, cifra central en Oswald con números tabulares, y una placa de etiqueta grabada (`bg-panel`, texto en mayúsculas) en la base. Cuatro remaches en las esquinas de la tarjeta contenedora (misma tarjeta, exterior consciente del tema vía `--content-surface`/`--content-border`) y una veta de puntos muy sutil sobre toda la placa. El dial "protagonista" (mayor tamaño + resplandor) es el único que anima su color en vivo — representa a la IA clasificando. Acepta una leyenda opcional bajo la etiqueta (nunca el glifo `★`; usa el icono de estrella dibujado).
 
 ### SLA needle
 Marca miniatura (14px) exclusiva de una lectura de SLA: un arco tenue + una aguja corta en `currentColor`, heredando el color semántico (verde/ámbar/rojo) del texto que acompaña. Vive siempre junto al texto del estado, nunca sola. Ver The SLA Needle Rule.
 
 ### Avatar stack
-Círculos de 24px (`sm`) con iniciales en Big Shoulders, fondo `steel/20`, anillo `ring-2` del color de fondo del contenedor. Solapamiento de `-6px` como máximo (`-ml-1.5`); el avatar más a la izquierda siempre pinta encima (z-index descendente) para que sus iniciales nunca queden cortadas. Máximo 3 visibles + una burbuja "+N".
+Círculos de 24px (`sm`) con iniciales en Oswald, fondo `steel/20`, anillo `ring-2` del color de fondo del contenedor. Solapamiento de `-6px` como máximo (`-ml-1.5`); el avatar más a la izquierda siempre pinta encima (z-index descendente) para que sus iniciales nunca queden cortadas. Máximo 3 visibles + una burbuja "+N".
 
 ### Tablas densas (Operate)
 Usadas en Tickets, Administración y "Tickets del período" de Reportes. Encabezado en `--content-ink-dim`, filas separadas por `--content-border`, sin cebra. Prioridad y SLA siempre como sus propios componentes (punto + aguja), nunca texto plano.

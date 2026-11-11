@@ -125,7 +125,7 @@ export function ReplacementAdviceCard({ asset }: { asset: Pick<AssetView, "id" |
       </h2>
       <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Por qué es candidato">
         {advice.reasons.map((reason) => (
-          <li key={reason} className="rounded-full border border-amber/50 bg-amber/10 px-2 py-0.5 text-[11px] font-semibold text-[var(--content-ink)]">
+          <li key={reason} className="rounded-full border border-amber/50 bg-amber/10 px-2 py-0.5 text-xs font-semibold text-[var(--content-ink)]">
             {REPLACEMENT_REASON_LABEL[reason]}
           </li>
         ))}
@@ -225,7 +225,7 @@ export function RepairEstimateCard({ order }: { order: WorkOrderDetail }) {
                   <Link to={`/ordenes/${formatWorkOrderNumber(item.number)}`} className="block truncate text-accent-ink hover:underline">
                     <span className="font-display tabular">{formatWorkOrderNumber(item.number)}</span> · {item.title}
                   </Link>
-                  <span className="block truncate text-[11px] text-[var(--content-ink-dim)]">
+                  <span className="block truncate text-xs text-[var(--content-ink-dim)]">
                     {item.assetName} · {formatWhen(item.completedAt)}
                   </span>
                 </span>

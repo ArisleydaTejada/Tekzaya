@@ -210,7 +210,7 @@ export function SlaTimeline({
                     />
                   )}
                   <span
-                    className={`z-10 inline-flex h-6 shrink-0 items-center justify-center rounded-md px-1.5 font-display text-[11px] font-semibold tabular ${
+                    className={`z-10 inline-flex h-6 shrink-0 items-center justify-center rounded-md px-1.5 font-display text-xs font-semibold tabular ${
                       CHIP_TONE[leg.tone]
                     }`}
                   >
@@ -218,14 +218,14 @@ export function SlaTimeline({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[var(--content-ink)]">{leg.action}</p>
-                    <p className="mt-1 inline-block rounded-md bg-[var(--content-bg)] px-1.5 py-0.5 text-[11px] text-[var(--content-ink-dim)]">
+                    <p className="mt-1 inline-block rounded-md bg-[var(--content-bg)] px-1.5 py-0.5 text-xs text-[var(--content-ink-dim)]">
                       {leg.metric}
                     </p>
-                    <p className="mt-1 text-[11px] text-[var(--content-ink-dim)]">
+                    <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
                       {formatDateTime(leg.at)}
                     </p>
                     {leg.note && (
-                      <p className="mt-0.5 text-[11px] text-[var(--content-ink-dim)]">{leg.note}</p>
+                      <p className="mt-0.5 text-xs text-[var(--content-ink-dim)]">{leg.note}</p>
                     )}
                   </div>
                 </div>
@@ -235,15 +235,15 @@ export function SlaTimeline({
                   regalado (spec §5.2). */}
               {(sla.pausedMs ?? 0) > 0 && (
                 <div className="relative flex gap-3">
-                  <span className="z-10 inline-flex h-6 shrink-0 items-center justify-center rounded-md bg-[var(--content-bg)] px-1.5 font-display text-[11px] font-semibold tabular text-[var(--content-ink-dim)]">
+                  <span className="z-10 inline-flex h-6 shrink-0 items-center justify-center rounded-md bg-[var(--content-bg)] px-1.5 font-display text-xs font-semibold tabular text-[var(--content-ink-dim)]">
                     {formatSlaDuration(sla.pausedMs!)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[var(--content-ink)]">Tiempo en pausa</p>
-                    <p className="mt-1 inline-block rounded-md bg-[var(--content-bg)] px-1.5 py-0.5 text-[11px] text-[var(--content-ink-dim)]">
+                    <p className="mt-1 inline-block rounded-md bg-[var(--content-bg)] px-1.5 py-0.5 text-xs text-[var(--content-ink-dim)]">
                       Acumulado en «En espera»
                     </p>
-                    <p className="mt-1 text-[11px] text-[var(--content-ink-dim)]">
+                    <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
                       No cuenta contra el plazo.
                     </p>
                   </div>

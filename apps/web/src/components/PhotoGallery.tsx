@@ -81,7 +81,7 @@ export function PhotoGallery({
           {canEdit && room > 0 && (
             <label
               htmlFor={inputId}
-              className="flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--content-border)] px-2 text-[11px] text-[var(--content-ink-dim)] hover:border-accent hover:text-[var(--content-ink)] has-[:focus-visible]:border-accent"
+              className="flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--content-border)] px-2 text-xs text-[var(--content-ink-dim)] hover:border-accent hover:text-[var(--content-ink)] has-[:focus-visible]:border-accent"
             >
               <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
               {busy ? "Subiendo…" : "Agregar fotos"}

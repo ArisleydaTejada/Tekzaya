@@ -25,7 +25,7 @@ export function AwayTag({ awayUntil }: { awayUntil?: string | undefined }) {
 
   return (
     <span
-      className="shrink-0 rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]"
+      className="shrink-0 rounded-full border border-[var(--content-border)] bg-[var(--content-bg)] px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]"
       title="No se le pueden asignar tickets mientras esté ausente"
     >
       Ausente{until ? ` hasta ${until}` : ""}

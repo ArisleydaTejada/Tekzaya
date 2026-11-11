@@ -775,7 +775,7 @@ function MergeSelectionModal({
                   Principal
                 </span>
               ) : (
-                <span className="shrink-0 text-[10px] text-[var(--content-ink-dim)]">se cierra</span>
+                <span className="shrink-0 text-xs text-[var(--content-ink-dim)]">se cierra</span>
               )}
               <span className="shrink-0 text-xs text-[var(--content-ink-dim)]">
                 {ticket.requester.name} · {formatWhen(ticket.createdAt)}
@@ -938,7 +938,7 @@ function ListView({
                   <TicketLink ticket={ticket} />
                 </span>
                 {ticket.incidentLabel && (
-                  <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-amber">
+                  <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber">
                     <AlertIcon className="h-3 w-3 shrink-0" />
                     <span className="truncate">{ticket.incidentLabel}</span>
                   </span>
@@ -1017,7 +1017,7 @@ function ListView({
                   {ticket.incidentLabel && (
                     <span
                       title={`Incidente: ${ticket.incidentLabel}`}
-                      className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-amber"
+                      className="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber"
                     >
                       <AlertIcon className="h-3 w-3 shrink-0" />
                       <span className="truncate">{ticket.incidentLabel}</span>
@@ -1163,7 +1163,7 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
         {ticket.title}
       </Link>
       {ticket.incidentLabel && (
-        <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-amber">
+        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber">
           <AlertIcon className="h-3 w-3 shrink-0" />
           <span className="truncate">{ticket.incidentLabel}</span>
         </p>
@@ -1542,7 +1542,7 @@ function AssignTicketsModal({
                     {/* Explica la barra: dos urgentes pesan más que cinco bajos. */}
                     {!away && member.urgentOrHigh > 0 && (
                       <span
-                        className="rounded-full bg-red/10 px-1.5 py-px text-[10px] font-medium text-red"
+                        className="rounded-full bg-red/10 px-1.5 py-px text-xs font-medium text-red"
                         title="Tickets abiertos de prioridad urgente o alta"
                       >
                         {member.urgentOrHigh} urg./alta
@@ -1550,7 +1550,7 @@ function AssignTicketsModal({
                     )}
                     {member.suggested && (
                       <span
-                        className="flex items-center gap-0.5 text-[10px] font-medium text-amber"
+                        className="flex items-center gap-0.5 text-xs font-medium text-amber"
                         title="Disponible y con menos carga"
                       >
                         <StarIcon /> Sugerido

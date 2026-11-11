@@ -203,7 +203,7 @@ function PhotoPicker() {
             {remove.isPending ? "Quitando…" : "Quitar foto"}
           </button>
         )}
-        <p className="text-[11px] text-[var(--content-ink-dim)]">PNG, JPG o WebP · máx. 2 MB</p>
+        <p className="text-xs text-[var(--content-ink-dim)]">PNG, JPG o WebP · máx. 2 MB</p>
         {error && <p className="text-xs text-red">{error}</p>}
       </div>
     </div>

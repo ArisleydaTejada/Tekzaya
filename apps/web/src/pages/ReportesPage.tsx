@@ -294,6 +294,9 @@ export default function ReportesPage() {
           {/* ── Barra de acciones del reporte (spec §7.8.2) ── */}
           <div className="no-print mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
+              {/* El nombre se edita en el campo; el lector de pantalla necesita además un
+                  encabezado que agrupe las gráficas (h3) bajo el título de la página. */}
+              <h2 className="sr-only">{draft.title || "Reporte sin nombre"}</h2>
               <input
                 value={draft.title}
                 onChange={(event) => update({ title: event.target.value })}
@@ -701,7 +704,7 @@ function ExportMenu({
             >
               Imprimir o guardar PDF
             </button>
-            <p className="px-2.5 py-1.5 text-[11px] leading-snug text-[var(--content-ink-dim)]">
+            <p className="px-2.5 py-1.5 text-xs leading-snug text-[var(--content-ink-dim)]">
               El CSV de cada gráfica está en su menú ⋯, y el de la lista de tickets, en
               la propia lista.
             </p>
@@ -849,7 +852,7 @@ function ReportsRail({
               }`}
             >
               {item.label}
-              <span className="tabular text-[10px] text-[var(--content-ink-dim)]">{item.count}</span>
+              <span className="tabular text-xs text-[var(--content-ink-dim)]">{item.count}</span>
             </button>
           ))}
         </div>
@@ -986,11 +989,11 @@ function RailRow({
         </span>
         {/* Dos líneas y cortada: en 288 px la frase entera empuja la lista fuera de la vista. */}
         {description && (
-          <span className="mt-0.5 block line-clamp-2 text-[11px] leading-snug text-[var(--content-ink-dim)]">
+          <span className="mt-0.5 block line-clamp-2 text-xs leading-snug text-[var(--content-ink-dim)]">
             {description}
           </span>
         )}
-        <span className="mt-0.5 block truncate text-[10px] text-[var(--content-ink-dim)]">
+        <span className="mt-0.5 block truncate text-xs text-[var(--content-ink-dim)]">
           {meta}
         </span>
       </button>
@@ -999,7 +1002,7 @@ function RailRow({
           táctiles no hay "encima", así que ahí siempre se ven. */}
       {actions && (
         <div
-          className={`mt-0.5 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] ${
+          className={`mt-0.5 flex-wrap items-center gap-x-2 gap-y-1 text-xs ${
             pinnedActions ? "flex" : "hidden group-focus-within:flex group-hover:flex [@media(hover:none)]:flex"
           }`}
         >

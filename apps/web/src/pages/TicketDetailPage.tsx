@@ -794,7 +794,7 @@ export default function TicketDetailPage() {
                   )}
                 </div>
                 {ghost && (
-                  <p className="mt-1 text-[10px] text-[var(--content-ink-dim)]">
+                  <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
                     Tab para aceptar · Esc para descartar
                   </p>
                 )}
@@ -807,7 +807,7 @@ export default function TicketDetailPage() {
                     onClick={askForCompletion}
                     disabled={ghosting}
                     title="Ctrl + Espacio"
-                    className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-accent-ink hover:underline disabled:opacity-50"
+                    className="mt-1 flex items-center gap-1.5 text-xs font-medium text-accent-ink hover:underline disabled:opacity-50"
                   >
                     <SparkleIcon className={`h-3 w-3 ${ghosting ? "animate-pulse" : ""}`} />
                     {ghosting ? "Pensando…" : "Sugerir continuación"}
@@ -969,7 +969,7 @@ export default function TicketDetailPage() {
                       {merged.description}
                     </p>
                   )}
-                  <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--content-ink-dim)]">
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-[var(--content-ink-dim)]">
                     {merged.requesterName && <span>{merged.requesterName}</span>}
                     {merged.createdAt && <span>· creado {formatWhen(merged.createdAt)}</span>}
                     {merged.mergedAt && <span>· fusionado {formatWhen(merged.mergedAt)}</span>}
@@ -1135,7 +1135,7 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
 
     return (
       <li className="flex justify-center">
-        <span className="rounded-full bg-[var(--content-bg)] px-3 py-1 text-[11px] text-[var(--content-ink-dim)]">
+        <span className="rounded-full bg-[var(--content-bg)] px-3 py-1 text-xs text-[var(--content-ink-dim)]">
           {/* Incluye eventos de los duplicados absorbidos; sin decir de cuál vienen, parecerían de este ticket. */}
           {message.fromTicket && (
             <span className="font-display tabular">
@@ -1339,7 +1339,7 @@ function AssetCard({
       <div className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-display text-[11px] tabular text-[var(--content-ink-dim)]">
+            <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
               {formatAssetNumber(asset.number)}
             </p>
             {asset.canOpen ? (
@@ -1403,7 +1403,7 @@ function AssetCard({
                   </span>{" "}
                   {order.title}
                 </Link>
-                <span className="shrink-0 rounded-md border border-[var(--content-border)] px-1.5 py-0.5 text-[10px] text-[var(--content-ink-dim)]">
+                <span className="shrink-0 rounded-md border border-[var(--content-border)] px-1.5 py-0.5 text-xs text-[var(--content-ink-dim)]">
                   {WORK_ORDER_STATUS_LABEL[order.status]}
                 </span>
               </li>
@@ -1857,7 +1857,7 @@ function AssignModal({
                     {member.name}
                     {member.suggested && (
                       <span
-                        className="flex items-center gap-0.5 text-[10px] font-medium text-amber"
+                        className="flex items-center gap-0.5 text-xs font-medium text-amber"
                         title="Disponible y con menos carga"
                       >
                         <StarIcon /> Sugerido
@@ -2178,7 +2178,7 @@ function MergeModal({
                   {candidate.title}
                 </span>
                 {candidate.sameIncident && (
-                  <span className="shrink-0 rounded-full bg-amber/15 px-1.5 py-0.5 text-[10px] font-medium text-amber">
+                  <span className="shrink-0 rounded-full bg-amber/15 px-1.5 py-0.5 text-xs font-medium text-amber">
                     Mismo incidente
                   </span>
                 )}

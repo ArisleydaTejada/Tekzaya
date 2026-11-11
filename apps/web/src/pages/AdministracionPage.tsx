@@ -868,7 +868,7 @@ function AreasTab() {
                   {area.name}
                 </h3>
                 {!area.isActive && (
-                  <span className="rounded-full bg-[var(--content-bg)] px-2 py-0.5 text-[10px] text-[var(--content-ink-dim)]">
+                  <span className="rounded-full bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">
                     Desactivada
                   </span>
                 )}

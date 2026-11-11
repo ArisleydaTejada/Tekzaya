@@ -168,7 +168,7 @@ export function WidgetEditor({
 
                 return (
                   <div key={family}>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
                       {MEASURE_FAMILY_LABEL[family]}
                     </p>
                     <div className="space-y-1">
@@ -200,7 +200,7 @@ export function WidgetEditor({
                                     ),
                                   })
                                 }
-                                className="rounded border border-[var(--field-border)] bg-[var(--content-bg)] px-1 py-0.5 text-[11px] text-[var(--content-ink)]"
+                                className="rounded border border-[var(--field-border)] bg-[var(--content-bg)] px-1 py-0.5 text-xs text-[var(--content-ink)]"
                               >
                                 {measure.aggregations.map((option) => (
                                   <option key={option} value={option}>
@@ -530,7 +530,7 @@ function Row({
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <label className="text-xs font-medium text-[var(--content-ink)]">{label}</label>
-        {hint && <span className="text-[11px] text-[var(--content-ink-dim)]">{hint}</span>}
+        {hint && <span className="text-xs text-[var(--content-ink-dim)]">{hint}</span>}
       </div>
       {children}
     </div>
@@ -589,7 +589,7 @@ function Chips({
                   : [...selected, option.value],
               )
             }
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${
+            className={`rounded-full border px-2 py-0.5 text-xs ${
               on
                 ? "border-accent bg-accent/10 text-accent-ink"
                 : "border-[var(--content-border)] text-[var(--content-ink-dim)]"

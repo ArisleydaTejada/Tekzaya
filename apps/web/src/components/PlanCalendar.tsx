@@ -408,7 +408,7 @@ export function PlanCalendar({
               {WEEKDAYS.map((name, index) => (
                 <div
                   key={name}
-                  className="py-2.5 text-center font-display text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--content-ink-dim)]"
+                  className="py-2.5 text-center font-display text-xs font-semibold uppercase tracking-[0.12em] text-[var(--content-ink-dim)]"
                 >
                   {name}
                   {view === "week" && <span className="ml-1 tabular">{Number(days[index]!.slice(8))}</span>}
@@ -536,7 +536,7 @@ function CalendarCard({ item, actions }: { item: CalendarItem; actions: Dropdown
           </span>
         )}
       </div>
-      <p className="truncate text-[11px] text-[var(--content-ink-dim)]">{subtitleOf(item)}</p>
+      <p className="truncate text-xs text-[var(--content-ink-dim)]">{subtitleOf(item)}</p>
     </div>
   );
 }
@@ -638,12 +638,12 @@ function Agenda({
     <ul className="space-y-4">
       {busy.map((day) => (
         <li key={day}>
-          <h3
+          <h2
             className={`mb-1.5 text-xs font-semibold ${day === today ? "text-accent-ink" : "text-[var(--content-ink-dim)]"}`}
           >
             {capitalize(format(day, { weekday: "long", day: "numeric", month: "short" }))}
             {day === today && " · hoy"}
-          </h3>
+          </h2>
           <div className="space-y-1.5">
             {byDay.get(day)!.map((item) => (
               <CalendarCard key={keyOf(item)} item={item} actions={actionsOf(item)} />

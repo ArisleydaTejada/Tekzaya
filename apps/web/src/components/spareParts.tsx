@@ -328,7 +328,7 @@ function AssetChecklist({
                       className="h-4 w-4 accent-[var(--accent)]"
                     />
                     <span className="min-w-0 flex-1 truncate">{asset.name}</span>
-                    <span className="font-display text-[11px] tabular text-[var(--content-ink-dim)]">
+                    <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">
                       {formatAssetNumber(asset.number)}
                     </span>
                   </label>

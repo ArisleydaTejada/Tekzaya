@@ -29,7 +29,7 @@ export function Field({ label, icon, error, revealable = false, type = "text", c
         <input
           id={id}
           type={resolvedType}
-          className="w-full bg-transparent text-sm text-placard-ink outline-none placeholder:text-placard-ink-dim/60"
+          className="w-full bg-transparent text-sm text-placard-ink outline-none placeholder:text-placard-ink-dim"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
           {...rest}

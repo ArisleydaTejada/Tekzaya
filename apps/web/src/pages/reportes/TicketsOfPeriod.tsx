@@ -148,7 +148,7 @@ export function TicketsOfPeriod({
             <button
               key={chip.key}
               onClick={() => onFiltersChange({ ...filters, [chip.key]: undefined })}
-              className="flex items-center gap-1 rounded-full border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-0.5 text-[11px] text-[var(--content-ink)]"
+              className="flex items-center gap-1 rounded-full border border-[var(--content-border)] bg-[var(--content-surface)] px-2 py-0.5 text-xs text-[var(--content-ink)]"
             >
               {chip.label}
               <XIcon className="h-3 w-3" />
@@ -156,7 +156,7 @@ export function TicketsOfPeriod({
           ))}
           <button
             onClick={() => onFiltersChange({})}
-            className="text-[11px] font-medium text-accent-ink hover:underline"
+            className="text-xs font-medium text-accent-ink hover:underline"
           >
             Limpiar filtros
           </button>
@@ -529,7 +529,7 @@ function FilterPanel({
             onChange={(event) =>
               set({ merged: oneOf(MERGED_KINDS, event.target.value) })
             }
-            className="rounded-full border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-0.5 text-[11px] text-[var(--content-ink)]"
+            className="rounded-full border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink)]"
           >
             <option value="">Fusión: cualquiera</option>
             <option value="duplicate">Es un duplicado</option>
@@ -564,7 +564,7 @@ function Group({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
         {label}
         {hint && <span className="ml-1 font-normal normal-case tracking-normal">({hint})</span>}
       </p>
@@ -593,7 +593,7 @@ function Multi({
             onClick={() =>
               onChange(on ? selected.filter((item) => item !== option.value) : [...selected, option.value])
             }
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${
+            className={`rounded-full border px-2 py-0.5 text-xs ${
               on
                 ? "border-accent bg-accent/10 text-accent-ink"
                 : "border-[var(--content-border)] text-[var(--content-ink-dim)]"
@@ -667,7 +667,7 @@ function Flag({
   return (
     <button
       onClick={() => onToggle(on ? undefined : true)}
-      className={`rounded-full border px-2 py-0.5 text-[11px] ${
+      className={`rounded-full border px-2 py-0.5 text-xs ${
         on
           ? "border-accent bg-accent/10 text-accent-ink"
           : "border-[var(--content-border)] text-[var(--content-ink-dim)]"

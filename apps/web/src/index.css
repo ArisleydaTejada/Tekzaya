@@ -223,6 +223,13 @@
     scroll-padding-top: 5rem;
   }
 
+  /* El gris por defecto del navegador (la tinta al 50 %) se quedaba en 3,3:1; el texto de
+     ejemplo también se lee, así que va con el gris secundario, que pasa 4,5:1. */
+  ::placeholder {
+    color: var(--content-ink-dim);
+    opacity: 1;
+  }
+
   body {
     background: var(--color-panel);
     font-family: var(--font-body);

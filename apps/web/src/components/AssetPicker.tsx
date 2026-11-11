@@ -125,7 +125,7 @@ export function AssetPicker({
         <div className="space-y-4">
           {groups.map(({ group, items: groupItems }) => (
             <section key={group} aria-label={groupTitle(group, data!.person, me?.id)}>
-              <h3 className="mb-1.5 font-display text-[11px] font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
+              <h3 className="mb-1.5 font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">
                 {groupTitle(group, data!.person, me?.id)}
               </h3>
               <ul className="space-y-1">

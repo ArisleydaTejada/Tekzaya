@@ -166,7 +166,7 @@ export default function RepuestoDetailPage() {
                   to={`/activos/${formatAssetNumber(asset.number)}`}
                   className="flex items-center gap-2 rounded-lg border border-[var(--content-border)] px-2.5 py-1.5 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
                 >
-                  <span className="font-display text-[11px] tabular text-[var(--content-ink-dim)]">{formatAssetNumber(asset.number)}</span>
+                  <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">{formatAssetNumber(asset.number)}</span>
                   {asset.name}
                   {asset.status !== "operational" && <AssetStatusBadge status={asset.status} />}
                 </Link>
