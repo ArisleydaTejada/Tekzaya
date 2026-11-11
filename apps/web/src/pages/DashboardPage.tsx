@@ -102,7 +102,36 @@ export default function DashboardPage() {
         subtitle={subtitleOf(overview.data)}
         actions={
           <>
-            {scopes.length > 1 && (
+            {/* Quien puede mirar cualquier área elige alcance y área en un solo desplegable;
+                antes eran botones de alcance más otro selector que repetía "Mi área". */}
+            {canPickArea ? (
+              <select
+                value={activeScope === "area" ? `area:${areaId}` : activeScope}
+                onChange={(event) => {
+                  const value = event.target.value;
+
+                  if (value.startsWith("area:")) {
+                    setScope("area");
+                    setAreaId(value.slice(5));
+                  } else if (value === "global" || value === "me") {
+                    setScope(value);
+                  }
+                }}
+                aria-label="Alcance del tablero"
+                className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-xs text-[var(--content-ink)]"
+              >
+                <option value="global">Todas las áreas</option>
+                <option value="area:">Mi área</option>
+                {(areas.data ?? [])
+                  .filter((item) => item.id !== me.areaId)
+                  .map((item) => (
+                    <option key={item.id} value={`area:${item.id}`}>
+                      {item.name}
+                    </option>
+                  ))}
+                <option value="me">Personal</option>
+              </select>
+            ) : scopes.length > 1 && (
               <div className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
                 {scopes.map((item) => (
                   <button
@@ -118,21 +147,6 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-            {canPickArea && activeScope === "area" && (
-              <select
-                value={areaId}
-                onChange={(event) => setAreaId(event.target.value)}
-                aria-label="Área del tablero"
-                className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-2 text-xs text-[var(--content-ink)]"
-              >
-                <option value="">Mi área</option>
-                {(areas.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            )}
             <div className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
               {PERIODS.map((item) => (
                 <button
@@ -147,6 +161,8 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+            {/* Exportar es para quien analiza un área; el tablero personal no lo necesita. */}
+            {!personal && (
             <div className="relative">
               <button
                 onClick={() => setExportOpen((v) => !v)}
@@ -185,6 +201,7 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
+            )}
           </>
         }
       />

@@ -1,6 +1,8 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
+  ActivityIcon,
   BoxIcon,
+  CalendarIcon,
   ChartIcon,
   ClipboardIcon,
   GaugeNavIcon,
@@ -8,8 +10,6 @@ import {
   PanelIcon,
   PlusIcon,
   SearchIcon,
-  ShieldIcon,
-  SlidersIcon,
   TicketIcon,
   UserIcon,
   UsersIcon,
@@ -36,6 +36,12 @@ const ADMIN_ITEMS = [
   { to: "/administracion/usuarios", label: "Usuarios", adminOnly: false },
   { to: "/administracion/areas", label: "Áreas y categorías", adminOnly: true },
 ];
+
+/**
+ * Configuración la llevan el administrador y RRHH; quien no puede entrar ni
+ * siquiera ve la opción, porque pulsarla solo le daría un 403.
+ */
+const SETTINGS_ITEM = { to: "/administracion/configuracion", label: "Configuración", adminOnly: false };
 
 /**
  * Plegada, el logo es el botón que la abre y al pasar por encima muestra el icono del panel.
@@ -234,13 +240,20 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
         {NAV_ITEMS.map((item) => (
           <NavItem key={item.to} {...item} count={myOpenCount} collapsed={collapsed} />
         ))}
+      </nav>
 
-        {/* Módulo 2: todos entran; el empleado ve los equipos que usa su área o tiene a cargo. */}
-        <NavItem to="/activos" label="Activos y mantenimiento" icon={WrenchIcon} collapsed={collapsed} />
-        {/* El panel del módulo (plan A6), con el mismo criterio que las órdenes. */}
-        {seesWorkOrders && (
-          <NavItem to="/mantenimiento" label="Panel de mantenimiento" icon={ChartIcon} collapsed={collapsed} />
+      {/* El módulo 2 entero bajo un solo grupo: antes "Activos y mantenimiento" y
+          "Panel de mantenimiento" parecían dos secciones distintas. */}
+      <nav className="flex flex-col gap-1" aria-label="Mantenimiento">
+        {!collapsed && (
+          <p className="px-3 pb-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--rail-ink-dim)]">
+            Mantenimiento
+          </p>
         )}
+        {/* El panel del módulo (plan A6), con el mismo criterio que las órdenes. */}
+        {seesWorkOrders && <NavItem to="/mantenimiento" label="Panel" icon={ActivityIcon} collapsed={collapsed} />}
+        {/* Todos entran; el empleado ve los equipos que usa su área o tiene a cargo. */}
+        <NavItem to="/activos" label="Activos" icon={WrenchIcon} collapsed={collapsed} />
         {seesWorkOrders && (
           <NavItem
             to="/ordenes"
@@ -254,10 +267,12 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
         {/* El almacén es del área que mantiene equipos, igual que sus órdenes. */}
         {seesWorkOrders && <NavItem to="/repuestos" label="Repuestos" icon={BoxIcon} collapsed={collapsed} />}
         {/* Los planes preventivos también son del área que mantiene equipos (plan A5). */}
-        {seesWorkOrders && <NavItem to="/preventivos" label="Preventivos" icon={ShieldIcon} collapsed={collapsed} />}
+        {seesWorkOrders && <NavItem to="/preventivos" label="Preventivos" icon={CalendarIcon} collapsed={collapsed} />}
       </nav>
 
-      {managesUsers && (
+      {/* Administración vive en un solo sitio: usuarios, áreas y configuración juntos,
+          en vez de repartir la configuración en el pie de la barra. */}
+      {(managesUsers || managesSettings) && (
         <div className="flex flex-col gap-1">
           {!collapsed && (
             <div className="flex items-center gap-2 px-3 py-1 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--rail-ink-dim)]">
@@ -265,7 +280,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
               Administración
             </div>
           )}
-          {ADMIN_ITEMS.flatMap((item) =>
+          {[...(managesUsers ? ADMIN_ITEMS : []), ...(managesSettings ? [SETTINGS_ITEM] : [])].flatMap((item) =>
             isAdmin || !item.adminOnly
               ? [
                   <NavLink
@@ -299,22 +314,6 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <UserIcon />
           {!collapsed && "Administrar perfil"}
         </NavLink>
-        {/* Configuración la llevan el administrador y RRHH; quien no puede
-            entrar ni siquiera ve la opción, porque pulsarla solo le daría un 403. */}
-        {managesSettings && (
-          <NavLink
-            to="/administracion/configuracion"
-            title={collapsed ? "Configuración" : undefined}
-            className={({ isActive: active }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                collapsed ? "justify-center" : ""
-              } ${active ? "bg-accent/15 text-[var(--rail-ink)]" : "text-[var(--rail-ink-dim)] hover:bg-[var(--rail-surface-2)] hover:text-[var(--rail-ink)]"}`
-            }
-          >
-            <SlidersIcon />
-            {!collapsed && "Configuración"}
-          </NavLink>
-        )}
         <button
           onClick={() => {
             logout();

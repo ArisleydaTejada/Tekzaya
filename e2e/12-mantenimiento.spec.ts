@@ -12,7 +12,7 @@ test.describe("supervisor de IT", () => {
 
   test("el panel muestra KPI y alertas, y la falla repetida lleva al equipo", async ({ page }) => {
     await page.goto("/tablero");
-    await page.getByRole("link", { name: "Panel de mantenimiento" }).click();
+    await page.getByRole("link", { name: "Panel", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Panel de mantenimiento" })).toBeVisible();
     await expect(page.getByLabel("Cargando panel")).toHaveCount(0);
     await expect(page.getByText("Órdenes abiertas")).toBeVisible();
@@ -40,7 +40,7 @@ test.describe("empleado de Ventas", () => {
 
   test("no tiene panel de mantenimiento", async ({ page }) => {
     await page.goto("/tablero");
-    await expect(page.getByRole("link", { name: "Panel de mantenimiento" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Panel", exact: true })).toHaveCount(0);
     await page.goto("/mantenimiento");
     await expect(page.getByText("Tu área no mantiene equipos")).toBeVisible();
   });

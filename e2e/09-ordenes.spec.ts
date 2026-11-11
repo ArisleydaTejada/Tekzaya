@@ -112,7 +112,7 @@ test.describe("fuera del área", () => {
 
   test("el empleado de Ventas no ve las órdenes", async ({ page }) => {
     await page.goto("/tablero");
-    await expect(page.getByRole("link", { name: "Activos y mantenimiento" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Activos", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Órdenes de trabajo" })).toHaveCount(0);
 
     await page.goto("/ordenes/OT-0001");

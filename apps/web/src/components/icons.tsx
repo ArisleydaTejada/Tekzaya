@@ -457,3 +457,12 @@ export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+/** Pulso de un monitor: el panel que resume cómo va el mantenimiento. */
+export function ActivityIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...props}>
+      <path d="M3 12h4l2.5-6 4.5 12 2.5-6H21" />
+    </svg>
+  );
+}
