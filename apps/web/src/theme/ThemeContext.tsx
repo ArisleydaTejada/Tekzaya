@@ -18,6 +18,13 @@ function readInitial(): Theme {
     /* private mode / blocked storage — fall through to default */
   }
 
+  // Sin elección guardada, se sigue la preferencia del sistema.
+  try {
+    if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  } catch {
+    /* sin matchMedia: claro */
+  }
+
   return "light";
 }
 
@@ -26,16 +33,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-
-    try {
-      window.localStorage.setItem("tekzaya-theme", theme);
-    } catch {
-      /* ignore */
-    }
   }, [theme]);
 
+  // Solo se guarda lo que la persona eligió: si nunca tocó el interruptor, manda el sistema.
+  function toggle() {
+    setTheme((current) => {
+      const next = current === "light" ? "dark" : "light";
+
+      try {
+        window.localStorage.setItem("tekzaya-theme", next);
+      } catch {
+        /* almacenamiento bloqueado: el cambio dura la sesión */
+      }
+
+      return next;
+    });
+  }
+
   return (
-    <ThemeContext.Provider value={{ theme, toggle: () => setTheme((t) => (t === "light" ? "dark" : "light")) }}>
+    <ThemeContext.Provider value={{ theme, toggle }}>
       {children}
     </ThemeContext.Provider>
   );

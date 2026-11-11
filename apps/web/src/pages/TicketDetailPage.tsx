@@ -18,7 +18,7 @@ import {
   TICKET_STATUSES,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   aiKeys,
@@ -324,6 +324,16 @@ export default function TicketDetailPage() {
     },
     onError: (error) => setActionError(error.message),
   });
+
+  // Cambiar el estado desde el desplegable es un clic: durante unos segundos se puede deshacer.
+  const [statusUndo, setStatusUndo] = useState<{ from: TicketStatus; to: TicketStatus } | null>(null);
+
+  useEffect(() => {
+    if (!statusUndo) return;
+    const timer = window.setTimeout(() => setStatusUndo(null), 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [statusUndo]);
 
   const take = useMutation({
     mutationFn: () => takeTicket(ticket!.id),
@@ -633,7 +643,9 @@ export default function TicketDetailPage() {
                       return;
                     }
 
-                    patch.mutate({ status: next });
+                    const previous = ticket.status;
+
+                    patch.mutate({ status: next }, { onSuccess: () => setStatusUndo({ from: previous, to: next }) });
                   }}
                   className="rounded-lg border border-[var(--field-border)] bg-[var(--content-surface)] px-2.5 py-1.5 text-xs text-[var(--content-ink)]"
                 >
@@ -657,6 +669,21 @@ export default function TicketDetailPage() {
             </div>
           </div>
 
+          {statusUndo && (
+            <p role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]">
+              Estado cambiado a «{TICKET_STATUS_LABEL[statusUndo.to]}».
+              <button
+                type="button"
+                onClick={() => {
+                  patch.mutate({ status: statusUndo.from });
+                  setStatusUndo(null);
+                }}
+                className="font-medium text-accent-ink hover:underline"
+              >
+                Deshacer
+              </button>
+            </p>
+          )}
           {actionError && (
             <p
               role="alert"

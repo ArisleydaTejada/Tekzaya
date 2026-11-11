@@ -15,16 +15,47 @@ import {
   UsersIcon,
   WrenchIcon,
 } from "../icons";
-import { ACTIVE_TICKET_STATUSES, canManageSettings, canManageUsers } from "@tekzaya/shared";
+import {
+  ACTIVE_TICKET_STATUSES,
+  canManageSettings,
+  canManageUsers,
+  formatAssetNumber,
+  formatSparePartNumber,
+  formatTicketNumber,
+  formatWorkOrderNumber,
+} from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { listTickets, ticketKeys } from "../../api/tickets";
 import { listWorkOrders, workOrderKeys } from "../../api/workOrders";
 import { useAuth } from "../../auth/AuthContext";
 import { LogoLockup, LogoMark } from "../Logo";
 
+/** Un código completo (TK-12, act 3, OT-0005…) lleva directo a su ficha en vez de a una búsqueda. */
+function recordRoute(term: string): string | null {
+  const match = /^(tk|act|ot|rep)[-\s]?0*(\d+)$/i.exec(term.trim());
+
+  if (!match) return null;
+  const n = Number(match[2]);
+  const prefix = match[1]!.toLowerCase();
+
+  if (prefix === "tk") return `/tickets/${formatTicketNumber(n)}`;
+
+  if (prefix === "act") return `/activos/${formatAssetNumber(n)}`;
+
+  if (prefix === "ot") return `/ordenes/${formatWorkOrderNumber(n)}`;
+
+  return `/repuestos/${formatSparePartNumber(n)}`;
+}
+
 const NAV_ITEMS = [
   { to: "/tablero", label: "Tablero", icon: GaugeNavIcon },
-  { to: "/tickets", label: "Tickets", icon: TicketIcon, badge: true },
+  {
+    to: "/tickets",
+    label: "Tickets",
+    icon: TicketIcon,
+    badge: true,
+    countLabel: (n: number) => `${n} ${n === 1 ? "asignado a ti sin resolver" : "asignados a ti sin resolver"}`,
+  },
   { to: "/reportes", label: "Reportes", icon: ChartIcon },
 ];
 
@@ -128,6 +159,7 @@ function NavItem({
   icon: Icon,
   badge,
   count,
+  countLabel = (n: number) => `${n} pendientes`,
   collapsed,
 }: {
   to: string;
@@ -135,6 +167,8 @@ function NavItem({
   icon: typeof GaugeNavIcon;
   badge?: boolean;
   count?: number;
+  /** Qué cuenta el número, para el lector de pantalla: solo, se leía "Tickets2". */
+  countLabel?: (count: number) => string;
   collapsed: boolean;
 }) {
   const activeCount = count ?? 0;
@@ -162,8 +196,12 @@ function NavItem({
             <>
               <span className="flex-1">{label}</span>
               {badge && activeCount > 0 && (
-                <span className="rounded-full bg-[var(--rail-surface-2)] px-1.5 py-0.5 font-display text-[10px] font-semibold tabular text-[var(--rail-ink-dim)]">
-                  {activeCount}
+                <span
+                  title={countLabel(activeCount)}
+                  className="rounded-full bg-[var(--rail-surface-2)] px-1.5 py-0.5 font-display text-[10px] font-semibold tabular text-[var(--rail-ink-dim)]"
+                >
+                  <span aria-hidden="true">{activeCount}</span>
+                  <span className="sr-only">, {countLabel(activeCount)}</span>
                 </span>
               )}
             </>
@@ -226,7 +264,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
             const field = event.currentTarget.elements.namedItem("q");
             const term = field instanceof HTMLInputElement ? field.value.trim() : "";
 
-            navigate(term ? `/tickets?scope=all&q=${encodeURIComponent(term)}` : "/tickets");
+            navigate(term ? (recordRoute(term) ?? `/tickets?scope=all&q=${encodeURIComponent(term)}`) : "/tickets");
           }}
         >
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rail-ink-dim)]" />
@@ -274,6 +312,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
             icon={ClipboardIcon}
             badge
             count={myOpenOrders}
+            countLabel={(n) => `${n} ${n === 1 ? "orden abierta a tu cargo" : "órdenes abiertas a tu cargo"}`}
             collapsed={collapsed}
           />
         )}

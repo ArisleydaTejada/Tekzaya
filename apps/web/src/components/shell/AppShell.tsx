@@ -1,34 +1,63 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
+import { Modal } from "../Modal";
 import { SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const navigate = useNavigate();
 
   /*
-   * Atajos de teclado: "/" busca y "n" abre un ticket nuevo. Se ignoran mientras se
-   * escribe en un campo o con una tecla modificadora, para no robarle letras a nadie.
+   * Atajos de teclado (la lista completa sale con "?"). Las letras se ignoran mientras se
+   * escribe en un campo o con una tecla modificadora, para no robarle letras a nadie;
+   * Ctrl+K funciona en cualquier sitio, como en la mayoría de herramientas.
    */
   useEffect(() => {
+    const focusSearch = () => {
+      const field = document.getElementById("buscar-global");
+
+      if (field) field.focus();
+      else navigate("/tickets");
+    };
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.defaultPrevented) return;
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        focusSearch();
+
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target;
 
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role=dialog]"))) return;
 
       if (event.key === "/") {
-        const field = document.getElementById("buscar-global");
         event.preventDefault();
-
-        if (field) field.focus();
-        else navigate("/tickets");
+        focusSearch();
       } else if (event.key === "n") {
         event.preventDefault();
         navigate("/tickets/nuevo");
+      } else if (event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen(true);
+      } else if (event.key === "j" || event.key === "k") {
+        // Recorre las filas marcadas con data-nav-row (tickets, activos, órdenes); Enter abre la enfocada.
+        const rows = [...document.querySelectorAll<HTMLElement>("[data-nav-row]")].filter((row) => row.offsetParent !== null);
+
+        if (!rows.length) return;
+        event.preventDefault();
+        const index = rows.findIndex((row) => row === document.activeElement);
+        const next = index === -1 ? 0 : Math.min(rows.length - 1, Math.max(0, index + (event.key === "j" ? 1 : -1)));
+        rows[next]!.focus();
+        rows[next]!.scrollIntoView({ block: "nearest" });
       }
     };
 
@@ -87,6 +116,25 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenuClick={() => setDrawerOpen(true)} />
+        <Modal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Atajos de teclado">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-sm">
+            {SHORTCUTS.map(([keys, action]) => (
+              <div key={action} className="contents">
+                <dt>
+                  {keys.map((key) => (
+                    <kbd
+                      key={key}
+                      className="mr-1 rounded border border-[var(--field-border)] bg-[var(--content-bg)] px-1.5 py-0.5 font-display text-xs text-[var(--content-ink)]"
+                    >
+                      {key}
+                    </kbd>
+                  ))}
+                </dt>
+                <dd className="text-[var(--content-ink)]">{action}</dd>
+              </div>
+            ))}
+          </dl>
+        </Modal>
         <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8">
           <Outlet />
         </main>
@@ -94,3 +142,13 @@ export function AppShell() {
     </div>
   );
 }
+
+const SHORTCUTS: [string[], string][] = [
+  [["/"], "Buscar tickets; escribe TK-, ACT-, OT- o REP- y un número para ir directo"],
+  [["Ctrl", "K"], "Buscar desde cualquier sitio, también dentro de un campo"],
+  [["n"], "Nuevo ticket"],
+  [["j"], "Siguiente fila de la lista"],
+  [["k"], "Fila anterior"],
+  [["Enter"], "Abrir la fila enfocada"],
+  [["?"], "Ver esta lista"],
+];

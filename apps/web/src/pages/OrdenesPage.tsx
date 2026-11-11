@@ -358,7 +358,7 @@ function ListView({
                   </Link>
                 </td>
                 <td className="max-w-[260px] px-3 py-2.5">
-                  <Link to={orderPath(order)} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
+                  <Link to={orderPath(order)} data-nav-row title={order.title} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
                     {order.title}
                   </Link>
                   <span className="flex items-center gap-2">

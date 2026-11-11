@@ -540,7 +540,7 @@ function AssetTable({
                   <span className="flex items-center gap-2.5">
                     <Thumb photoId={asset.photoIds[0]} icon={WrenchIcon} />
                     <span className="min-w-0">
-                      <Link to={`/activos/${number}`} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
+                      <Link to={`/activos/${number}`} data-nav-row title={asset.name} className="block truncate font-medium text-[var(--content-ink)] hover:text-accent-ink">
                         {asset.name}
                       </Link>
                       <span className="block truncate text-xs text-[var(--content-ink-dim)]">

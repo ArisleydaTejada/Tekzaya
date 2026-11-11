@@ -859,6 +859,9 @@ function TicketLink({ ticket }: { ticket: TicketListItem }) {
   return (
     <Link
       to={`/tickets/${formatTicketNumber(ticket.number)}`}
+      // `j`/`k` recorren estas filas; el title deja leer el título completo cuando se corta.
+      data-nav-row
+      title={ticket.title}
       className="flex min-w-0 items-center gap-1.5 hover:underline"
     >
       <span className="truncate">{ticket.title}</span>
