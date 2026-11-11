@@ -21,10 +21,8 @@ function positionAfter(text: string, count: number): number {
 }
 
 /**
- * Campo de monto con la moneda delante. Solo admite cifras y un punto decimal, y
- * agrupa los miles con comas mientras se escribe. Al reagrupar, el cursor se
- * queda detrás de la misma cifra: sin eso, escribir en medio de "1,129" lo
- * mandaría al final en cada tecla.
+ * Agrupa los miles mientras se escribe y deja el cursor tras la misma cifra;
+ * sin eso, escribir en medio de "1,129" lo mandaría al final en cada tecla.
  */
 export function MoneyInput({
   id,

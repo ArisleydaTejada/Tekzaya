@@ -16,10 +16,8 @@ import { Thumb } from "../components/Thumb";
 import { formatDay, formatQuantity, warrantyCountdown } from "../lib/format";
 
 /**
- * El panel de mantenimiento (plan A6): página propia, no mezclada con el tablero de
- * tickets. Cinco números para saber cómo va el área y tres listas de cosas que piden
- * atención. Lo que se mide a fondo —MTBF, disponibilidad, costo por equipo— vive en
- * Reportes, con la fuente de mantenimiento.
+ * Panel de mantenimiento (plan A6). El análisis a fondo (MTBF, disponibilidad,
+ * costo por equipo) vive en Reportes.
  */
 export default function MantenimientoPage() {
   const [areaId, setAreaId] = useState<string | undefined>(undefined);

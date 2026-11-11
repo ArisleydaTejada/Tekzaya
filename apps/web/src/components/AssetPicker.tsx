@@ -32,9 +32,8 @@ function groupTitle(group: AssetPickGroup, person: { id: string; name: string },
 }
 
 /**
- * "Vincular un equipo" (plan A2). El servidor ya devuelve solo lo que se puede
- * vincular y en el orden en que conviene ofrecerlo: primero lo que la persona
- * tiene a su cargo, luego lo de su área. Aquí solo se agrupa y se busca.
+ * "Vincular un equipo" (plan A2). El servidor ya filtra y ordena lo vinculable
+ * (lo propio, luego lo del área); aquí solo se agrupa y se busca.
  */
 export function AssetPicker({
   open,

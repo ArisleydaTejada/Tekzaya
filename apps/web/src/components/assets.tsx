@@ -11,11 +11,7 @@ import { PHOTO_ACCEPT, uploadAssetPhotos } from "../lib/assetPhotos";
 import { formatDay, warrantyCountdown } from "../lib/format";
 import { AlertIcon, CheckIcon, PlusIcon, ShieldIcon, WrenchIcon, XIcon } from "./icons";
 
-/**
- * Los estados del activo reutilizan los tonos de los tickets: verde operativo,
- * naranja en reparación, gris de baja. Nunca van solo por color (plan A7): cada
- * uno lleva su icono y su texto.
- */
+/** Reutilizan los tonos de los tickets y nunca van solo por color (plan A7): llevan icono y texto. */
 const STATUS_TOKEN: Record<AssetStatus, string> = {
   operational: "resolved",
   in_repair: "in_progress",
@@ -87,7 +83,7 @@ export function WarrantyBadge({
   );
 }
 
-// ── Fotos ─────────────────────────────────────────────────────
+// Fotos
 
 /**
  * Las fotos del formulario: miniaturas con su botón de quitar y un selector que

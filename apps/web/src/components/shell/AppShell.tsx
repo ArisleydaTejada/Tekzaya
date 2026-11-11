@@ -17,9 +17,7 @@ export function AppShell() {
           collapsed ? "w-[72px]" : "w-64"
         }`}
       >
-        {/* Abrir y cerrar la barra vive en su propia cabecera, no en un tirador
-            flotando sobre el contenido: el logo la abre y el icono del panel la
-            cierra, que es donde la mano ya está mirando. */}
+        {/* El logo abre la barra y el icono del panel la cierra, en su cabecera y no en un tirador flotante. */}
         <div className="sticky top-0 h-dvh">
           <SidebarContent collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
         </div>

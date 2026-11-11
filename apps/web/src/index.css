@@ -22,9 +22,8 @@
   --color-placard-ink: #12141a;
   --color-placard-ink-dim: #5b6472;
 
-  /* Marca. Son los dos colores del logo: el morado del trazo y el lila del
-     contrachapado. `dim` es el primario oscurecido, para el hover de lo que ya
-     va pintado de primario. */
+  /* Marca: el morado del trazo y el lila del contrachapado del logo.
+     `dim` es el hover de lo que ya va pintado de primario. */
   --color-accent: #58479d;
   --color-accent-soft: #b5a3cf;
   --color-accent-dim: #463a7e;
@@ -35,12 +34,8 @@
 }
 
 /*
- * Los tres colores semánticos dependen de la superficie, no son fijos. El verde,
- * el ámbar y el rojo brillantes se leen bien sobre oscuro, pero como texto sobre
- * blanco se quedaban entre 1,7:1 y 3,9:1, lejos del 4,5:1 de AA (spec §13).
- * `inline` hace que la utilidad lea `--status-*` donde se pinta, y no donde se
- * declaró: así una superficie que es clara en los dos temas (la plancha del
- * login) puede fijar sus propios tonos con `data-surface="light"`.
+ * Verde, ámbar y rojo dependen de la superficie: brillantes sobre blanco no llegan a AA (spec §13).
+ * `inline` lee `--status-*` donde se pinta, así `data-surface="light"` fija tonos propios.
  */
 @theme inline {
   --color-amber: var(--status-amber);
@@ -72,11 +67,8 @@
   --content-shadow: var(--shadow-placard);
 
   /*
-   * La barra lateral. Es lo único del cromo "instrumento" que sigue al tema:
-   * en claro es una plancha clara con tinte de marca, no un bloque negro
-   * pegado a una página blanca. El resto —la plancha del login, las placas de
-   * los indicadores— se queda oscuro a propósito, porque ahí el contraste es
-   * el diseño y no un descuido.
+   * La barra lateral es lo único del cromo que sigue al tema; la plancha del login
+   * y las placas de los indicadores son oscuras a propósito.
    */
   --rail-bg: #faf9fc;
   --rail-surface-2: #efecf6;
@@ -85,16 +77,13 @@
   --rail-ink-dim: #6a6380;
 
   /*
-   * El acento que se lee contra el fondo de quien lo mira: el primario sobre
-   * claro, el secundario sobre oscuro. Lo usan el anillo de foco, el indicador
-   * de la pestaña activa de la barra y la aguja de los indicadores; con un solo
-   * valor fijo, uno de los dos temas siempre perdía el contraste.
+   * Acento legible sobre el fondo de cada tema (foco, pestaña activa, aguja de los indicadores);
+   * con un valor fijo, un tema perdía el contraste.
    */
   --accent-contrast: #58479d;
 
-  /* Chart-safe steps — validated with scripts/validate_palette.js (dataviz skill).
-     Distinct from the small UI accent/status dots: chart fills need more chroma
-     and lightness headroom than a badge dot does. */
+  /* Chart-safe steps, validated with scripts/validate_palette.js. Chart fills need more
+     chroma and lightness headroom than the small UI dots. */
   --chart-recibidos: #58479d;
   --chart-resueltos: #1f9a63;
   --chart-bar: #2f6fcb;
@@ -105,11 +94,8 @@
   --chart-grid: var(--color-placard-border);
   --chart-axis: var(--color-placard-ink-dim);
 
-  /* Categorical ramp for the report builder: a chart's series are an identity, not a
-     reading, so this run deliberately avoids the reserved red/amber/green trio
-     (DESIGN.md, "The Semantic Three Rule"). Ordered by adjacency so the first two
-     series of any chart are the furthest apart. The gray is reserved for the
-     comparison term (previous period), which must never read as a series of its own. */
+  /* Categorical ramp: series are identities, so it skips the reserved red/amber/green trio.
+     Ordered so the first two series differ most; the gray marks the comparison term only. */
   --chart-cat-1: #58479d;
   --chart-cat-2: #1f9a63;
   --chart-cat-3: #2f6fcb;
@@ -120,10 +106,8 @@
   --chart-compare: #9aa3b2;
 
   /*
-   * Estados del ticket: fondo tenue, texto oscuro del mismo tono y borde intermedio.
-   * El texto siempre acompaña al color, así que el estado se lee aunque no se
-   * distinga el tono. "Reabierto" es el único relleno sólido: es el que pide volver
-   * a mirarlo ya. "Fusionado" comparte el gris oscuro de "Cancelado".
+   * Estados del ticket: el texto siempre acompaña al color. "Reabierto" es el único sólido
+   * porque pide mirarlo ya; "Fusionado" comparte el gris de "Cancelado".
    */
   --st-open-bg: #fcd9d9;
   --st-open-ink: #a3191b;
@@ -161,15 +145,8 @@
   color-scheme: dark;
 
   /*
-   * La barra se va al extremo oscuro de la escala y deja el lienzo en el medio.
-   * Es la misma regla del tema claro leída al revés —allí la barra es lo más
-   * claro y el lienzo queda por debajo—: en los dos casos la barra ocupa un
-   * extremo y el trabajo se queda en el centro, que es lo que la separa de un
-   * vistazo sin necesitar una línea.
-   *
-   * Antes la barra valía #221f2c y el lienzo #201c29: cuatro unidades de
-   * diferencia en total, así que lo único que los distinguía era un borde de
-   * 1 px, y a esa distancia un borde no se ve.
+   * La barra se va al extremo oscuro de la escala y el lienzo queda en el medio:
+   * así se separan de un vistazo sin necesitar una línea.
    */
   --rail-bg: #16131d;
   --rail-surface-2: #272130;
@@ -231,9 +208,8 @@
 
 @layer base {
   html {
-    /* Native form controls (checkboxes, scrollbars…) must follow the app's light/dark
-       theme, not always default to dark — a static "dark light" here made unchecked
-       checkboxes render with dark UA styling even on the light placard/content surfaces. */
+    /* Native controls (checkboxes, scrollbars) follow the app theme; a fixed "dark light"
+       drew dark unchecked boxes on light surfaces. */
     color-scheme: light;
   }
 
@@ -258,9 +234,8 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Browser autofill (Chrome/Edge) paints its own gray/yellow background via an
-     internal UA shadow layer that `bg-transparent` can't reach — fake transparency
-     with a huge inset box-shadow matching the field surface instead. */
+  /* Chrome/Edge autofill paints its background in a UA layer `bg-transparent` can't reach,
+     so a large inset box-shadow in the field color covers it. */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
@@ -284,9 +259,8 @@
   }
 }
 
-/* El PDF de un reporte se imprime desde el navegador, que es donde está el diseño
-   (spec §7.2.4 y §7.8.8): se quita el cromo de la aplicación, se fuerza el papel
-   blanco y se evita que una gráfica se parta entre dos hojas. */
+/* El PDF del reporte se imprime desde el navegador (spec §7.8.8): sin cromo, en papel blanco
+   y sin partir una gráfica entre dos hojas. */
 @media print {
   .no-print {
     display: none !important;

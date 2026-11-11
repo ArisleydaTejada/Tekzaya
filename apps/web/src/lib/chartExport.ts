@@ -1,11 +1,6 @@
 /**
- * PNG de una gráfica concreta, desde su menú `⋯` (spec §7.8.8).
- *
- * Recharts dibuja en SVG, así que la imagen sale del propio SVG: se serializa, se
- * dibuja en un lienzo al doble de resolución y se descarga. No hace falta
- * `html2canvas`, que rasteriza el DOM entero —fuentes incluidas— para conseguir una
- * copia peor de lo que ya es vectorial. El PDF del reporte sí va por el navegador
- * (`window.print()`), que es donde está el diseño y donde el texto sigue siendo texto.
+ * PNG de una gráfica (spec §7.8.8): el SVG de Recharts se dibuja en un lienzo al doble de resolución.
+ * Sin `html2canvas`, que rasterizaría el DOM entero para una copia peor de algo ya vectorial.
  */
 export async function downloadChartPng(container: HTMLElement, filename: string): Promise<void> {
   const svg = container.querySelector("svg");
@@ -21,9 +16,8 @@ export async function downloadChartPng(container: HTMLElement, filename: string)
   clone.setAttribute("height", String(height));
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
-  // El SVG incrustado no hereda las variables de CSS de la página, así que el color de
-  // los textos se fija al del tema actual antes de serializar; si no, salen negros
-  // sobre fondo oscuro.
+  // El SVG incrustado no hereda las variables de CSS; sin fijar aquí el color del tema,
+  // los textos saldrían negros sobre fondo oscuro.
   const ink = getComputedStyle(document.documentElement).getPropertyValue("--content-ink").trim();
 
   const surface = getComputedStyle(document.documentElement)

@@ -79,9 +79,8 @@ function Footer({ onClose, onConfirm, label, disabled }: { onClose: () => void; 
 }
 
 /**
- * Alta y edición de un repuesto. Al darlo de alta se pueden registrar las
- * existencias con las que llega, que entran al libro como una entrada más; al
- * editarlo, el stock no se toca aquí: se mueve con entradas y ajustes.
+ * Al dar de alta, las existencias iniciales entran como una entrada más.
+ * Al editar, el stock no se toca: se mueve con entradas y ajustes.
  */
 export function SparePartFormModal({
   open,
@@ -347,9 +346,8 @@ function AssetChecklist({
 }
 
 /**
- * Entrada (una compra, con su costo, que mueve el promedio) o ajuste (conteo
- * físico o merma, al costo actual y con motivo). Consumos y devoluciones solo
- * salen de una orden de trabajo.
+ * Entrada (compra que mueve el costo promedio) o ajuste (conteo o merma, con motivo).
+ * Consumos y devoluciones solo salen de una orden de trabajo.
  */
 export function StockMovementModal({
   open,

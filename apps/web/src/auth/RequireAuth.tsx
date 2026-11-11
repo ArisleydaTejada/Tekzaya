@@ -2,11 +2,7 @@ import { canManageSettings, canManageUsers } from "@tekzaya/shared";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
-/**
- * Oculta las pantallas privadas mientras no haya sesión. Es comodidad de
- * navegación, no seguridad: cada endpoint vuelve a comprobar los permisos
- * en el servidor (spec §10.4).
- */
+/** Comodidad de navegación, no seguridad: cada endpoint vuelve a comprobar permisos (spec §10.4). */
 export function RequireAuth() {
   const { me, isLoading } = useAuth();
 
@@ -18,9 +14,8 @@ export function RequireAuth() {
 }
 
 /**
- * El inicio de sesión es solo para quien no la tiene: con una sesión válida se va
- * directo al tablero. Se espera a saberlo para no enseñar el formulario un instante
- * y luego saltar. Si la cookie de acceso caducó, `getSession` la renueva antes de decidir.
+ * Con sesión válida se va directo al tablero; se espera a saberlo para no enseñar el formulario
+ * un instante. Si la cookie de acceso caducó, `getSession` la renueva antes de decidir.
  */
 export function RequireGuest() {
   const { me, isLoading } = useAuth();
@@ -44,9 +39,8 @@ function SessionCheck() {
 }
 
 /**
- * Áreas y Configuración son del administrador y de nadie más (spec §4.3). Quien
- * llegue por la URL vuelve al tablero en vez de ver una pantalla que se llenaría
- * de 403; el servidor lo rechaza igualmente.
+ * Solo el administrador (spec §4.3). Quien llegue por la URL vuelve al tablero
+ * en vez de ver una pantalla llena de 403.
  */
 export function RequireAdmin() {
   const { me, isLoading } = useAuth();

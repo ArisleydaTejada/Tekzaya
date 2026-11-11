@@ -1,8 +1,6 @@
 /**
- * Piezas comunes de los modales de asignación: la barra de carga y la etiqueta de
- * ausencia. Quien está ausente no recibe tickets, así que su barra va en gris
- * —su carga no compite en el reparto— y la etiqueta lo dice sin tener que leer
- * la columna de la derecha.
+ * Barra de carga y etiqueta de ausencia de los modales de asignación.
+ * Quien está ausente no recibe tickets, así que su barra va en gris.
  */
 
 export function LoadBar({ load, peak, away }: { load: number; peak: number; away: boolean }) {

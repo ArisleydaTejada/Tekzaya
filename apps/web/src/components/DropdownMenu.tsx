@@ -13,10 +13,8 @@ export interface DropdownItem {
 const MENU_WIDTH = 216;
 
 /**
- * Menú de acciones de una fila. Se pinta en un portal y con posición fija porque
- * vive dentro de tablas con desplazamiento horizontal, que recortarían un menú
- * colgado de la celda. Se cierra al elegir, al pulsar fuera, con Escape o al
- * desplazar la página, que es cuando su posición dejaría de corresponder al botón.
+ * En un portal y con posición fija: las tablas con scroll horizontal recortarían un menú en la celda.
+ * Por eso también se cierra al desplazar la página.
  */
 export function DropdownMenu({ label, items }: { label: string; items: DropdownItem[] }) {
   const [open, setOpen] = useState(false);

@@ -49,7 +49,7 @@ export function getStatsByCategory(query: StatsRequest): Promise<StatsByCategory
   return apiFetch(`/stats/by-category${queryString(query)}`, statsByCategory);
 }
 
-// ── Encuesta de satisfacción ──────────────────────────────────
+// Encuesta de satisfacción
 
 export function answerCsat(ticketId: string, input: CsatInput): Promise<TicketDetail> {
   return apiFetch(`/tickets/${ticketId}/csat`, ticketDetail, {
@@ -58,12 +58,11 @@ export function answerCsat(ticketId: string, input: CsatInput): Promise<TicketDe
   });
 }
 
-// ── Descargas ─────────────────────────────────────────────────
+// Descargas
 
 /**
- * El CSV lo genera el servidor, así que basta con navegar a la URL: la cookie de
- * sesión viaja sola y el navegador se encarga de la descarga. Construirlo con
- * `fetch` y un Blob obligaría a replicar aquí el nombre del archivo.
+ * El CSV lo genera el servidor: navegar a la URL lleva la cookie y la descarga la hace el navegador.
+ * Con `fetch` y un Blob habría que replicar aquí el nombre del archivo.
  */
 export function statsCsvUrl(query: StatsRequest): string {
   return `/api/v1/stats/export${queryString(query)}`;

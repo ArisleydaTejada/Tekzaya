@@ -18,9 +18,8 @@ const inputClass =
 const labelClass = "mb-1 block text-xs font-medium text-[var(--content-ink-dim)]";
 
 /**
- * Una OT que no nace de un ticket (plan A3): la avería que encuentra el propio
- * técnico, o un preventivo puntual. Igual que al convertir un ticket, "¿queda
- * fuera de servicio?" no trae respuesta marcada: decide el tiempo de parada.
+ * OT que no nace de un ticket (plan A3). "¿Queda fuera de servicio?" no trae respuesta marcada:
+ * de ella depende el tiempo de parada.
  */
 export function NewWorkOrderModal({
   open,

@@ -61,10 +61,8 @@ const EMPTY: Omit<Draft, "scope"> = {
 };
 
 /**
- * Quien pliega el panel suele trabajar así siempre —pantallas estrechas, o
- * reportes anchos—, y volver a plegarlo en cada visita es un peaje. Se recuerda
- * en el navegador porque es una preferencia de quien mira, no del reporte: no
- * tiene por qué viajar al servidor ni seguir a la cuenta de máquina en máquina.
+ * El panel plegado se recuerda en el navegador: es preferencia de quien mira,
+ * no del reporte ni de la cuenta.
  */
 const RAIL_KEY = "tekzaya-reportes-rail";
 
@@ -81,18 +79,11 @@ export default function ReportesPage() {
   const { me } = useAuth();
   const queryClient = useQueryClient();
   const [railOpen, setRailOpen] = useState(readRailOpen);
-  /**
-   * Pestaña del panel. `null` significa "la que toque": plantillas mientras no
-   * haya nada guardado, y los reportes propios en cuanto los hay. En cuanto
-   * alguien elige una, manda su elección.
-   */
+  /** `null` es la que toque: plantillas sin nada guardado, reportes propios si los hay. */
   const [railTab, setRailTab] = useState<RailTab | null>(null);
   /**
-   * Módulo con el que se trabaja: decide qué plantillas y qué reportes propios
-   * lista el panel. Se puede pedir en la dirección (`?modulo=mantenimiento`), que
-   * es como enlaza el panel de mantenimiento. Sin pedirlo, `null` = el de lo que
-   * esté abierto: quien abre una plantilla de mantenimiento no tiene que volver a
-   * elegir "Mantenimiento" para ver las hermanas.
+   * Módulo que lista el panel; se puede pedir con `?modulo=mantenimiento`.
+   * Con `null` sigue al reporte abierto, para no tener que volver a elegirlo.
    */
   const [searchParams] = useSearchParams();
 
@@ -119,10 +110,8 @@ export default function ReportesPage() {
   }, [railOpen]);
 
   /**
-   * Mientras nadie elige nada se muestra la primera plantilla del rol, derivada del
-   * catálogo en el propio render: la pestaña Plantillas con datos reales es lo que el
-   * tablero promete al enlazar "Ver gráficas en Reportes". En cuanto se abre o se edita
-   * algo, `edited` manda.
+   * Sin elección se muestra la primera plantilla del rol, que es lo que promete
+   * "Ver gráficas en Reportes". En cuanto se edita algo, manda `edited`.
    */
   const fallback = useMemo(() => {
     const templates = catalog.data?.templates ?? [];
@@ -136,11 +125,7 @@ export default function ReportesPage() {
 
   const draft = edited ?? fallback;
 
-  /**
-   * Módulo del reporte abierto. Un lienzo vacío todavía no tiene gráficas que lo
-   * digan, así que toma el del panel: quien pulsa "Nuevo reporte" mirando las
-   * plantillas de mantenimiento está empezando uno de mantenimiento.
-   */
+  /** Un lienzo vacío toma el módulo del panel: "Nuevo reporte" desde mantenimiento empieza uno de mantenimiento. */
   const draftSource: ReportSource =
     draft && draft.widgets.length > 0 ? reportSourceOf(draft.widgets) : (railSource ?? "tickets");
 
@@ -163,11 +148,8 @@ export default function ReportesPage() {
   );
 
   /**
-   * La lista de tickets no siempre comparte el alcance de las gráficas. Un empleado no
-   * puede elegir "mi área" —sus gráficas son solo suyas— pero su **lista** sí es la de
-   * su área, porque puede leer esas conversaciones por la regla del §7.5. Es la única
-   * excepción del spec §7.8.9, y solo se aplica a quien no tiene otra opción: si un
-   * supervisor elige "Yo", su lista también se acota a sus tickets.
+   * Un empleado ve la lista de su área aunque sus gráficas sean solo suyas (spec §7.5,
+   * única excepción del §7.8.9). Si un supervisor elige "Yo", la lista también se acota.
    */
   const listScope: ReportScopeRequest = useMemo(
     () =>
@@ -235,10 +217,8 @@ export default function ReportesPage() {
   };
 
   /**
-   * Pulsar una barra, una porción o un segmento filtra la lista de abajo por ese valor
-   * (spec §7.8.2): clic en "Redes" → los tickets de esa categoría. Las dimensiones que
-   * no tienen filtro equivalente en la lista —el tiempo, el resultado de la IA— no
-   * hacen nada en vez de llevar a una lista que no corresponde con lo que se pulsó.
+   * Pulsar un valor filtra la lista de abajo (spec §7.8.2). Las dimensiones sin filtro
+   * equivalente (el tiempo, el resultado de la IA) no hacen nada.
    */
   const drillInto = (dimension: string, key: string, source: ReportSource) => {
     // Cada gráfica filtra la lista de su propio módulo, y solo si es la que se ve.
@@ -299,15 +279,8 @@ export default function ReportesPage() {
         }
       />
 
-      {/*
-        Plantillas y reportes guardados viven en una columna a la derecha y no
-        sobre el lienzo: elegir uno nunca esconde el reporte abierto, así que
-        saltar de uno a otro es un clic y no hay que recordar de cuál se venía.
-        Dentro de la columna sí se separan en pestañas, porque las dos listas
-        crecen por su cuenta.
-
-        Se repliega para cuando el lienzo necesita todo el ancho, y no se imprime.
-      */}
+      {/* Plantillas y reportes van en una columna aparte para no tapar el reporte abierto.
+          Se repliega para dar todo el ancho y no se imprime. */}
       <div className="flex flex-col items-start gap-5 xl:flex-row">
         <div className="w-full min-w-0 flex-1">
           {draft && (
@@ -460,9 +433,8 @@ export default function ReportesPage() {
           )}
         </div>
 
-        {/* El interruptor del panel vive en la barra del reporte, que sin
-            reporte abierto no se dibuja: ahí el panel se queda puesto, porque
-            si no la página no ofrecería nada que pulsar. */}
+        {/* El interruptor del panel vive en la barra del reporte; sin reporte abierto
+            el panel se queda puesto para que la página ofrezca algo. */}
         <ReportsRail
           open={railOpen || !draft}
           onToggle={() => setRailOpen((value) => !value)}
@@ -517,13 +489,9 @@ export default function ReportesPage() {
   );
 }
 
-// ── Selectores del encabezado ─────────────────────────────────
+// Selectores del encabezado
 
-/**
- * El selector de alcance se arma con lo que el servidor concedería, no con una lista
- * fija: un empleado no ve "Todas las áreas" porque pulsarlo solo le daría un 403
- * (spec §7.8.1). El servidor lo recalcula igualmente en cada consulta.
- */
+/** El alcance se arma con lo que el servidor concedería (spec §7.8.1), que igualmente lo recalcula. */
 function ScopeSelector({
   catalog,
   draft,
@@ -542,12 +510,7 @@ function ScopeSelector({
     enabled: catalog.maxScope === "global",
   });
 
-  /*
-   * El supervisor no tiene selector de área —solo puede mirar la suya—, así que
-   * el reporte nunca trae `areaId` y la lista de personas se quedaba sin pedir.
-   * Sin área elegida, las personas son las de la propia área. Quien ve todas las
-   * áreas elige primero el área y por eso no cae en este caso.
-   */
+  /* El supervisor no elige área, así que sin `areaId` las personas son las de su propia área. */
   const memberAreaId = draft?.areaId ?? (catalog.maxScope === "global" ? undefined : myAreaId);
 
   const members = useQuery({
@@ -689,11 +652,7 @@ function RangePicker({
   );
 }
 
-/**
- * El PDF sale del navegador: el reporte tal como se ve, con su encabezado, alcance y
- * período (spec §7.8.8). El CSV de cada gráfica va en su menú `⋯`, y el de la lista de
- * tickets en la propia lista, porque cada uno exporta cosas distintas.
- */
+/** El PDF sale del navegador tal como se ve (spec §7.8.8); los CSV van en cada gráfica y en la lista. */
 function ExportMenu({
   open,
   setOpen,
@@ -732,20 +691,13 @@ function ExportMenu({
   );
 }
 
-// ── Pestañas de reportes ──────────────────────────────────────
+// Pestañas de reportes
 
 type RailTab = "templates" | "saved";
 
 /**
- * La columna de la derecha: todo lo que se puede abrir, sin tapar el lienzo.
- *
- * Plantillas y reportes propios son dos listas que crecen por su cuenta —doce
- * plantillas y veinte reportes apilados obligaban a desplazarse para llegar a
- * los segundos—, así que van en pestañas. La pestaña arranca en "Mis reportes"
- * en cuanto hay alguno guardado, que es donde se vuelve cada día; quien todavía
- * no tiene ninguno aterriza en las plantillas, que es su punto de partida.
- *
- * Lo que se está viendo queda marcado, para no perder el hilo al saltar.
+ * Plantillas y reportes propios en pestañas, marcando lo que se ve. Arranca en "Mis reportes"
+ * si hay alguno guardado y, si no, en las plantillas.
  */
 function ReportsRail({
   open,
@@ -782,24 +734,12 @@ function ReportsRail({
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  /*
-   * Plegado no deja nada detrás: ni un botón de vuelta, que ya está en la barra
-   * del reporte, ni la columna vacía que lo sostenía. Mientras devolvía algo, el
-   * lienzo seguía compartiendo la fila con él y se quedaba un hueco a la derecha
-   * justo donde se había pedido ancho.
-   */
+  /* Plegado no deja nada: con botón o columna vacía, el lienzo dejaba un hueco a la derecha. */
   if (!open) return null;
 
   /*
-   * Lo de tickets y lo de mantenimiento responde a preguntas de módulos
-   * distintos, y mezclado en una lista de dieciocho no se encuentra nada. Se
-   * separa por la fuente de las gráficas, con un mismo selector para las
-   * plantillas y los reportes propios: quien está mirando mantenimiento lo
-   * sigue mirando al cambiar de pestaña.
-   *
-   * El selector existe si el rol tiene plantillas de los dos módulos (las de
-   * mantenimiento solo llegan a quien puede consultarlo). Sin él, no hay nada
-   * que separar y se lista todo.
+   * Las listas se separan por módulo, con un selector compartido entre plantillas y reportes.
+   * Solo aparece si el rol tiene plantillas de los dos módulos.
    */
   const templatesOf = (key: ReportSource) => templates.filter((item) => reportSourceOf(item.widgets) === key);
   const reportsOf = (key: ReportSource) => reports.filter((item) => reportSourceOf(item.widgets) === key);
@@ -811,17 +751,8 @@ function ReportsRail({
   const sourceLabel = REPORT_SOURCE_LABEL[shownSource].toLowerCase();
 
   /*
-   * En pantalla ancha el panel se queda quieto mientras el lienzo baja: un
-   * reporte de doce gráficas mide varias pantallas, y sin esto había que subir
-   * hasta arriba del todo cada vez que se quería abrir otro.
-   *
-   * Se ancla justo debajo de la barra superior (4rem) más el aire del contenido
-   * (1.5rem), y se limita a lo que queda de pantalla. Lo que desborda es la
-   * lista, no el panel entero: el título, "Nuevo reporte" y las pestañas no se
-   * van de la vista, que es justo lo que se usa para saltar de uno a otro.
-   *
-   * Debajo de `xl` el panel va apilado sobre el lienzo y no hay nada a lo que
-   * quedarse fijo, así que allí fluye como siempre.
+   * En `xl` el panel queda fijo bajo la barra superior (4rem + 1.5rem) y desborda la lista, no el panel,
+   * para que título, "Nuevo reporte" y pestañas sigan a la vista. Debajo de `xl` va apilado.
    */
   return (
     <aside className="no-print order-first w-full shrink-0 xl:sticky xl:top-22 xl:order-none xl:w-72">
@@ -999,9 +930,7 @@ function RailRow({
         >
           {title}
         </span>
-        {/* Dos líneas y corta: en una columna de 288 px la frase entera empuja
-            el resto de la lista fuera de la vista, y para elegir basta el
-            principio. El título ya va truncado por el mismo motivo. */}
+        {/* Dos líneas y cortada: en 288 px la frase entera empuja la lista fuera de la vista. */}
         {description && (
           <span className="mt-0.5 block line-clamp-2 text-[11px] leading-snug text-[var(--content-ink-dim)]">
             {description}
@@ -1022,13 +951,9 @@ function RailRow({
   );
 }
 
-// ── Conversiones ──────────────────────────────────────────────
+// Conversiones
 
-/**
- * Módulo de un reporte, deducido de sus gráficas: es de mantenimiento si todas
- * lo son. Un lienzo vacío o uno mezclado cuenta como de tickets, que es el
- * módulo de siempre.
- */
+/** Es de mantenimiento si todas sus gráficas lo son; vacío o mezclado cuenta como de tickets. */
 function reportSourceOf(widgets: ReportWidget[]): ReportSource {
   return widgets.length > 0 && widgets.every((widget) => widget.source === "maintenance")
     ? "maintenance"
@@ -1084,11 +1009,7 @@ const DRILL_FILTERS = new Map<string, TicketDrill>([
   ["created_on_behalf", (key) => ({ onBehalf: key === "on_behalf" })],
 ]);
 
-/**
- * Lo mismo para la lista de órdenes. Solo el tipo de orden tiene filtro en ella;
- * un clic en un equipo o un técnico no hace nada antes que llevar a una lista
- * que no corresponde.
- */
+/** Lo mismo para órdenes: solo el tipo de orden tiene filtro; equipo o técnico no hacen nada. */
 type WorkOrderDrill = (key: string) => WorkOrderListFilters;
 
 const WORK_ORDER_DRILL_FILTERS = new Map<string, WorkOrderDrill>([

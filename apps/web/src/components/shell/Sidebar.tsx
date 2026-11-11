@@ -29,9 +29,8 @@ const NAV_ITEMS = [
 ];
 
 /**
- * `adminOnly` separa lo que lleva RRHH de lo que es del administrador: RRHH se
- * encarga de las altas y bajas de personal, pero el catálogo de áreas define
- * cómo se enruta el trabajo y eso no es suyo (spec §4.3).
+ * RRHH lleva altas y bajas, pero las áreas definen cómo se enruta el trabajo
+ * y son del administrador (spec §4.3).
  */
 const ADMIN_ITEMS = [
   { to: "/administracion/usuarios", label: "Usuarios", adminOnly: false },
@@ -39,13 +38,8 @@ const ADMIN_ITEMS = [
 ];
 
 /**
- * La cabecera de la barra es también su interruptor.
- *
- * Plegada, el logo **es** el botón que la abre: al pasar por encima se convierte
- * en el icono del panel, que es lo que va a pasar al pulsarlo, y no hace falta
- * un tirador suelto en el borde para adivinarlo. Abierta, el logo vuelve a ser
- * logo —el completo, con el nombre— y el icono se va al otro extremo de la
- * fila, donde cierra.
+ * Plegada, el logo es el botón que la abre y al pasar por encima muestra el icono del panel.
+ * Abierta, va el logotipo completo y el icono de cerrar pasa al otro extremo.
  */
 function SidebarHeader({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () => void }) {
   if (collapsed) {
@@ -106,9 +100,8 @@ function useMyOpenCount(): number {
 }
 
 /**
- * Órdenes de trabajo asignadas a esta persona que siguen abiertas: el alcance
- * `mine` del listado ya deja fuera las completadas y canceladas. Solo se pide a
- * quien ve las órdenes; al resto la API le respondería 404.
+ * OT abiertas de esta persona (`mine` ya excluye completadas y canceladas).
+ * Solo se pide a quien ve las órdenes; al resto la API le daría 404.
  */
 function useMyOpenWorkOrderCount(enabled: boolean): number {
   const query = { scope: "mine" as const, limit: 1 };

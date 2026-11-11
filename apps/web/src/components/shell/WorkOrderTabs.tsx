@@ -68,11 +68,7 @@ function useWorkOrderTitle(number: string): string | undefined {
   return data?.title;
 }
 
-/**
- * Las OT no tienen SLA (plan A3), así que la urgencia sale de lo que sí dicen:
- * primero las vencidas, luego las de equipos fuera de servicio y después las
- * demás, de la más reciente a la más antigua.
- */
+/** Las OT no tienen SLA (plan A3): primero vencidas, luego equipos fuera de servicio y el resto por fecha. */
 function byUrgency(items: readonly WorkOrderListItem[]): WorkOrderListItem[] {
   const weight = (item: WorkOrderListItem) => (item.overdue ? 0 : item.outOfService ? 1 : 2);
 

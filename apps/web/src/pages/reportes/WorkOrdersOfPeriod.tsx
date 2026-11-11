@@ -32,12 +32,7 @@ export interface WorkOrderListFilters {
 
 const orderPath = (order: { number: number }) => `/ordenes/${formatWorkOrderNumber(order.number)}`;
 
-/**
- * La lista de debajo de un reporte de mantenimiento: las órdenes que tocaron el
- * período —creadas, completadas o canceladas dentro, y las que siguen abiertas—
- * con el mismo alcance que las gráficas. Es la contraparte de "Tickets del
- * período": abajo se ve lo que arriba se cuenta.
- */
+/** Órdenes que tocaron el período, con el alcance de las gráficas. */
 export function WorkOrdersOfPeriod({
   scope,
   filters,

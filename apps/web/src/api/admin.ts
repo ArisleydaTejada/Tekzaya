@@ -36,7 +36,7 @@ export const adminKeys = {
   areas: ["admin", "areas"] as const,
 };
 
-// ── Personas ──────────────────────────────────────────────────
+// Personas
 
 export async function listUsers(query: Record<string, string> = {}): Promise<AdminUser[]> {
   const search = new URLSearchParams(
@@ -62,7 +62,7 @@ export function createAccessLink(id: string): Promise<AccessLink> {
   return apiFetch(`/users/${id}/access-link`, accessLink, { method: "POST" });
 }
 
-// ── Áreas ─────────────────────────────────────────────────────
+// Áreas
 
 export async function listAdminAreas(): Promise<AdminArea[]> {
   return (await apiFetch("/admin/areas", areasResponse)).items;
@@ -120,7 +120,7 @@ export async function setSupervisors(
   ).items;
 }
 
-// ── Invitación y restablecimiento (sin sesión) ────────────────
+// Invitación y restablecimiento (sin sesión)
 
 export function readAccessLink(
   token: string,

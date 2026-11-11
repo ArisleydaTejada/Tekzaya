@@ -15,10 +15,8 @@ import { AlertIcon, CheckIcon, LockIcon, MailIcon } from "../components/icons";
 type FormStatus = "idle" | "loading" | "error" | "locked" | "success";
 
 /*
- * La plancha de la izquierda es oscura en los dos temas —ahí el contraste es el
- * diseño—, así que su logotipo va en blanco siempre. El de arriba del formulario
- * se posa sobre la placa clara y va en negro. Es el mismo logotipo; lo que
- * cambia es sobre qué se apoya.
+ * La plancha izquierda es oscura en los dos temas, así que su logotipo va siempre en blanco;
+ * el del formulario se posa en la placa clara y va en negro.
  */
 function Wordmark({ size = "md", on, className = "" }: {
   size?: "sm" | "md";

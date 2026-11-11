@@ -25,11 +25,7 @@ const SPAN = new Map([
   [3, "lg:col-span-6"],
 ]);
 
-/**
- * Una tarjeta, una consulta, un esqueleto de carga y un error propios: si una gráfica
- * falla, las demás siguen en pie (spec §7.8.8, rendimiento). La tarjeta KPI se pinta
- * sin marco porque ya lo trae `StatTile`.
- */
+/** Cada tarjeta carga y falla por su cuenta (spec §7.8.8). La KPI va sin marco porque ya lo trae `StatTile`. */
 export function WidgetCard({
   widget,
   scope,

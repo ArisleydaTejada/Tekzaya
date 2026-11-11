@@ -27,10 +27,8 @@ interface RecordTabsProps {
 }
 
 /**
- * Pestañas de registros abiertos, como en un navegador: cada uno que se abre
- * queda a mano arriba para saltar de uno a otro sin volver al listado. Solo se
- * ven en su sección; fuera de ella siguen guardadas y vuelven al regresar. Se
- * reordenan arrastrándolas, o con Alt+Shift+← / → desde el teclado.
+ * Pestañas de registros abiertos; solo se ven en su sección, pero se conservan fuera de ella.
+ * Se reordenan arrastrando o con Alt+Shift+← / →.
  */
 export function RecordTabs({
   basePath,
@@ -52,9 +50,8 @@ export function RecordTabs({
   const param = matchPath(`${basePath}/:number`, pathname)?.params.number;
   const current = param && !notRecords.includes(param) ? param : null;
 
-  // Abrir un registro (desde donde sea) lo suma como pestaña. Solo reacciona al
-  // cambio de ruta, no al de la lista: al cerrar la pestaña activa la lista
-  // cambia antes que la ruta, y mirar ambas volvía a abrir la que se cerraba.
+  // Solo reacciona al cambio de ruta: al cerrar la pestaña activa la lista cambia antes que la ruta,
+  // y mirar ambas volvía a abrir la que se cerraba.
   useEffect(() => {
     if (current) setTabs((prev) => (prev.includes(current) ? prev : [...prev, current]));
   }, [current]);

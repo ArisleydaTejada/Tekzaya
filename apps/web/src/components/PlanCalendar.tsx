@@ -17,7 +17,7 @@ import { AlertIcon, CalendarIcon, CheckIcon, ChevronDownIcon, ClockIcon, FilterI
 import { Plate } from "./Plate";
 import { Popover } from "./Popover";
 
-// ── Fechas ────────────────────────────────────────────────────
+// Fechas
 // Todo son fechas de calendario "YYYY-MM-DD": un preventivo cae un día, no a una hora.
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -107,7 +107,7 @@ function rangeLabel(view: View, anchor: string, from: string, to: string): strin
     : `${format(from, { day: "numeric", month: "short" })} – ${format(to, { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
-// ── Estados y filtros ─────────────────────────────────────────
+// Estados y filtros
 
 const KINDS = ["projected", "open", "completed", "overdue"] as const;
 
@@ -162,13 +162,9 @@ const KIND: Record<
   },
 };
 
-// ── Calendario ────────────────────────────────────────────────
+// Calendario
 
-/**
- * Calendario de preventivos (plan A5): las OT generadas y las rondas que vienen,
- * por mes o por semana. Cada tarjeta lleva el estado en su borde, su icono y su
- * texto, y un menú con lo que se puede hacer desde ella.
- */
+/** Calendario de preventivos (plan A5): OT generadas y rondas por venir, por mes o por semana. */
 export function PlanCalendar({
   plans,
   onEditPlan,
@@ -478,11 +474,7 @@ function subtitleOf(item: CalendarItem): string {
   return `${what} · ${item.order.overdue ? "Vencida" : WORK_ORDER_STATUS_LABEL[item.order.status]}`;
 }
 
-/**
- * Una tarjeta del calendario. El título es el enlace a la orden y su área de
- * pulsación cubre la tarjeta entera; el menú queda por encima para no anidar un
- * botón dentro de un enlace.
- */
+/** El enlace del título cubre la tarjeta; el menú va por encima para no anidar un botón en un enlace. */
 function CalendarCard({ item, actions }: { item: CalendarItem; actions: DropdownItem[] }) {
   const kind = kindOf(item);
   const { Icon } = KIND[kind];

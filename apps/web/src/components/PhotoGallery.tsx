@@ -5,9 +5,8 @@ import { PlusIcon } from "./icons";
 import { Modal } from "./Modal";
 
 /**
- * La portada y, debajo, el resto de las fotos de un equipo o un repuesto. Quien
- * lo gestiona agrega fotos desde aquí sin abrir el formulario; al abrir una en
- * grande puede quitarla o hacerla portada. Cada cambio guarda la lista entera.
+ * Quien gestiona agrega, quita o cambia la portada sin abrir el formulario.
+ * Cada cambio guarda la lista entera.
  */
 export function PhotoGallery({
   name,

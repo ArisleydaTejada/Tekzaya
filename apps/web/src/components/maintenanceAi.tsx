@@ -15,10 +15,8 @@ import { SparkleIcon } from "./icons";
 import { Plate } from "./Plate";
 
 /**
- * Las dos tarjetas de IA del módulo 2 (plan A7). Comparten la regla del plan: **la
- * IA no inventa cifras**. Los números salen del historial y se pueden rastrear
- * hasta órdenes reales; la IA solo redacta o elige casos parecidos. Sin clave o
- * con la función apagada, ninguna de las dos se monta.
+ * Tarjetas de IA del módulo 2 (plan A7). La IA no inventa cifras: salen del historial y enlazan
+ * a órdenes reales. Sin clave o con la función apagada, no se montan.
  */
 
 function useAi() {
@@ -54,13 +52,11 @@ function formatAge(months: number): string {
   return parts.join(" y ");
 }
 
-// ── ¿Reparar o reemplazar? ────────────────────────────────────
+// ¿Reparar o reemplazar?
 
 /**
- * En la ficha del equipo, a pedido: un botón y no al abrir la ficha, para no
- * evaluar cada equipo que alguien mira. Si la regla no lo marca como candidato,
- * el servidor no llama a la IA y se dice así; lo pedido queda en caché unos
- * minutos, así que volver a la ficha muestra la respuesta sin pedirla otra vez.
+ * Se pide con un botón para no evaluar cada equipo que alguien mira. Si no es candidato,
+ * el servidor no llama a la IA; la respuesta queda unos minutos en caché.
  */
 export function ReplacementAdviceCard({ asset }: { asset: Pick<AssetView, "id" | "status" | "permissions"> }) {
   const ai = useAi();
@@ -165,7 +161,7 @@ export function ReplacementAdviceCard({ asset }: { asset: Pick<AssetView, "id" |
   );
 }
 
-// ── Estimación del costo ──────────────────────────────────────
+// Estimación del costo
 
 const MISS_TEXT: Record<RepairEstimateMiss, string> = {
   not_enough_history: "Todavía no hay suficientes reparaciones de este tipo de equipo para estimar.",
@@ -174,9 +170,8 @@ const MISS_TEXT: Record<RepairEstimateMiss, string> = {
 };
 
 /**
- * En una correctiva abierta: el rango sale de las reparaciones pasadas que la IA
- * juzga parecidas, y cada una enlaza a su orden. Se pide con un botón, no al
- * abrir la orden: gasta cuota y no siempre hace falta.
+ * El rango sale de reparaciones pasadas parecidas, cada una enlazada a su orden.
+ * Se pide con un botón: gasta cuota y no siempre hace falta.
  */
 export function RepairEstimateCard({ order }: { order: WorkOrderDetail }) {
   const ai = useAi();

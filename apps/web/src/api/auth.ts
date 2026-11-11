@@ -40,7 +40,7 @@ export function updateMyAvailability(input: UpdateAvailabilityInput): Promise<Me
   });
 }
 
-// ── Mi perfil ───────────────────────────────────────
+// Mi perfil
 
 export function updateMyProfile(input: UpdateProfileInput): Promise<MeResponse> {
   return apiFetch("/me", meResponse, { method: "PATCH", body: JSON.stringify(input) });

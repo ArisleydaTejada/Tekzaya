@@ -35,11 +35,8 @@ import { ReportChart } from "./ReportChart";
 import { allOf, oneOf } from "../../lib/oneOf";
 
 /**
- * El panel del §7.8.3, con vista previa en vivo. La regla que lo gobierna es la del
- * spec: *"si una combinación no tiene sentido, el panel lo indica y deshabilita la
- * opción en lugar de mostrar un error"*. Quien decide qué tiene sentido es
- * `validateWidget`, el mismo que el servidor usa para rechazar: una sola definición de
- * lo posible, en `packages/shared`.
+ * Panel del §7.8.3: lo que no tiene sentido se deshabilita en vez de dar error. Lo decide
+ * `validateWidget` de `packages/shared`, el mismo que usa el servidor.
  */
 export function WidgetEditor({
   widget,

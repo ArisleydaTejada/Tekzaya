@@ -51,10 +51,8 @@ const SUMMARY_BAR: Record<AssetStatus, string> = {
 };
 
 /**
- * Inventario de activos (plan A1). Lista a la izquierda y, a la derecha, el
- * panel de la referencia de diseño: resumen por estado —que también filtra— y
- * los filtros. Lo que entra en la lista lo decide el servidor desde la sesión:
- * el empleado solo recibe los equipos que usa su área o tiene a su cargo.
+ * Inventario de activos (plan A1). El servidor decide qué entra:
+ * el empleado solo recibe los equipos de su área o a su cargo.
  */
 export default function ActivosPage() {
   const { me } = useAuth();

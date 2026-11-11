@@ -4,22 +4,13 @@ import { createPortal } from "react-dom";
 import { formatDateTime, formatSlaDelta, formatSlaDuration } from "../lib/format";
 
 /**
- * El SLA de un ticket, dicho en dos caracteres y explicado al pasar por encima.
- *
- * La ficha solo lleva el margen —"4d", "-4h"—, porque eso es lo que se compara de
- * un vistazo entre veinte filas; el signo basta para saber si se va tarde. Lo
- * demás —qué plazo es, cuándo vence, qué ya se cumplió— vive en la línea de
- * tiempo que se abre encima, que es donde se mira cuando hace falta decidir.
- *
- * Con el ticket entregado el reloj paró: la ficha pasa a dar el veredicto en vez
- * de seguir contando días contra un plazo que ya no corre (spec §5.3).
+ * La ficha lleva solo el margen ("4d", "-4h"); el detalle se abre encima al pasar por ella.
+ * Con el ticket entregado el reloj paró y la ficha da el veredicto (spec §5.3).
  */
 
 /**
- * Lo que hace falta saber del SLA, tomado tal cual del ticket. La ficha del
- * detalle (`ticket.sla`) lo trae entero; una fila del listado no lleva ni la
- * pausa ni el instante de entrega, y por eso los dos últimos son opcionales: con
- * menos datos se enseña menos, no algo distinto.
+ * Una fila del listado no trae pausa ni entrega, por eso son opcionales:
+ * con menos datos se enseña menos, no algo distinto.
  */
 export interface SlaFacts {
   responseDueAt: string;
@@ -102,10 +93,8 @@ export function SlaTimeline({
       : formatSlaDelta(sla.resolutionDueAt);
 
   /*
-   * La tarjeta se dibuja en el `body` y no junto a la ficha porque las tablas
-   * tienen scroll horizontal: dentro de ellas, cualquier cosa que se salga del
-   * borde se recorta. Al salir del recuadro se pierde la referencia, así que la
-   * posición se mide al abrir y se cierra si la página se mueve debajo.
+   * Se dibuja en el `body` porque el scroll horizontal de las tablas la recortaría.
+   * La posición se mide al abrir y se cierra si la página se mueve debajo.
    */
   function show() {
     const box = trigger.current?.getBoundingClientRect();
@@ -165,10 +154,8 @@ export function SlaTimeline({
   ];
 
   /*
-   * El ticket está parado esperando al solicitante. Es un plazo de verdad —al
-   * vencer, el ticket se cierra solo— pero no es del SLA: vencerlo no es
-   * incumplir, así que va en gris y no en rojo. Y se cuenta aparte del tiempo
-   * ya acumulado en pausa, que es un total histórico y no una cuenta atrás.
+   * Esperando al solicitante: al vencer se cierra solo, pero no incumple el SLA, así que va en gris.
+   * Se cuenta aparte de la pausa acumulada, que es un total y no una cuenta atrás.
    */
   if (sla.requesterWaitDueAt) {
     legs.push({

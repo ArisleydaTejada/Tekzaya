@@ -79,7 +79,7 @@ export async function dismissIncident(ticketId: string): Promise<void> {
   });
 }
 
-// ── Módulo 2 (plan A7) ────────────────────────────────────────
+// Módulo 2 (plan A7)
 
 /** `null` si el equipo no es candidato a reemplazo o no hay IA: la tarjeta no se monta. */
 export async function getReplacementAdvice(assetId: string): Promise<ReplacementAdvice | null> {

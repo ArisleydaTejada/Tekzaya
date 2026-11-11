@@ -25,11 +25,7 @@ const coverageOf = (plan: PlanView) =>
     ? `${formatAssetNumber(plan.asset.number)} · ${plan.asset.name}`
     : `Todos los «${ASSET_TYPE_LABEL[plan.assetType!]}» (${plan.coverage})`;
 
-/**
- * Mantenimiento preventivo (plan A5): el calendario del mes con las órdenes
- * generadas y las rondas que vienen, y la lista de planes. Lo ve el área que
- * mantiene los equipos; los planes los gestiona su supervisor.
- */
+/** Mantenimiento preventivo (plan A5). Los planes los gestiona el supervisor del área. */
 export default function PreventivosPage() {
   const [view, setView] = useState<"calendar" | "plans">("calendar");
   const [state, setState] = useState<PlanState>("active");
@@ -126,7 +122,7 @@ export default function PreventivosPage() {
   );
 }
 
-// ── Planes ────────────────────────────────────────────────────
+// Planes
 
 function PlanList({
   plans,

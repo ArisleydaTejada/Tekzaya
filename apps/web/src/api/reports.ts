@@ -67,7 +67,7 @@ export function listReportWorkOrders(
   return apiFetch(`/reports/work-orders${queryString(query)}`, reportWorkOrdersResponse);
 }
 
-// ── Reportes guardados ────────────────────────────────────────
+// Reportes guardados
 
 export async function listSavedReports(): Promise<SavedReport[]> {
   return (await apiFetch("/reports", savedReportList)).items;
@@ -99,12 +99,11 @@ export async function deleteSavedReport(id: string): Promise<void> {
   await sessionFetch(`/reports/${id}`, { method: "DELETE", credentials: "include" });
 }
 
-// ── Descargas ─────────────────────────────────────────────────
+// Descargas
 
 /**
- * El CSV lo arma el servidor con los mismos filtros, el mismo alcance y **todas** las
- * filas, no la página a la vista. Basta con navegar al enlace: la cookie de sesión
- * viaja sola (spec §7.8.9).
+ * El CSV lo arma el servidor con todas las filas, no la página a la vista (spec §7.8.9).
+ * Basta con navegar al enlace: la cookie de sesión viaja sola.
  */
 export function reportTicketsCsvUrl(query: QueryParams): string {
   return `/api/v1/reports/tickets/export${queryString(query)}`;

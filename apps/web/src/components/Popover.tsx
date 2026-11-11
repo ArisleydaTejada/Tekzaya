@@ -2,10 +2,8 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "re
 import { XIcon } from "./icons";
 
 /**
- * Un panel que cuelga de un botón: el selector de mes y los filtros del
- * calendario. Se cierra al pulsar fuera o con Escape, y devuelve el foco al
- * botón. A diferencia de `DropdownMenu`, no va en un portal: vive en una barra
- * de herramientas, no dentro de una tabla que lo recorte.
+ * Se cierra al pulsar fuera o con Escape. A diferencia de `DropdownMenu`, sin portal:
+ * vive en una barra de herramientas, no en una tabla que lo recorte.
  */
 export function Popover({
   label,
@@ -50,9 +48,8 @@ export function Popover({
     };
   }, [open]);
 
-  // Cerrar desde el panel (su botón, Escape o una opción marcada con
-  // `data-popover-close`) devuelve el foco al botón; pulsar fuera no, porque el
-  // foco ya está donde se pulsó.
+  // Cerrar desde el panel devuelve el foco al botón; pulsar fuera no,
+  // porque el foco ya está donde se pulsó.
   const closeFromPanel = (event: MouseEvent<HTMLDivElement>) => {
     if (!(event.target instanceof Element) || !event.target.closest("[data-popover-close]")) return;
     setOpen(false);

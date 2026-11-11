@@ -32,11 +32,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const isAvailable = me.availability.state === "available";
 
   /*
-   * La barra superior es del color de la lateral, no del lienzo: las dos son
-   * cromo y juntas enmarcan el trabajo en forma de L. Pintada como el contenido
-   * parecía el borde de arriba de la página, y el único sitio donde se notaba
-   * que no lo era —la línea de abajo— se confundía con el canto de la primera
-   * tarjeta.
+   * Del color de la barra lateral, no del lienzo: juntas enmarcan el trabajo en L.
+   * Con el color del contenido, su borde inferior se confundía con el de la primera tarjeta.
    */
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--rail-bezel)] bg-[var(--rail-bg)] px-4 sm:px-6">

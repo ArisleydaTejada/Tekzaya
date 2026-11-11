@@ -63,9 +63,8 @@ function draftOf(asset: AssetDetail | null, defaultAreaId: string): Draft {
 const OPTIONAL_TEXT = ["brand", "model", "serial", "usedByAreaId", "custodianId", "purchaseDate", "warrantyUntil"] as const;
 
 /**
- * Alta y edición del activo. Al editar solo viaja lo que cambió, y un campo
- * opcional que se vacía viaja como `null` para que el servidor lo quite: cambiar
- * la ubicación es lo que deja el paso "movido" en la línea de tiempo.
+ * Al editar solo viaja lo que cambió; un opcional vaciado va como `null` para que el servidor lo quite.
+ * Cambiar la ubicación es lo que deja el paso "movido" en la línea de tiempo.
  */
 export function AssetFormModal({
   open,

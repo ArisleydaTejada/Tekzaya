@@ -37,12 +37,7 @@ const COLUMNS_KEY = "tekzaya.reportes.columnas";
 
 type Filters = Partial<ReportTicketFilters>;
 
-/**
- * La lista del §7.8.9: todos los tickets del período y el alcance, **en todos los
- * estados** —también Cerrado, Cancelado y Fusionado, que la lista de trabajo oculta—
- * con filtros avanzados, columnas a elegir y exportación. Comparte alcance y período
- * con las gráficas, así que ambos cuentan siempre lo mismo.
- */
+/** Lista del §7.8.9: los tickets del período en todos los estados, con el alcance de las gráficas. */
 export function TicketsOfPeriod({
   scope,
   filters,
@@ -72,9 +67,7 @@ export function TicketsOfPeriod({
     [scope, filters, page, limit, sort, dir, columns],
   );
 
-  // Cambiar un filtro vuelve a la primera página: la tercera página de otro filtro no
-  // existe, y quedarse ahí es la forma más rápida de creer que no hay resultados. Se
-  // ajusta durante el render y no en un efecto, para no pedir dos veces la misma lista.
+  // Cambiar un filtro vuelve a la primera página; se ajusta en el render para no pedir la lista dos veces.
   const signature = JSON.stringify([clean(filters), scope, limit]);
   const [lastSignature, setLastSignature] = useState(signature);
 
@@ -293,10 +286,8 @@ export function TicketsOfPeriod({
 }
 
 /**
- * Columnas con cabecera pulsable. Las que faltan — solicitante, creado por,
- * área, categoría, encargados, SLA y fusionado con — no son campos del ticket:
- * son nombres de otras colecciones o valores derivados, y ordenar por ellos
- * obligaría a cruzar tablas sobre todo el histórico. Para esas están los filtros.
+ * Las columnas sin orden son nombres de otras colecciones o valores derivados: ordenarlas
+ * exigiría cruzar tablas sobre todo el histórico. Para esas están los filtros.
  */
 function Cell({ row, column }: { row: ReportTicketRow; column: ReportColumn }) {
   switch (column) {
@@ -387,7 +378,7 @@ function Hours({ value }: { value: number | null }) {
   return <span className="tabular text-[var(--content-ink-dim)]">{value.toFixed(1)} h</span>;
 }
 
-// ── Panel de filtros avanzados ────────────────────────────────
+// Panel de filtros avanzados
 
 function FilterPanel({
   filters,
@@ -735,8 +726,6 @@ function ColumnPicker({
   );
 }
 
-// ── Utilidades ────────────────────────────────────────────────
-
 function statusName(status: string): string {
   const known = oneOf(TICKET_STATUSES, status);
 
@@ -800,9 +789,8 @@ const CHIP_LABEL = new Map([
   ["aiPending", "Clasificación pendiente"],
   ["priorityCorrected", "Prioridad corregida"],
   ["merged", "Fusión"],
-  // Filtros por identificador: los pone sobre todo el clic en una gráfica (spec §7.8.2).
-  // Llevan etiqueta pero no valor, porque un `ObjectId` en una chip no dice nada; lo que
-  // importa es que se vea que están puestos y que se puedan quitar de uno en uno.
+  // Filtros por identificador, sobre todo desde una gráfica (spec §7.8.2): la chip no muestra
+  // el `ObjectId`, solo que el filtro está puesto y se puede quitar.
   ["assigneeIds", "Encargado"],
   ["requesterId", "Solicitante"],
   ["createdById", "Creado por"],

@@ -1,7 +1,6 @@
 /**
- * El valor de un control (`<select>`, un id de arrastre, una clave) como uno de los
- * valores conocidos, o `undefined` si no lo es. Sustituye a `value as Tipo`: el tipo
- * sale de comprobarlo contra la lista, no de suponerlo.
+ * Valor de un control como uno de los conocidos, o `undefined`. Sustituye a `value as Tipo`:
+ * el tipo sale de comprobarlo, no de suponerlo.
  */
 export function oneOf<T extends string>(options: readonly T[], value: string | number | null | undefined): T | undefined {
   return options.find((option) => option === value);

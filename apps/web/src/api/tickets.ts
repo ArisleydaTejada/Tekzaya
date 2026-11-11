@@ -55,7 +55,7 @@ export const areaKeys = {
 
 export const settingsKey = ["settings"] as const;
 
-// ── Tickets ───────────────────────────────────────────────────
+// Tickets
 
 export function listTickets(query: Partial<TicketListQuery>): Promise<TicketListResponse> {
   return apiFetch(`/tickets${queryString(query)}`, ticketListResponse);
@@ -88,7 +88,7 @@ export function takeTicket(id: string): Promise<TicketDetail> {
   return apiFetch(`/tickets/${id}/take`, ticketDetail, { method: "POST" });
 }
 
-// ── Movimientos del ticket (F4) ───────────────────────────────
+// Movimientos del ticket (F4)
 
 export function transferTicket(id: string, input: TransferTicketInput): Promise<TicketDetail> {
   return apiFetch(`/tickets/${id}/transfer`, ticketDetail, {
@@ -102,9 +102,8 @@ export async function listDuplicateCandidates(id: string) {
 }
 
 /**
- * Busca por número el ticket con el que fusionar. El servidor comprueba que sea
- * del mismo área, que siga abierto y que esta persona pueda fusionarlos, así que
- * un error aquí ya trae el motivo escrito para enseñarlo tal cual.
+ * El servidor comprueba área, estado y permisos para fusionar; su error ya trae el motivo
+ * para mostrarlo tal cual.
  */
 export async function lookupMergeCandidate(id: string, number: string) {
   return (
@@ -136,7 +135,7 @@ export function requestJoin(id: string, input: JoinRequestInput): Promise<Ticket
   });
 }
 
-// ── Conversación ──────────────────────────────────────────────
+// Conversación
 
 export function listMessages(ticketId: string): Promise<MessageListResponse> {
   return apiFetch(`/tickets/${ticketId}/messages`, messageListResponse);
@@ -149,7 +148,7 @@ export function createMessage(ticketId: string, input: CreateMessageInput): Prom
   });
 }
 
-// ── Adjuntos ──────────────────────────────────────────────────
+// Adjuntos
 
 export function uploadAttachment(file: File): Promise<Attachment> {
   const body = new FormData();
@@ -162,7 +161,7 @@ export function attachmentUrl(id: string): string {
   return `/api/v1/attachments/${id}`;
 }
 
-// ── Catálogos ─────────────────────────────────────────────────
+// Catálogos
 
 export async function listAreas() {
   return (await apiFetch("/areas", areasResponse)).items;
@@ -177,7 +176,7 @@ export async function listAreaWorkload(areaId: string) {
   return (await apiFetch(`/areas/${areaId}/workload`, workloadResponse)).items;
 }
 
-// ── Configuración ─────────────────────────────────────────────
+// Configuración
 
 export function getSettings(): Promise<Settings> {
   return apiFetch("/settings", settingsSchema);

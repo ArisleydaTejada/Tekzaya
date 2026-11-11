@@ -62,10 +62,8 @@ export default function CreateTicketPage() {
   const [assetTouched, setAssetTouched] = useState(false);
 
   /*
-   * "Reportar una falla" desde la ficha de un equipo llega con `?activo=ACT-0012`:
-   * el equipo ya viene elegido y, si no hay área, la suya. Se aplica una sola vez
-   * al llegar —comparando con la última que se aplicó— para que quitarlo a mano
-   * no lo vuelva a poner.
+   * `?activo=ACT-0012` llega desde la ficha del equipo y lo preelige, con su área si no hay otra.
+   * Se aplica una sola vez para que quitarlo a mano no lo vuelva a poner.
    */
   const [searchParams] = useSearchParams();
   const fromAsset = searchParams.get("activo") ?? "";
@@ -98,10 +96,8 @@ export default function CreateTicketPage() {
   }
 
   /*
-   * El equipo, deducido de lo que se escribe (sin IA): "ACT-0012" lo nombra
-   * directamente; "la impresora no imprime" busca impresoras entre las que
-   * puede vincular quien reporta. Si una sola es suya o de su área, se elige
-   * sola; si hay varias, se ofrecen esas para escoger.
+   * Equipo deducido del texto, sin IA: "ACT-0012" lo nombra y "la impresora" busca entre los vinculables.
+   * Si uno solo es suyo o de su área, se elige solo; si hay varios, se ofrecen.
    */
   const mentionedNumber = mentionedAssetNumber(`${title} ${description}`);
   const mentionedType = detectAssetType(title, description);
@@ -135,19 +131,14 @@ export default function CreateTicketPage() {
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
   const aiSuggests = Boolean(ai?.configured && ai.enabled.suggestArea);
 
-  // Con menos de 20 caracteres no hay nada que preguntar. Se decide al pintar,
-  // no corrigiendo el estado después: así borrar el texto esconde la sugerencia
-  // en el mismo render, sin un parpadeo intermedio.
+  // Con menos de 20 caracteres no se sugiere nada. Se decide al pintar y no corrigiendo el estado,
+  // para que borrar el texto la esconda en el mismo render.
   const longEnough = `${title} ${description}`.trim().length >= 20;
   const visibleSuggestion = longEnough ? suggestion : null;
 
   /**
-   * IA-1, y solo cuando alguien lo pide. La cuota gratuita de Gemini se agota
-   * rápido si cada pausa al teclear cuesta una llamada, así que el modelo no
-   * opina hasta que se pulsa el botón (spec §6.3).
-   *
-   * Lo que devuelve se escribe en los dos desplegables: quien pulsó pidió
-   * exactamente eso, y cambiarlos después sigue siendo un clic.
+   * IA-1 solo a petición: la cuota gratuita de Gemini no aguanta una llamada por pausa al teclear
+   * (spec §6.3). El resultado se escribe en los dos desplegables.
    */
   function classifyWithAi() {
     setAiError(null);
@@ -737,9 +728,8 @@ interface MentionChoice {
 const NO_MENTION: MentionChoice = { pick: null, candidates: [] };
 
 /**
- * De los equipos que casan con lo escrito, el que se elige solo: el único que
- * tiene a su cargo quien reporta o, si no, el único que usa su área. Con
- * varios en el primer grupo que tenga alguno, se ofrecen esos para escoger.
+ * Se elige solo el único equipo a cargo de quien reporta o, si no, el único de su área.
+ * Si hay varios en el primer grupo con alguno, se ofrecen para escoger.
  */
 function chooseMentioned(items: readonly AssetPickerItem[]): MentionChoice {
   for (const group of ["custodian", "area", "other"] as const) {

@@ -9,9 +9,8 @@ import { LogoLockup } from "../components/Logo";
 import { AlertIcon, CheckIcon } from "../components/icons";
 
 /**
- * La pantalla a la que lleva el enlace que reparte el administrador. Sirve para
- * las dos cosas —estrenar la cuenta y cambiar una contraseña olvidada— porque el
- * formulario es el mismo y solo cambia lo que se cuenta alrededor (spec §7.7).
+ * Destino del enlace del administrador: estrenar la cuenta o cambiar una contraseña olvidada
+ * (spec §7.7). El formulario es el mismo; solo cambia el texto alrededor.
  */
 export default function AccessLinkPage({ purpose }: { purpose: "invite" | "reset" }) {
   const [params] = useSearchParams();

@@ -23,11 +23,7 @@ import { oneOf } from "../lib/oneOf";
 const PAGE_SIZE = 25;
 const partPath = (part: { number: number }) => `/repuestos/${formatSparePartNumber(part.number)}`;
 
-/**
- * Almacén de repuestos (plan A4): qué hay, cuánto vale y qué hay que reponer.
- * Cada área ve el suyo; RRHH y el administrador, todos. Lo que está bajo
- * mínimo se marca con texto e icono, y el resumen de la derecha también filtra.
- */
+/** Almacén de repuestos (plan A4). Cada área ve el suyo; RRHH y el administrador, todos. */
 export default function RepuestosPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();

@@ -75,16 +75,8 @@ export function StatusBadge({ status }: { status: TicketStatus }) {
 }
 
 /**
- * El SLA de un ticket entregado es un veredicto, no una cuenta atrás.
- *
- * Mientras el ticket vive, los tres colores de siempre avisan de lo que está por
- * vencer. En cuanto se entrega, el reloj paró y solo queda decir si se cumplió
- * —información de archivo, en gris— o si no, que sigue en rojo porque es lo que
- * hay que revisar. Un ticket cerrado a tiempo hace dos meses no tiene por qué
- * seguir pintado de verde ni, mucho menos, acumulando días de retraso.
- *
- * Cancelar o fusionar no es incumplir: ese ticket nunca tuvo que resolverse, así
- * que no recibe veredicto, solo la constancia de que ya no corre.
+ * Entregado, el SLA es un veredicto: cumplido en gris, incumplido en rojo, sin seguir contando días.
+ * Cancelar o fusionar no es incumplir: no hay veredicto, solo constancia de que ya no corre.
  */
 export function SlaTag({
   state,

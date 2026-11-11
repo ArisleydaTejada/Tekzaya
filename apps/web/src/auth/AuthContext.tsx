@@ -15,10 +15,8 @@ const AuthContext = createContext<AuthValue | null>(null);
 export const ME_QUERY_KEY = ["me"] as const;
 
 /**
- * Cada cuánto se renueva la cookie de acceso, que dura 15 minutos. Con margen,
- * para que no caduque nunca mientras la aplicación está abierta: los enlaces de
- * descarga, los adjuntos, las fotos y el tiempo real usan la cookie directamente
- * y no pueden reintentar después de un 401 como hace `apiFetch`.
+ * Con margen sobre los 15 minutos de la cookie: descargas, adjuntos, fotos y tiempo real
+ * la usan directamente y no pueden reintentar tras un 401 como `apiFetch`.
  */
 const RENEW_EVERY_MS = 10 * 60 * 1000;
 

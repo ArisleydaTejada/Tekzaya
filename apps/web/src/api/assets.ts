@@ -68,7 +68,7 @@ export function assetsCsvUrl(query: QueryParams): string {
   return `/api/v1/assets/export${queryString(query)}`;
 }
 
-// ── Ticket ↔ equipo (plan A2) ─────────────────────────────────
+// Ticket ↔ equipo (plan A2)
 
 export function listAssetLinkOptions(query: Partial<AssetPickerQuery>): Promise<AssetPickerResponse> {
   return apiFetch(`/assets/link-options${queryString(query)}`, assetPickerResponse);

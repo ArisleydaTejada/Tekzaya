@@ -53,10 +53,8 @@ const VIEW_LABEL: Record<View, string> = {
 const OPEN_STATUSES: WorkOrderStatus[] = ["pending", "assigned", "in_progress", "on_hold"];
 
 /**
- * Ficha del activo (plan A1): una cabecera con quién es el equipo, dónde está y
- * cómo está, y debajo un resumen para el área que lo mantiene —estado, fallas que
- * se repiten, la orden en curso y lo último que se le hizo—. El empleado ve su
- * equipo y su estado —para poder reportar una falla—, no su historia ni lo que costó.
+ * Ficha del activo (plan A1). El área que lo mantiene ve el resumen completo;
+ * el empleado solo ve el equipo y su estado, para poder reportar una falla.
  */
 export default function ActivoDetailPage() {
   const { number = "" } = useParams();
@@ -251,7 +249,7 @@ export default function ActivoDetailPage() {
   );
 }
 
-// ── Cabecera ──────────────────────────────────────────────────
+// Cabecera
 
 /** Quién es, dónde está y cómo está: lo que se busca al abrir la ficha, de un vistazo. */
 function AssetHeader({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: AssetDetail) => Promise<void> }) {
@@ -331,7 +329,7 @@ function WarrantyAlert({ asset }: { asset: AssetDetail }) {
   );
 }
 
-// ── Fotos ─────────────────────────────────────────────────────
+// Fotos
 
 /** Las fotos del equipo; cada cambio guarda la lista entera. */
 function AssetPhotos({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: AssetDetail) => Promise<void> }) {
@@ -357,7 +355,7 @@ function AssetPhotos({ asset, onSaved }: { asset: AssetDetail; onSaved: (saved: 
   );
 }
 
-// ── Resumen ───────────────────────────────────────────────────
+// Resumen
 
 const DAY_MS = 86_400_000;
 
@@ -382,9 +380,8 @@ function statusAfter(event: AssetEventView): AssetStatus | undefined {
 }
 
 /**
- * Qué parte de los últimos `days` días estuvo el equipo fuera de reparación, en
- * tiempo de calendario (los reportes miden la parada en horas laborables: esto es
- * la foto rápida de la ficha). `null` si el equipo es demasiado nuevo para decir algo.
+ * Parte de los últimos `days` días que estuvo fuera de reparación, en tiempo de calendario.
+ * `null` si el equipo es demasiado nuevo.
  */
 function availability(events: readonly AssetEventView[], createdAt: string, days: number): number | null {
   const now = Date.now();
@@ -764,7 +761,7 @@ function TechnicianNotes({ events }: { events: readonly AssetEventView[] }) {
   );
 }
 
-// ── Orden activa ──────────────────────────────────────────────
+// Orden activa
 
 /**
  * La orden abierta más reciente, con su lista de verificación a mano: quien la
@@ -1075,7 +1072,7 @@ function ActiveWorkOrderCard({ order, others, onShowAll }: { order: WorkOrderDet
   );
 }
 
-// ── Órdenes del equipo ────────────────────────────────────────
+// Órdenes del equipo
 
 function AssetWorkOrders({ assetId }: { assetId: string }) {
   const query = { assetId, sort: "number", dir: "desc", limit: 100 } as const;
@@ -1219,7 +1216,7 @@ function Item({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// ── Línea de tiempo ───────────────────────────────────────────
+// Línea de tiempo
 
 const EVENT_DOT: Record<AssetEventKind, string> = {
   created: "bg-accent",
@@ -1305,10 +1302,8 @@ function Timeline({ assetId }: { assetId: string }) {
     queryFn: () => listAssetEvents(assetId),
   });
 
-  // Cada avería deja cuatro pasos: falla, fuera de servicio, reparación y vuelta
-  // a operativo. Los cambios de estado de una OT se pliegan en su falla o su
-  // reparación ("dejó el equipo fuera de servicio"), y la historia se lee en la
-  // mitad de líneas sin perder nada.
+  // Los cambios de estado de una OT se pliegan en su falla o su reparación:
+  // la historia se lee en la mitad de líneas sin perder nada.
   const all = data?.items ?? [];
 
   const folded = new Set(
@@ -1402,7 +1397,7 @@ function Timeline({ assetId }: { assetId: string }) {
   );
 }
 
-// ── Baja ──────────────────────────────────────────────────────
+// Baja
 
 function RetireModal({
   open,

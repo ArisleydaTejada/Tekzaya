@@ -38,9 +38,8 @@ type ViewMode = "lista" | "grupos" | "kanban";
 const orderPath = (order: { number: number }) => `/ordenes/${formatWorkOrderNumber(order.number)}`;
 
 /**
- * Órdenes de trabajo (plan A3), con las tres vistas de los tickets. El kanban
- * no arrastra: cada cambio de estado de una OT pide algo —qué falta para
- * seguir, las notas del trabajo—, así que se mueve desde su ficha.
+ * El kanban no arrastra: cada cambio de estado de una OT pide datos,
+ * así que se hace desde su ficha.
  */
 export default function OrdenesPage() {
   const [params] = useSearchParams();

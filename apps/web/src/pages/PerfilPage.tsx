@@ -26,11 +26,7 @@ import { CheckIcon } from "../components/icons";
 import { formatWhen } from "../lib/format";
 import { oneOf } from "../lib/oneOf";
 
-/**
- * «Administrar perfil»: lo que cada persona decide de sí misma. El área, el rol
- * y el correo se muestran pero no se editan — los lleva quien administra, y
- * dejarlos aquí haría creer que se pueden cambiar pidiéndolo a la pantalla.
- */
+/** Área, rol y correo se muestran sin editar: los lleva quien administra. */
 export default function PerfilPage() {
   const { me } = useAuth();
 

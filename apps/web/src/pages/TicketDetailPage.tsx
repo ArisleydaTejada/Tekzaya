@@ -82,9 +82,8 @@ import { oneOf } from "../lib/oneOf";
 
 /** Estados a los que se puede saltar desde el desplegable; el servidor valida el resto. */
 /**
- * Estados a los que se puede pasar al enviar. Repite, para estos tres destinos,
- * las transiciones de `ALLOWED_TRANSITIONS` en la API (`ticket.lifecycle.ts`):
- * así el menú no ofrece lo que el servidor rechazaría.
+ * Repite `ALLOWED_TRANSITIONS` de la API (`ticket.lifecycle.ts`) para no ofrecer
+ * lo que el servidor rechazaría.
  */
 const SEND_AS_TARGETS = ["in_progress", "on_hold", "resolved"] as const satisfies readonly TicketStatus[];
 
@@ -234,9 +233,7 @@ export default function TicketDetailPage() {
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   const [workOrderOpen, setWorkOrderOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  // La sugerencia se guarda junto al borrador para el que se pidió. Si la
-  // persona sigue escribiendo, deja de coincidir y desaparece sola al pintar:
-  // no hace falta un efecto que la limpie, ni puede quedarse una obsoleta.
+  // La sugerencia va ligada al borrador que la pidió: si el texto cambia, desaparece sola al pintar.
   const [ghostFor, setGhostFor] = useState<{ draft: string; text: string } | null>(null);
 
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
@@ -271,10 +268,8 @@ export default function TicketDetailPage() {
   });
 
   /*
-   * «Enviar como …»: manda la respuesta y mueve el ticket en un solo gesto.
-   * Resolver exige una nota pública; si lo escrito sirve (pública, con al menos
-   * 3 letras) esa misma respuesta —con sus adjuntos— es la nota y no se
-   * duplica. Si no, se envía el mensaje y se abre el modal para escribirla.
+   * Resolver exige nota pública: si la respuesta sirve (pública, 3 letras o más) es la nota;
+   * si no, se envía y se abre el modal para escribirla.
    */
   const sendAs = useMutation({
     mutationFn: async (status: TicketStatus): Promise<"done" | "needs-note"> => {
@@ -392,12 +387,7 @@ export default function TicketDetailPage() {
     onError: (error) => setFileError(error.message),
   });
 
-  /*
-   * IA-4, a petición. Antes se preguntaba sola tras 600 ms de pausa al teclear,
-   * que es una llamada por frase escrita y media cuota diaria en una tarde. Ahora
-   * la continuación la pide el botón «Sugerir» del redactor, o Ctrl+Espacio para
-   * quien no quiera soltar el teclado (spec §6.3).
-   */
+  /* IA-4 solo a petición («Sugerir» o Ctrl+Espacio): preguntar en cada pausa gastaba la cuota (spec §6.3). */
   const aiCompletes = Boolean(ai?.configured && ai.enabled.autocomplete);
   const ticketId = ticket?.id;
   const canGhost = Boolean(ticket?.permissions.viewInternalNotes);
@@ -493,9 +483,7 @@ export default function TicketDetailPage() {
                   </span>
                 )}
                 <PriorityBadge priority={ticket.priority} />
-                {/* El margen del SLA, en ficha: "-4h" dice más rápido que
-                    "Resolución hace 4 h" que se va tarde, y el detalle de cada
-                    plazo se abre al pasar por encima. */}
+                {/* El margen del SLA en ficha ("-4h"); el detalle de cada plazo se abre al pasar por encima. */}
                 <SlaTimeline sla={ticket.sla} status={ticket.status} />
               </div>
             </div>
@@ -897,9 +885,7 @@ export default function TicketDetailPage() {
               </div>
             )}
 
-            {/* Este ticket es el principal: de cada duplicado se muestra la
-                ficha, no solo el número. Quien atiende tiene que saber quién lo
-                reportó y qué contaba sin abrir otra pestaña (spec §7.5.1). */}
+            {/* De cada duplicado se muestra la ficha, no solo el número, para no abrir otra pestaña (spec §7.5.1). */}
             <ul className="space-y-2">
               {ticket.mergedTickets.map((merged) => (
                 <li
@@ -1009,13 +995,8 @@ export default function TicketDetailPage() {
 
 
 /**
- * IA-3, a petición. El panel no pide nada al abrirse el ticket: mientras nadie
- * pulse «Ver resumen del ticket» no se gasta ni una llamada al modelo, que es
- * justo lo que hace sostenible la cuota gratuita (spec §6.3).
- *
- * Una vez pedido, el resumen guardado en el ticket se reutiliza hasta que la
- * conversación avanza tres mensajes; «Regenerar» fuerza uno nuevo. Si no llega
- * ninguno, el panel lo dice y no pasa nada más.
+ * IA-3 solo a petición, para cuidar la cuota gratuita (spec §6.3). El resumen se reutiliza
+ * hasta que la conversación avanza tres mensajes; «Regenerar» fuerza uno nuevo.
  */
 function SummaryPanel({ ticketId }: { ticketId: string }) {
   const queryClient = useQueryClient();
@@ -1105,9 +1086,7 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
     return (
       <li className="flex justify-center">
         <span className="rounded-full bg-[var(--content-bg)] px-3 py-1 text-[11px] text-[var(--content-ink-dim)]">
-          {/* La conversación del principal incluye los eventos de los duplicados
-              que absorbió. Sin decir de cuál viene, un «Este ticket se fusionó
-              con…» leído aquí parece hablar del que se está mirando. */}
+          {/* Incluye eventos de los duplicados absorbidos; sin decir de cuál vienen, parecerían de este ticket. */}
           {message.fromTicket && (
             <span className="font-display tabular">
               {formatTicketNumber(message.fromTicket.number)} ·{" "}
@@ -1122,13 +1101,8 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
   const internal = message.type === "internal";
 
   /*
-   * Lo propio va a la derecha y con color; lo de los demás, a la izquierda y en
-   * gris. Es la gramática de cualquier conversación, y ahorra leer el nombre
-   * para saber quién habla.
-   *
-   * La nota interna no entra en ese reparto de color: es amarilla porque el
-   * solicitante no la lee, y esa advertencia pesa más que saber de quién es. Lo
-   * propio se reconoce igual por el lado, que es lo que el ojo mira primero.
+   * Lo propio a la derecha y con color; lo ajeno a la izquierda y en gris. La nota interna va
+   * en amarillo porque el solicitante no la lee, y eso pesa más que el autor.
    */
   const mine = Boolean(message.author && message.author.id === meId);
   const own = mine && !internal;
@@ -1252,12 +1226,11 @@ function label(status?: string): string {
   return known ? TICKET_STATUS_LABEL[known] : (status ?? "");
 }
 
-// ── Equipo afectado (plan A2) ─────────────────────────────────
+// Equipo afectado (plan A2)
 
 /**
- * La tarjeta del equipo y lo que salió de él: sus últimas averías (solo para el
- * área que lo mantiene) y las órdenes de trabajo del ticket. Sin equipo, a quien
- * puede vincular uno se le ofrece un enlace; al resto no se le muestra nada.
+ * Las averías del equipo solo las ve el área que lo mantiene. Sin equipo,
+ * a quien puede vincularlo se le ofrece un enlace.
  */
 function AssetCard({
   ticket,
@@ -1450,11 +1423,7 @@ function AssetCard({
   );
 }
 
-/**
- * Convertir el ticket en una OT correctiva. La pregunta del estado del equipo no
- * trae respuesta marcada: de ella depende si empieza a contar tiempo de parada,
- * y un "sí" por defecto inflaría la parada en los reportes.
- */
+/** El estado del equipo no trae respuesta marcada: un "sí" por defecto inflaría la parada en los reportes. */
 function WorkOrderModal({
   open,
   onClose,
@@ -1641,11 +1610,7 @@ function ResolvedPanel({
   );
 }
 
-/**
- * Encuesta de satisfacción (spec §7.6). Aparece al solicitante cuando el ticket pasa
- * a *Resuelto* y desaparece en cuanto responde o el ticket se cierra: el servidor
- * manda `answerCsat` ya resuelto, así que esta pantalla no decide cuándo mostrarla.
- */
+/** Encuesta (spec §7.6): el servidor manda `answerCsat` ya resuelto; aquí no se decide cuándo mostrarla. */
 function CsatPanel({ ticket, onAnswered }: { ticket: TicketDetail; onAnswered: () => Promise<void> }) {
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);

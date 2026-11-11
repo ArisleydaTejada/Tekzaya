@@ -9,10 +9,8 @@ const OPTIONS: { id: MemberOrder; label: string }[] = [
 ];
 
 /**
- * Devuelve una copia ordenada. "Carga" es la ponderada por prioridad, la misma
- * que pinta la barra y decide la sugerencia; el empate se rompe por número de
- * tickets y después por nombre, igual que el reparto automático. Quien está
- * ausente va siempre al final: aparece, pero no se le puede asignar.
+ * Por carga ponderada, luego número de tickets y nombre, igual que el reparto automático.
+ * Los ausentes van al final: aparecen, pero no se les puede asignar.
  */
 export function sortMembers(members: AreaWorkloadMember[], order: MemberOrder) {
   const byName = (a: AreaWorkloadMember, b: AreaWorkloadMember) =>

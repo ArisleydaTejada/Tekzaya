@@ -42,14 +42,8 @@ function listen<T>(socket: Socket, event: string, schema: z.ZodType<T>, handle: 
 }
 
 /**
- * El socket se abre una vez por sesión y vive en la raíz de la aplicación. Lo que
- * llega por él **no se pinta**: se usa para invalidar la caché de TanStack Query y
- * que la pantalla vuelva a pedir los datos por la API, que es la que filtra por
- * permisos. Así un evento mal dirigido no puede mostrar nada que la API no daría.
- *
- * La única excepción son las notificaciones: el evento ya trae la notificación
- * entera, dirigida a la sala privada de esa persona, y añadirla a la caché evita un
- * viaje de ida y vuelta justo cuando lo que importa es que la campana reaccione ya.
+ * Lo que llega por el socket no se pinta: invalida la caché y los datos vuelven por la API,
+ * que filtra permisos. Las notificaciones sí entran directas: ya vienen a la sala privada.
  */
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { me } = useAuth();
@@ -75,9 +69,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     });
     socket.on("disconnect", () => setConnected(false));
-    // Un rechazo del servidor (cookie caducada, p. ej. tras suspender el equipo) no
-    // se reintenta solo: se renueva la sesión y se vuelve a conectar. Si no se puede
-    // renovar, `apiFetch` ya llevará al inicio de sesión en la próxima petición.
+    // Un rechazo del servidor (cookie caducada) no se reintenta solo: se renueva la sesión y se reconecta.
     socket.on("connect_error", (error) => {
       if (socket.active || error.message !== "unauthenticated") return;
       void refreshSession().then((renewed) => {

@@ -45,11 +45,7 @@ const linesOf = (text: string) =>
     .map((line) => line.trim())
     .filter(Boolean);
 
-/**
- * Alta y edición de un plan preventivo (plan A5). Lo que cubre el plan —un
- * equipo, o todos los de un tipo en un área— se elige al darlo de alta y no
- * cambia después: otro equipo es otro plan.
- */
+/** Plan preventivo (plan A5). Lo que cubre se elige al darlo de alta y no cambia: otro equipo es otro plan. */
 export function PlanFormModal({
   open,
   plan,

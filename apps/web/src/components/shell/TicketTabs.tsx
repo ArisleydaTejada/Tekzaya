@@ -63,9 +63,8 @@ function useTicketTitle(number: string): string | undefined {
 }
 
 /**
- * Primero lo que tiene de responsable a quien busca, luego lo demás abierto,
- * cada grupo por urgencia (el orden `sla` del servidor); al buscar suma al final
- * lo ya terminado.
+ * Primero lo que tiene de responsable a quien busca, luego el resto abierto, por urgencia (orden `sla`).
+ * Al buscar, suma al final lo ya terminado.
  */
 function useTicketSections(search: string, open: boolean): PickerResult<TicketListItem> {
   const base: Partial<TicketListQuery> = { limit: 20, sort: "sla", q: search || undefined };

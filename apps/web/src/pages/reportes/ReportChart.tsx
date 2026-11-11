@@ -28,11 +28,7 @@ import { ChartIcon } from "../../components/icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { formatAxis, formatValue, hoverCursor, readChartTheme, tooltipStyle, trendOf } from "./chartTheme";
 
-/**
- * Una gráfica, los once tipos del spec §7.8.6. El servidor manda filas ya agrupadas y
- * etiquetadas, así que aquí no se calcula nada: solo se elige la forma. Es lo que
- * permite que la misma consulta alimente una dona o una tabla sin tocar el backend.
- */
+/** Los once tipos del spec §7.8.6. El servidor manda las filas ya agrupadas; aquí solo se elige la forma. */
 export function ReportChart({
   widget,
   result,
@@ -46,10 +42,8 @@ export function ReportChart({
   onSelect?: (key: string) => void;
 }) {
   /**
-   * Recharts reenvía el dato de la barra o la porción pulsada, pero cada tipo de
-   * gráfica lo envuelve a su manera —una barra llega plana, una porción dentro de
-   * `payload`— y lo tipa con su propia forma. La clave del grupo viaja como `groupKey`
-   * (`key` lo reserva React) y se busca en los tres sitios posibles.
+   * Cada tipo de Recharts envuelve el dato pulsado a su manera; `groupKey` (porque `key` es de React)
+   * se busca en los tres sitios posibles.
    */
   const clickHandler = onSelect
     ? {
@@ -62,9 +56,7 @@ export function ReportChart({
       }
     : {};
 
-  // Los colores son tokens de CSS, así que se vuelven a leer en cada render: cambiar de
-  // tema repinta la gráfica sin tener que invalidar nada. Son siete lecturas sobre
-  // `:root`, y este componente solo se renderiza cuando cambian sus props o el tema.
+  // Los colores son tokens de CSS y se releen en cada render: cambiar de tema repinta sin invalidar nada.
   const { theme: mode } = useTheme();
   const theme = readChartTheme(mode);
   const units = result.measures.map((measure) => measure.unit);
@@ -407,7 +399,7 @@ function groupKeyOf(entry: ClickedEntry): string | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
-// ── Pivotes ───────────────────────────────────────────────────
+// Pivotes
 
 /** Una fila por grupo, con una columna por medida (`m0`, `m1`…). */
 function seriesData(result: ReportQueryResult) {
@@ -459,7 +451,7 @@ function stackedData(result: ReportQueryResult): StackedData {
   return { data, splits: rest.length ? [...visible, "Otros"] : visible };
 }
 
-// ── Tipos que no son de Recharts ──────────────────────────────
+// Tipos que no son de Recharts
 
 function Kpi({ widget, result }: { widget: ReportWidget; result: ReportQueryResult }) {
   const measure = result.measures[0]!;
@@ -582,11 +574,7 @@ function Segmented({
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-/**
- * Mapa de calor día × hora. Las claves vienen del servidor como `"3-14"` (miércoles a
- * las dos), así que la cuadrícula se arma con ellas y solo se pintan las horas en las
- * que hubo algo: un día laborable de ocho horas no necesita 24 columnas vacías.
- */
+/** Claves del servidor como `"3-14"` (día-hora); solo se pintan las horas con datos. */
 function Heatmap({ result, color }: { result: ReportQueryResult; color: string }) {
   const values = new Map<string, number>();
   let max = 0;

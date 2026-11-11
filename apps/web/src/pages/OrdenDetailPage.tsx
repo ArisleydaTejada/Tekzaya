@@ -68,9 +68,8 @@ type Dialog = "assign" | "hold" | "complete" | "cancel" | "resolveTicket" | null
 type OriginTicket = NonNullable<WorkOrderDetail["ticket"]>;
 
 /**
- * Resuelve el ticket de origen desde la OT. Si quien hizo el trabajo no es
- * responsable del ticket, primero lo toma: resolver es de los responsables, y
- * así el ticket dice quién lo resolvió. Devuelve la OT con el ticket al día.
+ * Si quien trabajó no es responsable del ticket, primero lo toma para que el ticket diga
+ * quién lo resolvió. Devuelve la OT con el ticket al día.
  */
 async function resolveOriginTicket(order: WorkOrderDetail, ticket: OriginTicket, note: string): Promise<WorkOrderDetail> {
   if (ticket.takeFirst) await takeTicket(ticket.id);
@@ -79,11 +78,7 @@ async function resolveOriginTicket(order: WorkOrderDetail, ticket: OriginTicket,
   return { ...order, ticket: { ...ticket, status: "resolved", canResolve: false, takeFirst: false } };
 }
 
-/**
- * Ficha de la orden de trabajo (plan A3): el trabajo técnico con su costo real.
- * Quien la atiende registra repuestos y servicios externos, y la mueve de
- * estado; el costo se recalcula en el servidor y aquí solo se muestra.
- */
+/** Ficha de la OT (plan A3). El costo lo recalcula el servidor; aquí solo se muestra. */
 export default function OrdenDetailPage() {
   const { number = "" } = useParams();
   const queryClient = useQueryClient();
@@ -366,7 +361,7 @@ export default function OrdenDetailPage() {
   );
 }
 
-// ── Lista de verificación ─────────────────────────────────────
+// Lista de verificación
 
 function Checklist({
   order,
@@ -406,7 +401,7 @@ function Checklist({
   );
 }
 
-// ── Costo ─────────────────────────────────────────────────────
+// Costo
 
 function CostCard({ order }: { order: WorkOrderDetail }) {
   const money = (cents: number) => formatMoney(cents, order.currency);
@@ -438,7 +433,7 @@ function CostCard({ order }: { order: WorkOrderDetail }) {
   );
 }
 
-// ── Secciones de carga ────────────────────────────────────────
+// Secciones de carga
 
 function Section({ title, total, children }: { title: string; total?: string; children: ReactNode }) {
   return (
@@ -526,12 +521,8 @@ function partRows(order: WorkOrderDetail): PartRow[] {
 }
 
 /**
- * Los repuestos de la orden en una sola lista. **Prever** anota lo que hará falta
- * sin tocar el almacén, para saber antes de ir si hay; **Usar** lo consume y lo
- * suma al costo, al costo de ese día. En la base siguen siendo dos cosas
- * —prever no descuenta—, pero se miran juntas: de cada pieza, cuánto se previó,
- * cuánto se usó y si alcanza lo que queda. Devolver lo usado y dejar de preverlo
- * son acciones separadas, para no mezclar "no se usó" con "ya no hace falta".
+ * "Prever" anota lo que hará falta sin tocar el almacén; "Usar" lo consume y suma al costo del día.
+ * Son dos cosas en la base pero se miran juntas; devolver y dejar de prever siguen separados.
  */
 function PartsSection({ order, editable, onSaved }: SectionProps) {
   const [partId, setPartId] = useState("");
@@ -728,9 +719,8 @@ function centsOf(text: string): number {
 const minutesOf = (hours: string, minutes: string) => (Number(hours) || 0) * 60 + (Number(minutes) || 0);
 
 /**
- * Lo que se paga fuera de la empresa: la única mano de obra que cuesta. El
- * proveedor cobra un precio cerrado (las horas, si se anotan, son un dato) o
- * por hora, y entonces el total lo calcula el servidor.
+ * Servicios externos, la única mano de obra que cuesta: precio cerrado o por hora,
+ * y en ese caso el total lo calcula el servidor.
  */
 function ExternalSection({ order, editable, onSaved }: SectionProps) {
   const [vendor, setVendor] = useState("");
@@ -918,7 +908,7 @@ function ExternalSection({ order, editable, onSaved }: SectionProps) {
   );
 }
 
-// ── Diálogos ──────────────────────────────────────────────────
+// Diálogos
 
 interface DialogProps {
   open: boolean;
@@ -1062,10 +1052,8 @@ function HoldModal({ open, order, onClose, onSaved }: DialogProps) {
 }
 
 /**
- * Completar puede resolver también el ticket de origen, en el mismo paso: si no,
- * el ticket se queda abierto y el solicitante lo sigue viendo pendiente. Son dos
- * peticiones —la orden y luego el ticket, con sus propias reglas—, así que si la
- * segunda falla la orden queda completada y se dice qué pasó con el ticket.
+ * Completar puede resolver también el ticket de origen. Son dos peticiones: si falla la segunda,
+ * la orden queda completada y se dice qué pasó con el ticket.
  */
 function CompleteModal({
   open,

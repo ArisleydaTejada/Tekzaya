@@ -2,14 +2,8 @@ import type { MeasureUnit } from "@tekzaya/shared";
 import type { CSSProperties } from "react";
 
 /**
- * Los colores viven en `index.css` como tokens, uno por tema, y aquí solo se leen: así
- * una gráfica nunca se queda con el color del tema anterior al cambiar de claro a
- * oscuro, y el sistema de diseño sigue teniendo un único sitio donde cambiarlos.
- *
- * Los valores de respaldo existen porque `getComputedStyle` devuelve cadena vacía
- * cuando el token no está resuelto —en una prueba sin hoja de estilos, o en el primer
- * pintado antes de que se aplique el tema— y una gráfica sin color es una gráfica
- * ilegible, no una gráfica con el color por defecto.
+ * Los colores se leen de los tokens de `index.css` para seguir al tema. Los respaldos cubren
+ * el `getComputedStyle` vacío antes de aplicar el tema o en pruebas sin estilos.
  */
 export interface ChartTheme {
   categorical: string[];
@@ -74,22 +68,14 @@ export function tooltipStyle(theme: ChartTheme): CSSProperties {
   };
 }
 
-/**
- * El resalte al pasar el ratón. El de Recharts es un gris claro fijo (`#ccc`) que en
- * el tema oscuro se ve como un bloque blanco; este sale del color de la cuadrícula, así
- * que marca la columna sin taparla en ninguno de los dos temas.
- */
+/** El resalte de Recharts (`#ccc`) es un bloque blanco en oscuro; este sale del color de la cuadrícula. */
 export function hoverCursor(theme: ChartTheme, kind: "band" | "line") {
   return kind === "band"
     ? { fill: theme.grid, fillOpacity: 0.45 }
     : { stroke: theme.axis, strokeOpacity: 0.5, strokeDasharray: "3 3" };
 }
 
-/**
- * Un número con su unidad. El formato es parte de la medida, no de la gráfica: 94
- * puede ser noventa y cuatro tickets o el 94 % de cumplimiento, y la diferencia
- * importa en la tarjeta, en la tabla, en el CSV y en el tooltip.
- */
+/** El formato es parte de la medida: 94 puede ser tickets o 94 % de cumplimiento. */
 export function formatValue(value: number | null, unit: MeasureUnit, currency?: string): string {
   if (value === null) return "—";
 
@@ -128,9 +114,8 @@ function formatNumber(value: number): string {
 }
 
 /**
- * Variación frente al término de comparación. El signo no decide el color: lo decide si
- * esa medida mejora al subir (más resueltos es bueno, más vencidos no), que es lo que
- * dice `higherIsBetter` (spec §7.8.2).
+ * El color no lo decide el signo sino `higherIsBetter`: más resueltos es bueno, más vencidos no
+ * (spec §7.8.2).
  */
 export function trendOf(
   current: number | null,

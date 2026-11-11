@@ -108,15 +108,11 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   disabled: "Desactivado",
 };
 
-// ── Orden de la tabla de personas ─────────────────────────────
+// Orden de la tabla de personas
 
 type UserColumn = "name" | "area" | "role" | "openTickets" | "status" | "lastLoginAt";
 
-/**
- * El valor por el que se compara cada columna. El rol y el estado se ordenan por
- * jerarquía y no por su texto: alfabéticamente, "Activo" iría antes que
- * "Invitado" por casualidad, y "Administrador" antes que "Empleado" también.
- */
+/** Rol y estado se ordenan por jerarquía, no por texto: alfabéticamente el orden saldría por casualidad. */
 const USER_SORT_KEY: Record<UserColumn, (user: AdminUser) => string | number> = {
   name: (user) => user.name.toLowerCase(),
   area: (user) => user.areaName.toLowerCase(),
@@ -284,11 +280,7 @@ function UsuariosTab() {
     placeholderData: (previous) => previous,
   });
 
-  /*
-   * Aquí sí se ordena en el navegador, al revés que en la lista de tickets: esta
-   * consulta trae todas las personas de una vez, así que lo que hay en memoria
-   * es la tabla entera y no una página suelta.
-   */
+  /* Aquí sí se ordena en el navegador: esta consulta trae todas las personas, no una página. */
   const [sort, setSort] = useState<UserColumn>("name");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const users = useMemo(() => sortUsers(rows, sort, dir), [rows, sort, dir]);
@@ -685,10 +677,8 @@ function EditUserModal({
 }
 
 /**
- * El rol efectivo es rol base + banderas (spec §4.2). Se presenta como una sola
- * lista porque "supervisor de RRHH" no es un rol aparte, es un empleado con
- * lectura global, y pedirle al administrador que lo componga a mano es pedirle
- * que se equivoque.
+ * Rol efectivo = rol base + banderas (spec §4.2), en una sola lista:
+ * componer a mano "supervisor de RRHH" invita al error.
  */
 function RolePicker({
   role,
@@ -706,9 +696,8 @@ function RolePicker({
   }) => void;
 }) {
   const { me } = useAuth();
-  // RRHH lleva las altas y bajas, pero no reparte privilegios: si pudiera dar el
-  // rol de administrador o la lectura global, podría nombrarse a sí misma y el
-  // límite dejaría de existir. El servidor rechaza el intento igualmente.
+  // RRHH no reparte privilegios: con el rol de administrador o la lectura global podría
+  // nombrarse a sí misma. El servidor lo rechaza igualmente.
   const mayGrant = Boolean(me && canGrantPrivileges(me));
 
   const current =

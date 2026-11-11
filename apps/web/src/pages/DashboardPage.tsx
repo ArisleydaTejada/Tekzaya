@@ -43,9 +43,8 @@ import { formatWhen } from "../lib/format";
 const PERIODS: StatsPeriod[] = ["day", "week", "month", "year"];
 
 /**
- * El selector de alcance se arma a partir de lo que el servidor concedería
- * (`maxReportScope`), no de una lista fija: un empleado no ve el botón "Todas las
- * áreas" porque pulsarlo solo le daría un 403 (spec §7.2.3).
+ * El alcance sale de `maxReportScope`, no de una lista fija: nadie ve un botón que le daría 403
+ * (spec §7.2.3).
  */
 function scopesFor(me: MeResponse): { id: StatsScope; label: string }[] {
   const allowed = maxReportScope(me);
@@ -73,9 +72,7 @@ export default function DashboardPage() {
   // empleado, por ejemplo); en ese caso se cae al primero disponible.
   const activeScope = scopes.some((item) => item.id === scope) ? scope : (scopes[0]?.id ?? "me");
 
-  // Elegir un área distinta de la propia es exactamente el alcance global: lo
-  // tienen el administrador y el supervisor de RRHH, los mismos que en Reportes
-  // (spec §7.2.3). Al resto el servidor les devolvería un 403.
+  // Un área distinta de la propia es alcance global: solo administrador y RRHH (spec §7.2.3).
   const canPickArea = Boolean(me && maxReportScope(me).type === "global");
   const pickedArea = canPickArea && activeScope === "area" ? areaId : "";
 

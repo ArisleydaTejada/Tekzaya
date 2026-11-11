@@ -26,11 +26,7 @@ const LEDGER_PAGE = 20;
 const secondaryButton =
   "flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-50";
 
-/**
- * Ficha del repuesto (plan A4): existencias frente al mínimo, su costo y el
- * libro de movimientos con el saldo que dejó cada uno. El supervisor registra
- * entradas y ajustes; los consumos llegan solos desde las órdenes de trabajo.
- */
+/** Ficha del repuesto (plan A4). Los consumos llegan solos desde las órdenes de trabajo. */
 export default function RepuestoDetailPage() {
   const { number = "" } = useParams();
   const queryClient = useQueryClient();

@@ -23,9 +23,8 @@ const TONE_CLASS = {
 } as const;
 
 /**
- * La campana no sondea al servidor: el socket empuja cada aviso nuevo a la caché y
- * el contador reacciona solo (ver `RealtimeContext`). La consulta existe para la
- * carga inicial y para recuperar el historial si la conexión se cayó.
+ * No sondea: el socket empuja cada aviso a la caché (ver `RealtimeContext`).
+ * La consulta sirve para la carga inicial y para recuperar el historial tras una caída.
  */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);

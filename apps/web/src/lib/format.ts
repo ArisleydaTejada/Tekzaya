@@ -1,9 +1,8 @@
 import { partUnitLabel, type PartUnit } from "@tekzaya/shared";
 
 /**
- * Las fechas llegan en ISO y UTC; se muestran en el reloj de quien mira. La
- * jornada laboral del SLA es única para toda la empresa, pero cada persona ve
- * las horas en su propia zona (ver `settings.businessHours`).
+ * Las fechas llegan en ISO y UTC y se muestran en la zona de quien mira; la jornada del SLA
+ * es una sola para la empresa (ver `settings.businessHours`).
  */
 export function formatWhen(iso: string): string {
   const date = new Date(iso);
@@ -32,11 +31,7 @@ export function formatDateTime(iso: string): string {
   });
 }
 
-/**
- * El margen de un plazo del SLA en una sola ficha: "4d", "6h", "45m" mientras
- * queda tiempo, y en negativo —"-4h"— cuando ya venció. Cabe junto al número del
- * ticket, y el signo —no una frase— es lo que distingue ir sobrado de ir tarde.
- */
+/** Margen de un plazo del SLA: "4d", "6h", "45m", y en negativo ("-4h") si ya venció. */
 export function formatSlaDelta(iso: string): string {
   const diffMs = new Date(iso).getTime() - Date.now();
   const minutes = Math.round(Math.abs(diffMs) / 60_000);

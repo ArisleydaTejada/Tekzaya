@@ -15,12 +15,8 @@ export class ApiRequestError extends Error {
   }
 }
 
-// ── Renovación de la sesión ───────────────────────────────────
-//
-// La cookie de acceso dura 15 minutos y la de renovación, 7 días. Cuando una
-// petición vuelve con 401, se pide una cookie de acceso nueva y se repite la
-// petición una sola vez. Si la renovación también falla, la sesión terminó de
-// verdad y se avisa a quien escuche (el contexto de sesión) para volver al login.
+// Renovación de la sesión: un 401 pide una cookie de acceso nueva y repite la petición una vez.
+// Si la renovación falla, se avisa al contexto de sesión para volver al login.
 
 let refreshing: Promise<boolean> | null = null;
 const sessionLostListeners = new Set<() => void>();
@@ -48,9 +44,8 @@ export function refreshSession(): Promise<boolean> {
 }
 
 /**
- * `fetch` con renovación, para las llamadas que no esperan JSON (borrados,
- * descargas). `path` va sin el prefijo `/api/v1`. Las rutas de `/auth/` no se reintentan: un 401 al
- * iniciar sesión es una contraseña mal escrita, no una sesión caducada.
+ * `fetch` con renovación, para respuestas que no son JSON; `path` va sin `/api/v1`.
+ * Las rutas de `/auth/` no se reintentan: ahí un 401 es una contraseña mal escrita.
  */
 export async function sessionFetch(path: string, init: RequestInit): Promise<Response> {
   const response = await fetch(`${BASE_URL}${path}`, init);
@@ -65,9 +60,8 @@ export async function sessionFetch(path: string, init: RequestInit): Promise<Res
 }
 
 /**
- * Punto único de entrada al backend. La respuesta se valida contra el mismo
- * esquema que usa la API, así que un cambio de contrato se nota aquí y no
- * tres pantallas más adelante.
+ * Valida la respuesta contra el esquema de la API: un cambio de contrato se nota aquí
+ * y no tres pantallas más adelante.
  */
 export async function apiFetch<T extends z.ZodType>(
   path: string,

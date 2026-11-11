@@ -73,13 +73,8 @@ import { oneOf } from "../lib/oneOf";
 type ViewMode = "lista" | "grupos" | "kanban";
 
 /**
- * Lo que está sin repartir abre la fila porque es lo único que nadie está
- * mirando todavía; después, lo propio de cada quien. "Mis solicitudes" baja a
- * donde estaba "Sin asignar": es la pestaña del otro sombrero —cuando uno pide
- * en vez de atender— y no compite con la bandeja de trabajo.
- *
- * "Resueltos" cierra la serie antes de "Todos": es el archivo, y se consulta
- * cuando ya se sabe lo que se busca.
+ * "Sin asignar" abre porque nadie lo mira aún; "Mis solicitudes" baja: es de quien pide, no de quien atiende.
+ * "Resueltos" va antes de "Todos": es el archivo.
  */
 const TABS: { scope: TicketScope; label: string }[] = [
   { scope: "unassigned", label: "Sin asignar" },
@@ -90,11 +85,7 @@ const TABS: { scope: TicketScope; label: string }[] = [
   { scope: "all", label: "Todos" },
 ];
 
-/**
- * El desplegable de estado solo ofrece lo que la pestaña puede contener. En una
- * bandeja de trabajo, elegir "Cerrado" devolvía una lista vacía sin explicar por
- * qué: el alcance ya había descartado los cerrados antes de llegar al filtro.
- */
+/** Solo los estados que la pestaña puede contener: el alcance ya descartó, por ejemplo, los cerrados. */
 function statusOptionsFor(scope: TicketScope): readonly TicketStatus[] {
   if (scope === "settled") return SETTLED_TICKET_STATUSES;
 
@@ -172,11 +163,7 @@ const KANBAN_INSTRUCTIONS =
   "Pulsa Espacio o Intro para levantar la tarjeta, las flechas izquierda y derecha para " +
   "cambiar de columna, y Espacio o Intro otra vez para soltarla. Escape cancela.";
 
-/**
- * Qué hacer con quien ya atendía el ticket. `setAssignees` sustituye la lista
- * entera, así que "sumar" es cosa del cliente: se envía la unión de los de antes
- * y los nuevos. No hay un endpoint que añada, y tampoco hace falta.
- */
+/** `setAssignees` sustituye la lista entera, así que "sumar" envía la unión de los de antes y los nuevos. */
 type AssignMode = "add" | "replace";
 
 export default function TicketsPage() {
@@ -241,11 +228,7 @@ export default function TicketsPage() {
     if (statusFilter && !statusOptionsFor(next).includes(statusFilter)) setStatusFilter("");
   }
 
-  /**
-   * Pulsar una cabecera ordena por ella; pulsarla otra vez da la vuelta. El
-   * servidor es quien ordena, porque la tabla esta paginada y reordenar las 25
-   * filas visibles no es reordenar los tickets que hay detras.
-   */
+  /** Ordena el servidor: la tabla está paginada y reordenar las 25 filas visibles no ordena los tickets. */
   function sortBy(column: TicketSort) {
     if (sort === column) {
       setDir((current) => (current === "asc" ? "desc" : "asc"));
@@ -273,11 +256,7 @@ export default function TicketsPage() {
     }
   }
 
-  /**
-   * Mover una tarjeta a «Asignado» es asignarla, no solo cambiarle la etiqueta:
-   * quien la arrastra se la queda. El estado lo pone el servidor al guardar los
-   * responsables, así que no hace falta un segundo PATCH detrás.
-   */
+  /** Soltar en «Asignado» asigna a quien arrastra; el servidor pone el estado al guardar responsables. */
   async function takeOnDrop(ticket: TicketListItem) {
     setMoveError(null);
 
@@ -303,11 +282,7 @@ export default function TicketsPage() {
 
   const picked = items.filter((ticket) => selected.includes(ticket.id));
 
-  /**
-   * Quedarse los tickets marcados. Van de uno en uno porque el servidor asigna
-   * ticket a ticket; si alguno se cae, lo que ya se asignó sigue asignado y el
-   * aviso dice cuál falló en vez de fingir que no pasó nada.
-   */
+  /** De uno en uno porque el servidor asigna ticket a ticket; si alguno falla, el aviso dice cuál. */
   async function takeSelected() {
     setMoveError(null);
 
@@ -386,10 +361,8 @@ export default function TicketsPage() {
         title="Tickets"
         actions={
           /*
-           * El CSV lo arma el servidor con los filtros actuales, no el navegador:
-           * aquí solo está la página que se está viendo, y el archivo tiene que
-           * traer todo lo que coincide. Es también lo que garantiza que la
-           * exportación nunca lleve notas internas (spec §7.2.4).
+           * El CSV lo arma el servidor con los filtros actuales: trae todo lo que coincide
+           * y garantiza que nunca lleve notas internas (spec §7.2.4).
            */
           <a
             href={ticketsCsvUrl(query)}
@@ -614,17 +587,8 @@ export default function TicketsPage() {
 }
 
 /**
- * Barra de lo marcado. Aparece con el primer ticket seleccionado y se queda
- * hasta que se limpia: mientras haya algo marcado hay una acción pendiente.
- *
- * Fusionar necesita dos — uno absorbe y el otro se cierra dentro. Con uno solo,
- * el botón sigue a la vista pero apagado y diciendo por qué, en vez de aparecer
- * de la nada al marcar el segundo.
- *
- * Repartir trabajo es la otra cosa que se hace sobre varios tickets a la vez, y
- * depende de quién mira: el supervisor del área y el administrador eligen a
- * quién —ese botón abre el mismo reparto de siempre—, y el resto del área solo
- * puede quedárselos, que es lo que dice su botón (spec §7.4).
+ * Fusionar necesita dos: con uno, el botón sigue visible pero apagado y dice por qué. Repartir
+ * depende del rol: supervisor y administrador eligen a quién; el resto se los queda (spec §7.4).
  */
 function SelectionBar({
   tickets,
@@ -712,12 +676,7 @@ function SelectionBar({
   );
 }
 
-/**
- * Fusionar lo que se marcó en la tabla. Lo único que esta pantalla tiene que
- * preguntar, y la lista no sabe, es cuál de los marcados es el principal: el que
- * se queda abierto y absorbe a los demás. Por defecto, el más antiguo, que suele
- * ser el que ya lleva conversación encima.
- */
+/** Lo único que hay que preguntar es cuál queda como principal; por defecto, el más antiguo. */
 function MergeSelectionModal({
   open,
   tickets,
@@ -1111,9 +1070,8 @@ function KanbanCard({ ticket }: { ticket: TicketListItem }) {
 
   const number = formatTicketNumber(ticket.number);
   const titleId = `kanban-${ticket.id}`;
-  // Con el ratón se arrastra la tarjeta entera; con teclado, desde el número. Si
-  // la tarjeta fuera el botón, el enlace al ticket quedaría dentro de otro
-  // control y un lector de pantalla no podría llegar a él.
+  // Con ratón se arrastra la tarjeta y con teclado el número: si la tarjeta fuera el botón,
+  // el enlace quedaría dentro de otro control y un lector de pantalla no llegaría a él.
   const { onKeyDown, ...pointerListeners } = listeners ?? {};
 
   return (
@@ -1232,13 +1190,8 @@ function KanbanView({
     }
 
     /*
-     * Soltar en «Asignado» un ticket que no tiene responsables es el gesto de
-     * repartir trabajo, no el de renombrar una columna: lo normal es que quien
-     * arrastra se lo quede. El supervisor y el administrador reparten el de
-     * otros, así que a ellos se les pregunta a quién (spec §7.4).
-     *
-     * Con responsables ya puestos, mover a «Asignado» es solo un cambio de
-     * estado y se envía tal cual.
+     * Soltar en «Asignado» sin responsables es repartir: se lo queda quien arrastra, salvo supervisor
+     * y administrador, a quienes se pregunta a quién (spec §7.4). Con responsables, solo cambia el estado.
      */
     if (target === "assigned" && ticket.assignees.length === 0) {
       if (me && isSupervisorOf(me, ticket.area.id)) {
@@ -1330,14 +1283,8 @@ function KanbanView({
 }
 
 /**
- * A quién le tocan los tickets que el supervisor acaba de arrastrar o marcar. Es
- * el mismo reparto del detalle, en pequeño: lo que hace falta ver aquí es quién
- * está disponible y cuánto lleva encima, no el expediente entero de cada persona.
- *
- * Trabaja sobre una lista porque desde la tabla se reparten varios de golpe;
- * arrastrar una tarjeta es el caso de uno solo. Todos han de ser de la misma
- * área —es de donde sale la gente que puede atenderlos—, y quien llama se
- * encarga de que así sea.
+ * Reparto de los tickets arrastrados o marcados: quién está disponible y cuánto lleva.
+ * Todos deben ser de la misma área, y quien llama se encarga de que así sea.
  */
 function AssignTicketsModal({
   tickets,
@@ -1456,12 +1403,8 @@ function AssignTicketsModal({
           ? `¿Quién atiende este ticket en ${tickets[0]!.area.name}?`
           : `¿Quién atiende estos ${tickets.length} tickets en ${tickets[0]?.area.name ?? ""}?`}
       </p>
-      {/*
-        Guardar responsables sustituye la lista entera, así que sobre tickets que
-        ya tienen a alguien hay que decidir antes qué pasa con ellos. Se pregunta
-        solo cuando el caso existe, y arranca en "sumar": repartir una tanda no
-        suele querer decir «echad a quien ya estaba».
-      */}
+      {/* Guardar responsables sustituye la lista: con tickets ya asignados se pregunta qué hacer,
+          y arranca en "sumar". */}
       {taken.length > 0 && (
         <div className="mb-3 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5">
           <p className="mb-2 text-xs text-[var(--content-ink-dim)]">
@@ -1579,11 +1522,7 @@ function AssignTicketsModal({
   );
 }
 
-/**
- * La vista previa del reparto automático. Nada se guarda hasta confirmar: el
- * supervisor ve cuánto recibe cada persona y puede cambiar a mano cualquier
- * ticket antes de aplicarlo. Los que ya tenían responsables no entran.
- */
+/** Nada se guarda hasta confirmar. Los tickets que ya tenían responsables no entran. */
 function AutoAssignPreview({
   tickets,
   skipped,
