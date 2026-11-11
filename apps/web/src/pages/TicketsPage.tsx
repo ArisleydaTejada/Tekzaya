@@ -178,6 +178,7 @@ export default function TicketsPage() {
    * "?scope=area&priority=urgent" y la vista kanban se puede compartir o recargar.
    */
   const [params, setParams] = useSearchParams();
+  const tabsFade = useOverflowFade<HTMLDivElement>();
   const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "area");
   const [view, setViewState] = useState<ViewMode>(() => oneOf(VIEW_MODES, params.get("vista") ?? "") ?? "lista");
   const [search, setSearch] = useState(() => params.get("q") ?? "");
@@ -411,7 +412,11 @@ export default function TicketsPage() {
         }
       />
 
-      <div className="mb-4 flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--content-border)] [scrollbar-width:none]">
+      {/* En el móvil no caben las seis pestañas: el borde se difumina mientras quedan más a la derecha. */}
+      <div
+        ref={tabsFade.ref}
+        className={`mb-4 flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--content-border)] [scrollbar-width:none] ${tabsFade.fadeClass}`}
+      >
         {TABS.map((tab, index) => (
           <button
             key={tab.scope}

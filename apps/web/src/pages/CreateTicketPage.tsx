@@ -775,7 +775,10 @@ function AiReadiness({ progress, analyzing }: { progress: number; analyzing: boo
   const length = 2 * Math.PI * r;
 
   return (
-    <svg viewBox="0 0 24 24" className="h-7 w-7 shrink-0 -rotate-90" aria-hidden="true">
+    // La chispa en el centro dice "IA": un anillo vacío solo, parecía un botón de opción.
+    <span className="relative flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
+      <SparkleIcon className="absolute h-3 w-3 text-accent-ink" />
+    <svg viewBox="0 0 24 24" className="h-7 w-7 -rotate-90">
       <circle cx="12" cy="12" r={r} fill="none" stroke="currentColor" strokeWidth="3" className="text-accent/20" />
       <circle
         cx="12"
@@ -790,6 +793,7 @@ function AiReadiness({ progress, analyzing }: { progress: number; analyzing: boo
         className={`text-accent-ink transition-[stroke-dashoffset] duration-300 ease-out ${analyzing ? "animate-pulse" : ""}`}
       />
     </svg>
+    </span>
   );
 }
 

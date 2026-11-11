@@ -41,6 +41,7 @@ import {
   TicketIcon,
 } from "../components/icons";
 import { formatWhen } from "../lib/format";
+import { useMediaQuery } from "../lib/useMediaQuery";
 
 const PERIODS: StatsPeriod[] = ["day", "week", "month", "year"];
 
@@ -367,13 +368,15 @@ function AreaTiles({ kpis, query }: { kpis: AreaKpis; query: StatsRequest }) {
   const widerKpis = wider.data?.kpis.kind === "area" ? wider.data.kpis : null;
   const fromWider = kpis.slaCompliance === null && widerKpis?.slaCompliance != null;
   const compliance = fromWider ? widerKpis!.slaCompliance : kpis.slaCompliance;
+  // En el móvil el dial grande empujaba todo lo accionable bajo la primera pantalla.
+  const wide = useMediaQuery("(min-width: 40rem)");
 
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-[13rem_minmax(0,1fr)]">
       <GaugeDial
         id="dashboard-sla"
         label="Cumplimiento SLA"
-        featured
+        featured={wide}
         value={compliance ?? 0}
         displayValue={compliance === null ? "—" : `${compliance}%`}
         tone={slaTone(compliance)}

@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 export type GaugeTone = "neutral" | "steel" | "accent" | "green" | "amber" | "red";
@@ -144,7 +144,10 @@ export function GaugeDial({
 
         <path d={trackPath} fill="none" stroke="#282d36" strokeWidth={7} strokeLinecap="round" />
 
-        <motion.path
+        {/* Transiciones CSS y no de motion: el `style` inicial pisaba el valor animado (el arco
+            no aparecía) y el origen en px se medía sobre la caja del grupo, así que la aguja
+            giraba fuera de la esfera. Aquí el giro es sobre el centro del viewBox. */}
+        <path
           d={trackPath}
           fill="none"
           stroke={color}
@@ -152,29 +155,23 @@ export function GaugeDial({
           strokeLinecap="round"
           strokeDasharray={circumference}
           filter={glow ? `url(#glow-${id})` : undefined}
-          initial={false}
-          animate={{ strokeDashoffset: circumference * (1 - clamped / 100) }}
-          transition={
-            prefersReducedMotion
-              ? { duration: 0 }
-              : { type: "spring", stiffness: 90, damping: 16 }
-          }
-          style={{ strokeDashoffset: circumference }}
+          style={{
+            strokeDashoffset: circumference * (1 - clamped / 100),
+            transition: prefersReducedMotion ? "none" : "stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
         />
 
-        <motion.g
-          initial={false}
-          animate={{ rotate: needleAngle }}
-          transition={
-            prefersReducedMotion
-              ? { duration: 0 }
-              : { type: "spring", stiffness: 70, damping: 9, mass: 0.6 }
-          }
-          style={{ originX: "60px", originY: "60px" }}
+        <g
+          style={{
+            transform: `rotate(${needleAngle}deg)`,
+            transformOrigin: "60px 60px",
+            transformBox: "view-box",
+            transition: prefersReducedMotion ? "none" : "transform 800ms cubic-bezier(0.34, 1.4, 0.64, 1)",
+          }}
         >
           <line x1={cx - 8} y1={cy} x2={cx + 36} y2={cy} stroke="#f5f7fa" strokeWidth={2.5} strokeLinecap="round" />
           <line x1={cx - 8} y1={cy} x2={cx + 36} y2={cy} stroke={color} strokeWidth={2.5} strokeLinecap="round" opacity={0.6} />
-        </motion.g>
+        </g>
 
         <circle cx={cx} cy={cy} r={6} fill="#1b1f27" stroke="#565e6d" strokeWidth={1} />
         <circle cx={cx} cy={cy} r={2.5} fill={color} />

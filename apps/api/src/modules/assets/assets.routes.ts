@@ -182,7 +182,13 @@ router.get("/assets", validateQuery(assetListQuery), async (_req, res) => {
   const filter = await listFilter(actor, query);
   const [items, total, counts, maintainsAssets] = await Promise.all([
     Asset.find(filter)
-      .sort({ [SORT_FIELDS[query.sort]]: direction, _id: direction })
+      // Los dados de baja van al final salvo que se ordene por estado: encabezaban el inventario.
+      // `retiredAt` ascendente pone primero los que no lo tienen.
+      .sort(
+        query.sort === "status"
+          ? { [SORT_FIELDS[query.sort]]: direction, _id: direction }
+          : { retiredAt: 1, [SORT_FIELDS[query.sort]]: direction, _id: direction },
+      )
       .skip((query.page - 1) * query.limit)
       .limit(query.limit)
       .lean() as Promise<LeanAsset[]>,

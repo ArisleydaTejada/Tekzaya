@@ -78,7 +78,7 @@ export function AppShell() {
       {/* La barra de escritorio. Sigue al tema: clara con el claro, oscura con
           el oscuro, al contrario que el resto del cromo "instrumento". */}
       <aside
-        className={`relative hidden shrink-0 border-r border-[var(--rail-bezel)] bg-[var(--rail-bg)] transition-[width] duration-200 lg:block ${
+        className={`relative hidden shrink-0 border-r border-[var(--rail-bezel)] bg-[var(--rail-bg)] lg:block ${
           collapsed ? "w-[72px]" : "w-64"
         }`}
       >

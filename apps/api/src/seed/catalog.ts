@@ -3,6 +3,7 @@ import type { Priority } from "@tekzaya/shared";
 export interface SeedArea {
   name: string;
   description: string;
+  /** De la rampa categórica de DESIGN.md: un área es una identidad, no una lectura de estado. */
   color: string;
   categories: string[];
 }
@@ -12,7 +13,7 @@ export const AREAS: SeedArea[] = [
   {
     name: "IT y Sistemas",
     description: "Equipos, accesos, redes y software corporativo.",
-    color: "#6c5ce7",
+    color: "#2f6fcb",
     categories: [
       "Hardware",
       "Software",
@@ -25,25 +26,25 @@ export const AREAS: SeedArea[] = [
   {
     name: "Mantenimiento",
     description: "Instalaciones, mobiliario y servicios generales.",
-    color: "#f5a623",
+    color: "#8a6d1e",
     categories: ["Eléctrico", "Plomería", "Climatización", "Mobiliario", "Limpieza"],
   },
   {
     name: "Recursos Humanos",
     description: "Nómina, permisos y documentación del personal.",
-    color: "#39d98a",
+    color: "#d6449c",
     categories: ["Nómina", "Vacaciones y permisos", "Documentos y constancias", "Beneficios"],
   },
   {
     name: "Ventas",
     description: "Cotizaciones, clientes y comisiones.",
-    color: "#2f6fcb",
+    color: "#0e9c8e",
     categories: ["Cotizaciones", "Clientes", "Comisiones"],
   },
   {
     name: "Marketing",
     description: "Material gráfico, redes sociales y eventos.",
-    color: "#e5484d",
+    color: "#a0522d",
     categories: ["Material gráfico", "Redes sociales", "Eventos"],
   },
   {
