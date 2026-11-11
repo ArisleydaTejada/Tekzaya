@@ -318,7 +318,7 @@ function PartTable({
           </li>
         ))}
       </ul>
-      <Plate className="hidden overflow-x-auto sm:block">
+      <Plate className="relative hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">

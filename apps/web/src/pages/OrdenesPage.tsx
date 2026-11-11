@@ -335,7 +335,7 @@ function ListView({
           </li>
         ))}
       </ul>
-      <Plate className="hidden overflow-x-auto sm:block">
+      <Plate className="relative hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
@@ -451,7 +451,7 @@ function GroupedView({
 
 function KanbanView({ orders }: { orders: WorkOrderListItem[] }) {
   return (
-    <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+    <div className="relative -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
       {WORK_ORDER_STATUSES.map((status) => {
         const column = orders.filter((order) => order.status === status);
 
@@ -459,7 +459,7 @@ function KanbanView({ orders }: { orders: WorkOrderListItem[] }) {
           <section
             key={status}
             aria-label={WORK_ORDER_STATUS_LABEL[status]}
-            className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5"
+            className="flex w-72 shrink-0 snap-start scroll-ml-1 flex-col gap-2 rounded-2xl border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5"
           >
             <div className="flex items-center justify-between px-1 py-1">
               <span className="font-display text-xs font-semibold uppercase tracking-wide text-[var(--content-ink-dim)]">

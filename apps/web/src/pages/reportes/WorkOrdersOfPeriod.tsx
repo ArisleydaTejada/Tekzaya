@@ -162,7 +162,7 @@ export function WorkOrdersOfPeriod({
           {hasFilters ? "Ninguna orden coincide con los filtros." : "No hubo órdenes de trabajo en este período."}
         </Plate>
       ) : (
-        <Plate className="overflow-x-auto">
+        <Plate className="relative overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">

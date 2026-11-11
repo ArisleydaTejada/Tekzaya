@@ -165,7 +165,7 @@ export function TicketsOfPeriod({
         <FilterPanel filters={filters} onChange={onFiltersChange} onClose={() => setPanelOpen(false)} />
       )}
 
-      <Plate className="print-full overflow-x-auto">
+      <Plate className="relative print-full overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
@@ -298,12 +298,12 @@ function Cell({ row, column }: { row: ReportTicketRow; column: ReportColumn }) {
         <Link
           to={`/tickets/${row.number}`}
           target="_blank"
-          className="font-display tabular text-[var(--content-ink)] hover:underline"
+          className="whitespace-nowrap font-display tabular text-[var(--content-ink)] hover:underline"
         >
           {formatTicketNumber(row.number)}
         </Link>
       ) : (
-        <span className="font-display tabular text-[var(--content-ink-dim)]" title="Sin acceso a la conversación">
+        <span className="whitespace-nowrap font-display tabular text-[var(--content-ink-dim)]" title="Sin acceso a la conversación">
           {formatTicketNumber(row.number)}
         </span>
       );

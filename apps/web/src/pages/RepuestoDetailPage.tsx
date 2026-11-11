@@ -135,7 +135,7 @@ export default function RepuestoDetailPage() {
         </p>
       )}
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Figure label="Existencias">
           {formatQuantity(part.stock, part.unit)}
           <span className="mt-1 block text-xs font-normal text-[var(--content-ink-dim)]">Mínimo: {part.minStock}</span>
@@ -144,7 +144,7 @@ export default function RepuestoDetailPage() {
           {formatMoney(part.avgUnitCost, part.currency)}
           <span className="mt-1 block text-xs font-normal text-[var(--content-ink-dim)]">por {PART_UNIT_LABEL[part.unit]}</span>
         </Figure>
-        <Figure label="Valor en el almacén">{formatMoney(part.stockValue, part.currency)}</Figure>
+        <Figure label="Valor en el almacén" className="col-span-2 sm:col-span-1">{formatMoney(part.stockValue, part.currency)}</Figure>
       </div>
 
       <Plate className="mb-4 p-4">
@@ -221,9 +221,9 @@ function PartPhotos({ part, onSaved }: { part: SparePartDetail; onSaved: (saved:
   );
 }
 
-function Figure({ label, children }: { label: string; children: ReactNode }) {
+function Figure({ label, className = "", children }: { label: string; className?: string; children: ReactNode }) {
   return (
-    <Plate className="p-4">
+    <Plate className={`p-4 ${className}`}>
       <p className="text-xs text-[var(--content-ink-dim)]">{label}</p>
       <p className="mt-1 font-display text-xl font-semibold tabular text-[var(--content-ink)]">{children}</p>
     </Plate>
@@ -249,7 +249,7 @@ function Ledger({ part, page, onPage }: { part: SparePartDetail; page: number; o
       ) : items.length === 0 ? (
         <p className="p-4 text-sm text-[var(--content-ink-dim)]">Sin movimientos todavía.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="mt-2 w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">

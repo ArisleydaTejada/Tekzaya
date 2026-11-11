@@ -80,17 +80,17 @@ export default function AdministracionPage({ tab: fixedTab }: { tab?: string }) 
             : "Altas, bajas, datos del personal y reglas de la jornada."
         }
       />
-      <div className="mb-5 flex gap-1 border-b border-[var(--content-border)]">
+      <div className="mb-5 flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--content-border)] [scrollbar-width:none]">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => navigate(`/administracion/${t.id}`)}
-            className={`relative px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`relative shrink-0 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors ${
               tab === t.id ? "text-accent-ink" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
             {t.label}
-            {tab === t.id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent" />}
+            {tab === t.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-accent" />}
           </button>
         ))}
       </div>
@@ -392,7 +392,40 @@ function UsuariosTab() {
         </p>
       )}
 
-      <Plate className="overflow-x-auto">
+      {/* En el móvil, tarjetas: de la tabla solo cabrían el nombre y el área. */}
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:hidden">
+        {users.map((user) => (
+          <li
+            key={user.id}
+            className="flex items-start gap-2.5 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-3"
+          >
+            <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm text-[var(--content-ink)]">{user.name}</p>
+              <p className="truncate text-xs text-[var(--content-ink-dim)]">{user.email}</p>
+              <p className="mt-1 truncate text-xs text-[var(--content-ink-dim)]">
+                {user.areaName} · {roleLabelOf(user)}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--content-ink-dim)]">
+                <UserStatusBadge status={user.status} />
+                <span className="tabular">
+                  {user.openTickets} {user.openTickets === 1 ? "abierto" : "abiertos"}
+                </span>
+                <span>{user.lastLoginAt ? formatWhen(user.lastLoginAt) : "Nunca entró"}</span>
+              </div>
+            </div>
+            <DropdownMenu label={`Acciones para ${user.name}`} items={userActions(user)} />
+          </li>
+        ))}
+        {!isLoading && users.length === 0 && (
+          <li className="py-10 text-center text-sm text-[var(--content-ink-dim)] sm:col-span-2">
+            Nadie coincide con la búsqueda.
+          </li>
+        )}
+      </ul>
+
+      {/* `relative`: sin él, el `sr-only` absoluto de la cabecera escapa del desplazamiento y ensancha la página. */}
+      <Plate className="relative hidden overflow-x-auto md:block">
         <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">

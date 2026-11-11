@@ -473,7 +473,7 @@ function Table({ result }: { result: ReportQueryResult }) {
   const hasSplit = result.rows.some((row) => row.split !== undefined);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
@@ -594,7 +594,7 @@ function Heatmap({ result, color }: { result: ReportQueryResult; color: string }
   const columns = [...hours].sort((a, b) => a - b);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="border-separate border-spacing-0.5 text-[10px]">
         <thead>
           <tr>

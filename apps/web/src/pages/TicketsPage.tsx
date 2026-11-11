@@ -375,12 +375,12 @@ export default function TicketsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-[var(--content-border)]">
+      <div className="mb-4 flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--content-border)] [scrollbar-width:none]">
         {TABS.map((tab, index) => (
           <button
             key={tab.scope}
             onClick={() => changeScope(tab.scope)}
-            className={`relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === tab.scope
                 ? "text-accent-ink"
                 : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
@@ -391,7 +391,7 @@ export default function TicketsPage() {
               {counts[index]?.data?.total ?? "—"}
             </span>
             {scope === tab.scope && (
-              <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-accent" />
+              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-accent" />
             )}
           </button>
         ))}
@@ -906,101 +906,159 @@ function ListView({
   }
 
   return (
-    <Plate className="overflow-x-auto">
-      <table className="w-full min-w-[1040px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
-            <th className="w-10 px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={allOnPage}
-                onChange={(event) => togglePage(event.target.checked)}
-                aria-label="Seleccionar los tickets de esta página"
-                className="h-4 w-4 accent-accent"
-              />
-            </th>
-            <Th label="ID" column="number" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Título" column="title" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Solicitante" column="requester" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Área / categoría" column="area" sort={sort} dir={dir} onSort={onSort} />
-            {/* Un ticket puede tener varios responsables: no hay un valor por el
-                que ordenar sin inventarse cuál de ellos manda. */}
-            <Th label="Responsables" />
-            <Th label="Creado" column="created" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="SLA" column="sla" sort={sort} dir={dir} onSort={onSort} />
-            <Th label="Prioridad" column="priority" sort={sort} dir={dir} onSort={onSort} />
-          </tr>
-        </thead>
-        <tbody>
-          {tickets.map((ticket) => (
-            <tr
+    <>
+      {/* Hasta `lg`, tarjetas: la tabla de diez columnas solo cabe con la barra lateral a la vista. */}
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
+        {tickets.map((ticket) => {
+          const number = formatTicketNumber(ticket.number);
+          const isSelected = selected.includes(ticket.id);
+
+          return (
+            <li
               key={ticket.id}
-              className={`border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
-                selected.includes(ticket.id) ? "bg-accent/5" : ""
+              className={`flex gap-1 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] py-1.5 pr-3 ${
+                isSelected ? "bg-accent/5" : ""
               }`}
             >
-              <td className="px-3 py-2.5">
+              <label className="flex shrink-0 cursor-pointer items-start p-3">
                 <input
                   type="checkbox"
-                  checked={selected.includes(ticket.id)}
+                  checked={isSelected}
                   onChange={(event) => toggle(ticket.id, event.target.checked)}
-                  aria-label={`Seleccionar ${formatTicketNumber(ticket.number)}`}
+                  aria-label={`Seleccionar ${number}`}
                   className="h-4 w-4 accent-accent"
                 />
-              </td>
-              <td className="px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
-                {formatTicketNumber(ticket.number)}
-              </td>
-              <td className="px-3 py-2.5">
-                <StatusBadge status={ticket.status} />
-              </td>
-              <td className="max-w-[220px] px-3 py-2.5 text-[var(--content-ink)]">
-                <TicketLink ticket={ticket} />
+              </label>
+              <div className="min-w-0 flex-1 py-1.5">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">{number}</span>
+                  <PriorityBadge priority={ticket.priority} />
+                </span>
+                <span className="mt-0.5 block font-medium text-[var(--content-ink)]">
+                  <TicketLink ticket={ticket} />
+                </span>
                 {ticket.incidentLabel && (
-                  <span
-                    title={`Incidente: ${ticket.incidentLabel}`}
-                    className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-amber"
-                  >
+                  <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-amber">
                     <AlertIcon className="h-3 w-3 shrink-0" />
                     <span className="truncate">{ticket.incidentLabel}</span>
                   </span>
                 )}
-              </td>
-              <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">
-                {ticket.requester.name}
-              </td>
-              <td className="px-3 py-2.5">
-                <AreaTag area={ticket.area} />
-                {ticket.categoryName && (
-                  <span className="ml-1.5 text-xs text-[var(--content-ink-dim)]">
-                    {ticket.categoryName}
+                <span className="mt-1 block truncate text-xs text-[var(--content-ink-dim)]">
+                  {ticket.requester.name} · {ticket.area.name}
+                  {ticket.categoryName && ` · ${ticket.categoryName}`}
+                </span>
+                <span className="mt-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge status={ticket.status} />
+                  <SlaTimeline sla={ticket} status={ticket.status} />
+                  <span className="ml-auto">
+                    {ticket.assignees.length ? (
+                      <AvatarStack users={ticket.assignees} />
+                    ) : (
+                      <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>
+                    )}
                   </span>
-                )}
-              </td>
-              <td className="px-3 py-2.5">
-                {ticket.assignees.length ? (
-                  <AvatarStack users={ticket.assignees} />
-                ) : (
-                  <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>
-                )}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[var(--content-ink-dim)]">
-                {formatWhen(ticket.createdAt)}
-              </td>
-              <td className="px-3 py-2.5">
-                {/* El margen, no el adjetivo: entre veinte filas lo que se
-                    compara es cuánto falta, y el detalle se abre encima. */}
-                <SlaTimeline sla={ticket} status={ticket.status} />
-              </td>
-              <td className="px-3 py-2.5">
-                <PriorityBadge priority={ticket.priority} />
-              </td>
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <Plate className="relative hidden overflow-x-auto lg:block">
+        <table className="w-full min-w-[1040px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
+              <th className="w-10 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={allOnPage}
+                  onChange={(event) => togglePage(event.target.checked)}
+                  aria-label="Seleccionar los tickets de esta página"
+                  className="h-4 w-4 accent-accent"
+                />
+              </th>
+              <Th label="ID" column="number" sort={sort} dir={dir} onSort={onSort} />
+              <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
+              <Th label="Título" column="title" sort={sort} dir={dir} onSort={onSort} />
+              <Th label="Solicitante" column="requester" sort={sort} dir={dir} onSort={onSort} />
+              <Th label="Área / categoría" column="area" sort={sort} dir={dir} onSort={onSort} />
+              {/* Un ticket puede tener varios responsables: no hay un valor por el
+                  que ordenar sin inventarse cuál de ellos manda. */}
+              <Th label="Responsables" />
+              <Th label="Creado" column="created" sort={sort} dir={dir} onSort={onSort} />
+              <Th label="SLA" column="sla" sort={sort} dir={dir} onSort={onSort} />
+              <Th label="Prioridad" column="priority" sort={sort} dir={dir} onSort={onSort} />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </Plate>
+          </thead>
+          <tbody>
+            {tickets.map((ticket) => (
+              <tr
+                key={ticket.id}
+                className={`border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
+                  selected.includes(ticket.id) ? "bg-accent/5" : ""
+                }`}
+              >
+                <td className="px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(ticket.id)}
+                    onChange={(event) => toggle(ticket.id, event.target.checked)}
+                    aria-label={`Seleccionar ${formatTicketNumber(ticket.number)}`}
+                    className="h-4 w-4 accent-accent"
+                  />
+                </td>
+                <td className="whitespace-nowrap px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
+                  {formatTicketNumber(ticket.number)}
+                </td>
+                <td className="px-3 py-2.5">
+                  <StatusBadge status={ticket.status} />
+                </td>
+                <td className="max-w-[220px] px-3 py-2.5 text-[var(--content-ink)]">
+                  <TicketLink ticket={ticket} />
+                  {ticket.incidentLabel && (
+                    <span
+                      title={`Incidente: ${ticket.incidentLabel}`}
+                      className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-amber"
+                    >
+                      <AlertIcon className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{ticket.incidentLabel}</span>
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 text-[var(--content-ink-dim)]">
+                  {ticket.requester.name}
+                </td>
+                <td className="px-3 py-2.5">
+                  <AreaTag area={ticket.area} />
+                  {ticket.categoryName && (
+                    <span className="ml-1.5 text-xs text-[var(--content-ink-dim)]">
+                      {ticket.categoryName}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5">
+                  {ticket.assignees.length ? (
+                    <AvatarStack users={ticket.assignees} />
+                  ) : (
+                    <span className="text-xs text-[var(--content-ink-dim)]">Sin asignar</span>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-[var(--content-ink-dim)]">
+                  {formatWhen(ticket.createdAt)}
+                </td>
+                <td className="px-3 py-2.5">
+                  {/* El margen, no el adjetivo: entre veinte filas lo que se
+                      compara es cuánto falta, y el detalle se abre encima. */}
+                  <SlaTimeline sla={ticket} status={ticket.status} />
+                </td>
+                <td className="px-3 py-2.5">
+                  <PriorityBadge priority={ticket.priority} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Plate>
+    </>
   );
 }
 
@@ -1130,7 +1188,7 @@ function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: Tick
     <section
       ref={setNodeRef}
       aria-label={TICKET_STATUS_LABEL[status]}
-      className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-2.5 transition-colors ${
+      className={`flex w-72 shrink-0 snap-start flex-col gap-2 rounded-2xl border p-2.5 transition-colors ${
         isOver ? "border-accent bg-accent/5" : "border-[var(--content-border)] bg-[var(--content-bg)]"
       }`}
     >
@@ -1218,7 +1276,7 @@ function KanbanView({
           screenReaderInstructions: { draggable: KANBAN_INSTRUCTIONS },
         }}
       >
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="relative flex snap-x gap-3 overflow-x-auto pb-2">
           {KANBAN_STATUSES.map((status) => (
             <KanbanColumn
               key={status}

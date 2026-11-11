@@ -172,8 +172,9 @@ function PlanList({
         <ul className="space-y-2">
           {plans.map((plan) => (
             <li key={plan.id}>
+              {/* Con `basis-64` el bloque de la fecha baja a su propia fila en el móvil en vez de estrujar el título. */}
               <Plate className="flex flex-wrap items-start justify-between gap-3 p-4">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-64">
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-[var(--content-ink)]">{plan.title}</span>
                     {!plan.isActive && (
@@ -203,7 +204,7 @@ function PlanList({
                     )}
                   </p>
                 </div>
-                <div className="text-right text-sm">
+                <div className="text-sm sm:text-right">
                   <p className="text-[var(--content-ink)]">
                     Próxima: <span className="font-medium tabular">{formatDay(plan.nextDueAt)}</span>
                   </p>
@@ -211,7 +212,7 @@ function PlanList({
                     <p className="text-xs text-[var(--content-ink-dim)]">La orden se genera el {formatDay(plan.generatesOn)}</p>
                   )}
                   {plan.permissions.manage && (
-                    <div className="mt-2 flex justify-end gap-1.5">
+                    <div className="mt-2 flex gap-1.5 sm:justify-end">
                       <button
                         onClick={() => onEdit(plan)}
                         className="flex items-center gap-1 rounded-lg border border-[var(--content-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"

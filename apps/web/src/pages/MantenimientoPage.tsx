@@ -60,7 +60,7 @@ export default function MantenimientoPage() {
       />
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Cargando panel">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5" aria-label="Cargando panel">
           {Array.from({ length: 5 }, (_, index) => (
             <div key={index} className="h-28 animate-pulse rounded-2xl bg-[var(--content-surface)]" />
           ))}
@@ -82,7 +82,7 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
 
   return (
     <>
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <Linked to="/ordenes">
           <StatTile label="Órdenes abiertas" value={String(kpis.openWorkOrders)} icon={<ClipboardIcon className="h-4 w-4" />} caption="Sin completar ni cancelar" />
         </Linked>
@@ -110,12 +110,15 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             caption={kpis.lowStockParts ? "Conviene reponer" : "Almacén en orden"}
           />
         </Linked>
-        <StatTile
-          label="Costo del mes"
-          value={formatMoney(kpis.monthCost, data.currency)}
-          icon={<WrenchIcon className="h-4 w-4" />}
-          caption="Repuestos y servicios externos"
-        />
+        {/* Fila entera hasta `xl`: el importe no cabe en media fila de móvil y, siendo la quinta, cierra la rejilla de dos. */}
+        <div className="col-span-2 xl:col-span-1">
+          <StatTile
+            label="Costo del mes"
+            value={formatMoney(kpis.monthCost, data.currency)}
+            icon={<WrenchIcon className="h-4 w-4" />}
+            caption="Repuestos y servicios externos"
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

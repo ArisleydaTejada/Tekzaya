@@ -31,7 +31,7 @@ test.beforeAll(async ({ browser }) => {
 test("reparte los tickets sin responsable tras una vista previa", async ({ page }) => {
   await page.goto("/tickets");
   await page.getByRole("textbox", { name: "Buscar tickets" }).fill(TAG);
-  for (const title of TITLES) await expect(page.getByText(title)).toBeVisible();
+  for (const title of TITLES) await expect(page.getByRole("link", { name: title })).toBeVisible();
 
   await page.getByRole("checkbox", { name: "Seleccionar los tickets de esta página" }).check();
   await page.getByRole("button", { name: "Asignar", exact: true }).click();

@@ -1085,7 +1085,7 @@ function AssetWorkOrders({ assetId }: { assetId: string }) {
   const orders = data?.items ?? [];
 
   return (
-    <Plate className="overflow-x-auto">
+    <Plate className="relative overflow-x-auto">
       {isLoading ? (
         <p className="p-4 text-sm text-[var(--content-ink-dim)]">Cargando órdenes…</p>
       ) : orders.length === 0 ? (

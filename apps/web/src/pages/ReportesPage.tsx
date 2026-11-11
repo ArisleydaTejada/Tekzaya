@@ -79,6 +79,12 @@ export default function ReportesPage() {
   const { me } = useAuth();
   const queryClient = useQueryClient();
   const [railOpen, setRailOpen] = useState(readRailOpen);
+
+  // Debajo de `xl` el panel va apilado encima del reporte: abierto, el reporte elegido queda fuera de la vista.
+  function closeRailIfStacked() {
+    if (!window.matchMedia("(min-width: 80rem)").matches) setRailOpen(false);
+  }
+
   /** `null` es la que toque: plantillas sin nada guardado, reportes propios si los hay. */
   const [railTab, setRailTab] = useState<RailTab | null>(null);
   /**
@@ -452,9 +458,16 @@ export default function ReportesPage() {
             // que el panel no salte a tickets al quedarse sin gráficas.
             setRailSource(shownRailSource);
             setDraft({ ...EMPTY, scope: catalog.data!.maxScope, dirty: false });
+            closeRailIfStacked();
           }}
-          onOpenTemplate={(template) => setDraft(fromTemplate(template))}
-          onOpenReport={(report) => setDraft(fromSaved(report))}
+          onOpenTemplate={(template) => {
+            setDraft(fromTemplate(template));
+            closeRailIfStacked();
+          }}
+          onOpenReport={(report) => {
+            setDraft(fromSaved(report));
+            closeRailIfStacked();
+          }}
           onDuplicate={async (id) => {
             await duplicateSavedReport(id);
             void queryClient.invalidateQueries({ queryKey: reportKeys.saved() });
