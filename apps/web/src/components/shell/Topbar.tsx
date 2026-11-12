@@ -30,6 +30,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   if (!me) return null;
 
   const isAvailable = me.availability.state === "available";
+  const seesWorkOrders = me.role === "admin" || me.hasGlobalReadAccess || me.maintainsAssets;
 
   /*
    * Del color de la barra lateral, no del lienzo: juntas enmarcan el trabajo en L.
@@ -48,9 +49,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </svg>
       </button>
 
-      {/* Cada una solo se pinta dentro de su sección. */}
+      {/* Se ven en cualquier pantalla. Las órdenes, solo a quien las puede abrir
+          (mismo criterio que su entrada en la barra lateral). */}
       <TicketTabs />
-      <WorkOrderTabs />
+      {seesWorkOrders && <WorkOrderTabs />}
 
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         {/* En el móvil, "Nuevo ticket" vivía solo dentro del menú: la acción principal queda a mano. */}

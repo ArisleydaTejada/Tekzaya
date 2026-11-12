@@ -3,6 +3,7 @@ import { Link, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useAuth } from "../../auth/AuthContext";
 import { PlusIcon, XIcon } from "../icons";
+import { Tooltip } from "../Tooltip";
 
 export interface PickerSlotProps {
   open: boolean;
@@ -27,7 +28,8 @@ interface RecordTabsProps {
 }
 
 /**
- * Pestañas de registros abiertos; solo se ven en su sección, pero se conservan fuera de ella.
+ * Pestañas de registros abiertos. Se ven en toda la aplicación, no solo en su sección,
+ * para volver a un ticket u orden desde cualquier pantalla.
  * Se reordenan arrastrando o con Alt+Shift+← / →.
  */
 export function RecordTabs({
@@ -102,16 +104,14 @@ export function RecordTabs({
     moveTo(dragging, after ? index + 1 : index);
   }
 
-  // Sin pestañas no hay barra (el "+" suelto sobraba), y fuera de la sección
-  // tampoco: son de esa pantalla, no de toda la aplicación.
-  const inSection = pathname === basePath || pathname.startsWith(`${basePath}/`);
+  // Sin pestañas no hay barra: el "+" suelto sobraba.
+  if (tabs.length === 0) return null;
 
-  if (!inSection || tabs.length === 0) return null;
-
+  // Si hay otra barra de pestañas antes (tickets y órdenes juntas), una línea las separa.
   return (
     <nav
       aria-label={navLabel}
-      className="hidden min-w-0 flex-1 items-end gap-1 self-stretch overflow-x-auto md:flex [scrollbar-width:none]"
+      className="hidden min-w-0 max-w-fit flex-1 items-end gap-1 self-stretch overflow-x-auto md:flex [scrollbar-width:none] [&+nav]:ml-1 [&+nav]:border-l [&+nav]:border-[var(--rail-bezel)] [&+nav]:pl-2"
     >
       {tabs.map((number) => (
         <RecordTab
@@ -189,12 +189,14 @@ function RecordTab({
       onDragOver={onDragOver}
       onDrop={(event) => event.preventDefault()}
       onDragEnd={onDragEnd}
+      // Todas con fondo, para que se vean como pestañas abiertas y no como texto suelto.
+      // La activa toma el color del contenido, como si siguiera en él, y una línea de marca arriba.
       className={`group relative flex h-11 min-w-[120px] max-w-[230px] shrink cursor-grab items-center rounded-t-lg border border-b-0 text-sm transition-colors active:cursor-grabbing ${
         dragging ? "opacity-50" : ""
       } ${
         active
-          ? "border-[var(--rail-bezel)] bg-[var(--content-bg)] text-[var(--content-ink)]"
-          : "border-transparent text-[var(--rail-ink-dim)] hover:bg-[var(--rail-surface-2)] hover:text-[var(--rail-ink)]"
+          ? "border-[var(--rail-bezel)] bg-[var(--content-bg)] text-[var(--content-ink)] before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-accent"
+          : "border-transparent bg-accent/10 text-[var(--rail-ink)] hover:bg-accent/20"
       }`}
     >
       <Link
@@ -223,14 +225,16 @@ function RecordTab({
         {/* Un solo texto: el número suelto no debe competir con el de la página. */}
         {label}
       </Link>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={`Cerrar ${number}`}
-        className="mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md opacity-70 hover:bg-[var(--rail-surface-2)] hover:opacity-100"
-      >
-        <XIcon className="h-3.5 w-3.5" />
-      </button>
+      <Tooltip label="Cerrar" side="bottom" className="mr-1.5 flex shrink-0">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Cerrar ${number}`}
+          className="flex h-6 w-6 items-center justify-center rounded-md opacity-70 transition-colors hover:bg-accent/30 hover:text-[var(--rail-ink)] hover:opacity-100 focus-visible:opacity-100"
+        >
+          <XIcon className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

@@ -35,6 +35,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useRowLink } from "../lib/useRowLink";
 import { ticketsCsvUrl } from "../api/stats";
 import {
   areaKeys,
@@ -179,7 +180,9 @@ export default function TicketsPage() {
    */
   const [params, setParams] = useSearchParams();
   const tabsFade = useOverflowFade<HTMLDivElement>();
-  const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "area");
+  // Sin pestaña en la URL se abre "Asignados a mí": lo primero es lo que le toca a quien entra.
+  // Si el enlace pide otra (las fichas del tablero), manda el enlace.
+  const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "assigned");
   const [view, setViewState] = useState<ViewMode>(() => oneOf(VIEW_MODES, params.get("vista") ?? "") ?? "lista");
   const [search, setSearch] = useState(() => params.get("q") ?? "");
   // La búsqueda de la barra lateral llega como "?q=": si cambia estando ya aquí, se adopta.
@@ -935,6 +938,7 @@ function ListView({
   /** Todas las filas son del área de quien mira: no hace falta repetir el chip. */
   sameArea?: boolean;
 }) {
+  const rowLink = useRowLink();
   const pageIds = tickets.map((ticket) => ticket.id);
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
 
@@ -965,7 +969,8 @@ function ListView({
           return (
             <li
               key={ticket.id}
-              className={`flex gap-1 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] py-1.5 pr-3 ${
+              {...rowLink(`/tickets/${number}`)}
+              className={`flex cursor-pointer gap-1 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] py-1.5 pr-3 hover:border-accent/40 ${
                 isSelected ? "bg-accent/5" : ""
               }`}
             >
@@ -1042,7 +1047,9 @@ function ListView({
             {tickets.map((ticket) => (
               <tr
                 key={ticket.id}
-                className={`border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
+                // Toda la fila abre el ticket; el enlace del título sigue para el teclado.
+                {...rowLink(`/tickets/${formatTicketNumber(ticket.number)}`)}
+                className={`cursor-pointer border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
                   selected.includes(ticket.id) ? "bg-accent/5" : ""
                 }`}
               >

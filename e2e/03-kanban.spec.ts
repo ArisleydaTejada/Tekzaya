@@ -12,7 +12,7 @@ test.use({ storageState: storageStateOf("supervisor") });
 const TITLE = `Revisar el proyector de la sala B ${Date.now().toString(36)}`;
 
 async function openBoard(page: Page) {
-  await page.goto("/tickets");
+  await page.goto("/tickets?scope=area");
   await page.getByRole("button", { name: "Kanban" }).click();
   await page.getByRole("textbox", { name: "Buscar tickets" }).fill(TITLE);
 }

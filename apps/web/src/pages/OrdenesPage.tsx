@@ -28,6 +28,7 @@ import { OverdueTag, WorkOrderStatusBadge, WorkOrderTypeTag } from "../component
 import { formatDateTime, formatDay, formatWhen } from "../lib/format";
 import { useOverflowFade } from "../lib/useOverflowFade";
 import { oneOf } from "../lib/oneOf";
+import { useRowLink } from "../lib/useRowLink";
 
 const PAGE_SIZE = 25;
 
@@ -306,6 +307,8 @@ function ListView({
   dir: "asc" | "desc";
   onSort: (column: WorkOrderSort) => void;
 }) {
+  const rowLink = useRowLink();
+
   return (
     <>
       {/* En el móvil, tarjetas: la tabla de siete columnas no cabe en 360 px. */}
@@ -351,7 +354,12 @@ function ListView({
           </thead>
           <tbody>
             {orders.map((order) => (
-              <tr key={order.id} className="border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)]">
+              <tr
+                key={order.id}
+                // Toda la fila abre la orden; los enlaces de número y título siguen para el teclado.
+                {...rowLink(orderPath(order))}
+                className="cursor-pointer border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)]"
+              >
                 <td className="whitespace-nowrap px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
                   <Link to={orderPath(order)} className="hover:text-accent-ink hover:underline">
                     {formatWorkOrderNumber(order.number)}

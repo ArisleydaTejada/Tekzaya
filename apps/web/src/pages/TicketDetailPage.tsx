@@ -8,7 +8,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   TICKET_STATUS_LABEL,
-  WORK_ORDER_STATUS_LABEL,
+  WORK_ORDER_TYPE_LABEL,
   type Area,
   type Attachment,
   type DuplicateCandidate,
@@ -54,6 +54,7 @@ import { answerCsat } from "../api/stats";
 import { assetKeys, createWorkOrderFromTicket, linkTicketAsset } from "../api/assets";
 import { AssetPicker } from "../components/AssetPicker";
 import { AssetStatusBadge } from "../components/assets";
+import { WorkOrderStatusBadge } from "../components/workOrders";
 import { useAuth } from "../auth/AuthContext";
 import { useWatchTicket } from "../realtime/RealtimeContext";
 import { Avatar, AvatarStack } from "../components/Avatar";
@@ -1356,22 +1357,14 @@ function AssetCard({
         Equipo afectado
       </h2>
 
-      <div className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5">
+      {/* Entera es el enlace al equipo, si quien mira lo puede abrir. */}
+      <RecordCard to={asset.canOpen ? `/activos/${formatAssetNumber(asset.number)}` : undefined}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
               {formatAssetNumber(asset.number)}
             </p>
-            {asset.canOpen ? (
-              <Link
-                to={`/activos/${formatAssetNumber(asset.number)}`}
-                className="font-medium text-[var(--content-ink)] hover:underline"
-              >
-                {asset.name}
-              </Link>
-            ) : (
-              <p className="font-medium text-[var(--content-ink)]">{asset.name}</p>
-            )}
+            <p className="font-medium text-[var(--content-ink)]">{asset.name}</p>
           </div>
           <AssetStatusBadge status={asset.status} />
         </div>
@@ -1381,7 +1374,7 @@ function AssetCard({
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--content-ink-dim)]">
           Lo mantiene <AreaTag area={asset.area} />
         </p>
-      </div>
+      </RecordCard>
 
       {asset.recentFailures && (
         <div>
@@ -1411,21 +1404,25 @@ function AssetCard({
       {workOrders.length > 0 && (
         <div>
           <p className="mb-1 text-xs font-medium text-[var(--content-ink-dim)]">Órdenes de trabajo</p>
-          <ul className="space-y-1 text-xs">
+          {/* Una tarjeta por orden, como la del equipo: la API solo manda las que
+              quien mira puede abrir, así que todas son enlace. */}
+          <ul className="space-y-2">
             {workOrders.map((order) => (
-              <li key={order.id} className="flex items-center justify-between gap-2">
-                <Link
-                  to={`/ordenes/${formatWorkOrderNumber(order.number)}`}
-                  className="min-w-0 truncate text-[var(--content-ink)] hover:underline"
-                >
-                  <span className="font-display tabular text-[var(--content-ink-dim)]">
-                    {formatWorkOrderNumber(order.number)}
-                  </span>{" "}
-                  {order.title}
-                </Link>
-                <span className="shrink-0 rounded-md border border-[var(--content-border)] px-1.5 py-0.5 text-xs text-[var(--content-ink-dim)]">
-                  {WORK_ORDER_STATUS_LABEL[order.status]}
-                </span>
+              <li key={order.id}>
+                <RecordCard to={`/ordenes/${formatWorkOrderNumber(order.number)}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+                        {formatWorkOrderNumber(order.number)}
+                      </p>
+                      <p className="font-medium text-[var(--content-ink)]">{order.title}</p>
+                    </div>
+                    <WorkOrderStatusBadge status={order.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
+                    {WORK_ORDER_TYPE_LABEL[order.type]} · {formatWhen(order.createdAt)}
+                  </p>
+                </RecordCard>
               </li>
             ))}
           </ul>
@@ -1490,6 +1487,19 @@ function AssetCard({
         </div>
       )}
     </Plate>
+  );
+}
+
+/** Tarjeta de un registro vinculado; con `to`, toda ella es el enlace. */
+function RecordCard({ to, children }: { to?: string | undefined; children: React.ReactNode }) {
+  const base = "block rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5";
+
+  if (!to) return <div className={base}>{children}</div>;
+
+  return (
+    <Link to={to} className={`${base} transition-colors hover:border-accent/50 hover:bg-accent/5`}>
+      {children}
+    </Link>
   );
 }
 
