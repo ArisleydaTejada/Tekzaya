@@ -8,8 +8,7 @@ import { Avatar } from "../Avatar";
 import { Link } from "react-router-dom";
 import { ChevronDownIcon, MoonIcon, PlusIcon, SunIcon, UserIcon } from "../icons";
 import { NotificationBell } from "./NotificationBell";
-import { TicketTabs } from "./TicketTabs";
-import { WorkOrderTabs } from "./WorkOrderTabs";
+import { OpenTabs } from "./OpenTabs";
 import { useTheme } from "../../theme/ThemeContext";
 
 interface TopbarProps {
@@ -49,10 +48,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </svg>
       </button>
 
-      {/* Se ven en cualquier pantalla. Las órdenes, solo a quien las puede abrir
-          (mismo criterio que su entrada en la barra lateral). */}
-      <TicketTabs />
-      {seesWorkOrders && <WorkOrderTabs />}
+      {/* Tickets y órdenes juntos, en cualquier pantalla. Las órdenes, solo a quien
+          las puede abrir (mismo criterio que su entrada en la barra lateral). */}
+      <OpenTabs seesWorkOrders={seesWorkOrders} />
 
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         {/* En el móvil, "Nuevo ticket" vivía solo dentro del menú: la acción principal queda a mano. */}

@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type DragEvent, type ReactNode, type SVGProps } from "react";
 import { Link, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useAuth } from "../../auth/AuthContext";
@@ -13,44 +13,56 @@ export interface PickerSlotProps {
   onPick: (number: string) => void;
 }
 
-interface RecordTabsProps {
-  /** Sección dueña de las pestañas: `/tickets`, `/ordenes`… */
+/** Un tipo de registro que puede abrirse en pestaña: tickets, órdenes… */
+export interface TabKind {
+  /** Sección dueña del registro: `/tickets`, `/ordenes`… */
   basePath: string;
+  /** Prefijo de su número (`TK-`, `OT-`): con él se sabe de qué tipo es cada pestaña. */
+  prefix: string;
   /** Rutas hermanas del detalle que no son un registro (`nuevo`). */
   notRecords?: readonly string[];
-  /** Nombre con el que se guardan, por persona, en este navegador. */
-  storageName: string;
-  navLabel: string;
-  addLabel: string;
   /** Hook: el título del registro para la pestaña, o `undefined` mientras carga. */
   useTitle: (number: string) => string | undefined;
+  /** El mismo icono que su entrada en la barra lateral: distingue tickets de órdenes en la tira. */
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+}
+
+interface RecordTabsProps {
+  /** Solo los tipos que quien mira puede abrir. */
+  kinds: readonly TabKind[];
+  navLabel: string;
+  addLabel: string;
   renderPicker: (props: PickerSlotProps) => ReactNode;
 }
 
+/** Donde se guardaban por separado antes de juntarlas: se leen una vez para no perderlas. */
+const LEGACY_STORAGE = ["ticketTabs", "workOrderTabs"];
+
 /**
- * Pestañas de registros abiertos. Se ven en toda la aplicación, no solo en su sección,
- * para volver a un ticket u orden desde cualquier pantalla.
- * Se reordenan arrastrando o con Alt+Shift+← / →.
+ * Pestañas de registros abiertos, tickets y órdenes en una sola tira y en el orden
+ * en que se abrieron. Se ven en toda la aplicación, para volver a un registro desde
+ * cualquier pantalla. Se reordenan arrastrando o con Alt+Shift+← / →.
  */
-export function RecordTabs({
-  basePath,
-  notRecords = [],
-  storageName,
-  navLabel,
-  addLabel,
-  useTitle,
-  renderPicker,
-}: RecordTabsProps) {
+export function RecordTabs({ kinds, navLabel, addLabel, renderPicker }: RecordTabsProps) {
   const { me } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const storageKey = me ? `tekzaya.${storageName}.${me.id}` : null;
-  const [tabs, setTabs] = useState<string[]>(() => readTabs(storageKey));
+  const storageKey = me ? `tekzaya.recordTabs.${me.id}` : null;
+  const [tabs, setTabs] = useState<string[]>(() => readTabs(storageKey, me?.id));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
 
-  const param = matchPath(`${basePath}/:number`, pathname)?.params.number;
-  const current = param && !notRecords.includes(param) ? param : null;
+  const kindOf = (number: string) => kinds.find((kind) => number.startsWith(kind.prefix));
+  const hrefOf = (number: string) => `${kindOf(number)?.basePath ?? ""}/${number}`;
+
+  const current =
+    kinds
+      .map((kind) => {
+        const param = matchPath(`${kind.basePath}/:number`, pathname)?.params.number;
+
+        return param && !kind.notRecords?.includes(param) ? param : null;
+      })
+      .find(Boolean) ?? null;
 
   // Solo reacciona al cambio de ruta: al cerrar la pestaña activa la lista cambia antes que la ruta,
   // y mirar ambas volvía a abrir la que se cerraba.
@@ -68,14 +80,17 @@ export function RecordTabs({
     }
   }, [storageKey, tabs]);
 
+  // Las de un tipo que quien mira no puede abrir no se pintan (sin perderlas si recupera el acceso).
+  const visible = tabs.filter((tab) => kindOf(tab));
+
   function close(number: string) {
-    const index = tabs.indexOf(number);
-    const next = tabs.filter((tab) => tab !== number);
-    setTabs(next);
+    const index = visible.indexOf(number);
+    const next = visible.filter((tab) => tab !== number);
+    setTabs((prev) => prev.filter((tab) => tab !== number));
 
     if (number === current) {
       const neighbor = next[Math.min(index, next.length - 1)];
-      navigate(neighbor ? `${basePath}/${neighbor}` : basePath);
+      navigate(neighbor ? hrefOf(neighbor) : (kindOf(number)?.basePath ?? "/"));
     }
   }
 
@@ -105,22 +120,22 @@ export function RecordTabs({
   }
 
   // Sin pestañas no hay barra: el "+" suelto sobraba.
-  if (tabs.length === 0) return null;
+  if (visible.length === 0) return null;
 
-  // Si hay otra barra de pestañas antes (tickets y órdenes juntas), una línea las separa.
   return (
     <nav
       aria-label={navLabel}
-      className="hidden min-w-0 max-w-fit flex-1 items-end gap-1 self-stretch overflow-x-auto md:flex [scrollbar-width:none] [&+nav]:ml-1 [&+nav]:border-l [&+nav]:border-[var(--rail-bezel)] [&+nav]:pl-2"
+      className="hidden min-w-0 flex-1 items-end gap-1 self-stretch overflow-x-auto md:flex [scrollbar-width:none]"
     >
-      {tabs.map((number) => (
+      {visible.map((number) => (
         <RecordTab
           key={number}
           number={number}
-          href={`${basePath}/${number}`}
+          href={hrefOf(number)}
           active={number === current}
           dragging={number === dragging}
-          useTitle={useTitle}
+          useTitle={kindOf(number)!.useTitle}
+          icon={kindOf(number)!.icon}
           onClose={() => close(number)}
           onDragStart={(event) => {
             event.dataTransfer.effectAllowed = "move";
@@ -145,10 +160,10 @@ export function RecordTabs({
       {renderPicker({
         open: pickerOpen,
         onClose: () => setPickerOpen(false),
-        openTabs: tabs,
+        openTabs: visible,
         onPick: (number) => {
           setPickerOpen(false);
-          navigate(`${basePath}/${number}`);
+          navigate(hrefOf(number));
         },
       })}
     </nav>
@@ -161,6 +176,7 @@ function RecordTab({
   active,
   dragging,
   useTitle,
+  icon: Icon,
   onClose,
   onDragStart,
   onDragOver,
@@ -172,6 +188,7 @@ function RecordTab({
   active: boolean;
   dragging: boolean;
   useTitle: (number: string) => string | undefined;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   onClose: () => void;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragOver: (event: DragEvent<HTMLElement>) => void;
@@ -195,7 +212,7 @@ function RecordTab({
         dragging ? "opacity-50" : ""
       } ${
         active
-          ? "border-[var(--rail-bezel)] bg-[var(--content-bg)] text-[var(--content-ink)] before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-accent"
+          ? "border-[var(--rail-bezel)] bg-[var(--content-bg)] text-[var(--content-ink)] before:absolute before:inset-x-0 before:bottom-0 before:h-0.5 before:rounded-full before:bg-accent"
           : "border-transparent bg-accent/10 text-[var(--rail-ink)] hover:bg-accent/20"
       }`}
     >
@@ -220,10 +237,14 @@ function RecordTab({
             onClose();
           }
         }}
-        className="min-w-0 flex-1 truncate py-2 pl-3 pr-1"
+        className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-1"
       >
+        <Icon
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 shrink-0 ${active ? "text-[var(--accent-contrast)]" : "text-[var(--rail-ink-dim)]"}`}
+        />
         {/* Un solo texto: el número suelto no debe competir con el de la página. */}
-        {label}
+        <span className="truncate">{label}</span>
       </Link>
       <Tooltip label="Cerrar" side="bottom" className="mr-1.5 flex shrink-0">
         <button
@@ -247,15 +268,32 @@ const storedTabs = z.array(z.unknown()).transform((items) =>
   }),
 );
 
-function readTabs(key: string | null): string[] {
-  if (!key) return [];
+function readList(key: string): string[] | null {
+  const raw = localStorage.getItem(key);
+
+  if (raw === null) return null;
+  const tabs = storedTabs.safeParse(JSON.parse(raw));
+
+  return tabs.success ? tabs.data : [];
+}
+
+/**
+ * La lista guardada. La primera vez junta las de antes, que se guardaban aparte
+ * (primero tickets, luego órdenes), y borra esas claves.
+ */
+function readTabs(key: string | null, userId: string | undefined): string[] {
+  if (!key || !userId) return [];
 
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+    const stored = readList(key);
 
-    const tabs = storedTabs.safeParse(parsed);
+    if (stored) return stored;
+    const legacyKeys = LEGACY_STORAGE.map((name) => `tekzaya.${name}.${userId}`);
+    const merged = [...new Set(legacyKeys.flatMap((legacy) => readList(legacy) ?? []))];
 
-    return tabs.success ? tabs.data : [];
+    for (const legacy of legacyKeys) localStorage.removeItem(legacy);
+
+    return merged;
   } catch {
     return [];
   }
