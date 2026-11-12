@@ -8,7 +8,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   TICKET_STATUS_LABEL,
-  WORK_ORDER_STATUS_LABEL,
+  WORK_ORDER_TYPE_LABEL,
   type Area,
   type Attachment,
   type DuplicateCandidate,
@@ -54,6 +54,9 @@ import { answerCsat } from "../api/stats";
 import { assetKeys, createWorkOrderFromTicket, linkTicketAsset } from "../api/assets";
 import { AssetPicker } from "../components/AssetPicker";
 import { AssetStatusBadge } from "../components/assets";
+import { WorkOrderStatusBadge } from "../components/workOrders";
+import { RecordCard } from "../components/RecordCard";
+import { ActionButton, ActionLink } from "../components/ActionButton";
 import { useAuth } from "../auth/AuthContext";
 import { useWatchTicket } from "../realtime/RealtimeContext";
 import { Avatar, AvatarStack } from "../components/Avatar";
@@ -435,12 +438,7 @@ export default function TicketDetailPage() {
     return (
       <Plate className="flex flex-col items-center gap-3 py-16 text-center">
         <p className="text-sm text-[var(--content-ink-dim)]">No encontramos el ticket {number}.</p>
-        <Link
-          to="/tickets"
-          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
-        >
-          Volver a tickets
-        </Link>
+        <ActionLink to="/tickets">Volver a tickets</ActionLink>
       </Plate>
     );
   }
@@ -555,8 +553,11 @@ export default function TicketDetailPage() {
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0 space-y-4">
-        <Plate className="p-5">
+      <div className="min-w-0">
+        {/* Una sola tarjeta: cabecera, datos (sin columna lateral), resumen y conversación,
+            separados por líneas. Antes eran tarjetas sueltas que se leían como cosas aparte. */}
+        <Plate className="divide-y divide-[var(--content-border)]">
+        <div className="p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
@@ -672,16 +673,14 @@ export default function TicketDetailPage() {
           {statusUndo && (
             <p role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]">
               Estado cambiado a «{TICKET_STATUS_LABEL[statusUndo.to]}».
-              <button
-                type="button"
+              <ActionButton
                 onClick={() => {
                   patch.mutate({ status: statusUndo.from });
                   setStatusUndo(null);
                 }}
-                className="font-medium text-accent-ink hover:underline"
               >
                 Deshacer
-              </button>
+              </ActionButton>
             </p>
           )}
           {actionError && (
@@ -692,13 +691,12 @@ export default function TicketDetailPage() {
               {actionError}
             </p>
           )}
-        </Plate>
+        </div>
 
         {/* Sin columna lateral, los datos irían tras toda la conversación: suben aquí, plegados, con lo que más se consulta a la vista. */}
         {!wide && (
-          <Plate className="text-sm">
-            <details className="group">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+            <details className="group text-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3.5 [&::-webkit-details-marker]:hidden">
                 <span className="font-medium text-[var(--content-ink)]">Detalles</span>
                 <span className="flex min-w-0 items-center gap-2">
                   <SlaTag state={ticket.resolutionState} status={ticket.status} />
@@ -710,16 +708,15 @@ export default function TicketDetailPage() {
                   <ChevronDownIcon className="h-4 w-4 shrink-0 text-[var(--content-ink-dim)] transition-transform group-open:rotate-180" />
                 </span>
               </summary>
-              <div className="space-y-3 border-t border-[var(--content-border)] px-4 pb-4 pt-3">{detailRows}</div>
+              <div className="space-y-3 border-t border-[var(--content-border)] px-5 pb-4 pt-3">{detailRows}</div>
             </details>
-          </Plate>
         )}
 
         {isAgentView && ai?.configured && ai.enabled.summary && (
           <SummaryPanel ticketId={ticket.id} />
         )}
 
-        <Plate className="p-4">
+        <div className="p-5">
           {messagesQuery.isLoading ? (
             <p className="text-sm text-[var(--content-ink-dim)]">Cargando la conversación…</p>
           ) : (
@@ -822,16 +819,10 @@ export default function TicketDetailPage() {
                 {/* La IA solo continúa la frase si se le pide: ni un token por
                     el mero hecho de estar escribiendo. */}
                 {aiCompletes && canGhost && (
-                  <button
-                    type="button"
-                    onClick={askForCompletion}
-                    disabled={ghosting}
-                    title="Ctrl + Espacio"
-                    className="mt-1 flex items-center gap-1.5 text-xs font-medium text-accent-ink hover:underline disabled:opacity-50"
-                  >
+                  <ActionButton onClick={askForCompletion} disabled={ghosting} title="Ctrl + Espacio" className="mt-1">
                     <SparkleIcon className={`h-3 w-3 ${ghosting ? "animate-pulse" : ""}`} />
                     {ghosting ? "Pensando…" : "Sugerir continuación"}
-                  </button>
+                  </ActionButton>
                 )}
 
                 {files.length > 0 && (
@@ -888,6 +879,7 @@ export default function TicketDetailPage() {
               </div>
             </div>
           )}
+        </div>
         </Plate>
       </div>
 
@@ -914,11 +906,9 @@ export default function TicketDetailPage() {
               no fusiona nada por su cuenta.
             </p>
             {permissions.manageAssignees && (
-              <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                 {permissions.merge && (
-                  <button onClick={() => setMergeOpen(true)} className="text-accent-ink hover:underline">
-                    Ver tickets del incidente
-                  </button>
+                  <ActionButton onClick={() => setMergeOpen(true)}>Ver tickets del incidente</ActionButton>
                 )}
                 <button
                   onClick={() => dismiss.mutate()}
@@ -975,13 +965,9 @@ export default function TicketDetailPage() {
                       <span className="text-[var(--content-ink)]">{merged.title}</span>
                     </Link>
                     {permissions.unmerge && (
-                      <button
-                        onClick={() => unmerge.mutate(merged.id)}
-                        disabled={unmerge.isPending}
-                        className="shrink-0 text-xs text-[var(--content-ink-dim)] underline hover:text-[var(--content-ink)] disabled:opacity-50"
-                      >
+                      <ActionButton onClick={() => unmerge.mutate(merged.id)} disabled={unmerge.isPending}>
                         Separar
-                      </button>
+                      </ActionButton>
                     )}
                   </div>
                   {merged.description && (
@@ -1088,19 +1074,16 @@ function SummaryPanel({ ticketId }: { ticketId: string }) {
   // un resumen que todavía no existe.
   if (!requested) {
     return (
-      <Plate className="p-4">
-        <button
-          onClick={() => setRequested(true)}
-          className="flex items-center gap-2 text-sm font-medium text-accent-ink hover:underline"
-        >
-          <SummaryIcon /> Ver resumen del ticket
-        </button>
-      </Plate>
+      <div className="px-5 py-3.5">
+        <ActionButton onClick={() => setRequested(true)}>
+          <SummaryIcon className="h-3.5 w-3.5" /> Ver resumen del ticket
+        </ActionButton>
+      </div>
     );
   }
 
   return (
-    <Plate className="p-4">
+    <div className="px-5 py-4">
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => setOpen((value) => !value)}
@@ -1136,7 +1119,7 @@ function SummaryPanel({ ticketId }: { ticketId: string }) {
             : (data?.summary ?? "La IA no devolvió resumen. Pulsa «Regenerar» para reintentarlo.")}
         </p>
       )}
-    </Plate>
+    </div>
   );
 }
 
@@ -1324,13 +1307,9 @@ function AssetCard({
 
     return (
       <Plate className="p-4">
-        <button
-          onClick={onLink}
-          disabled={busy}
-          className="flex items-center gap-2 text-sm font-medium text-accent-ink hover:underline disabled:opacity-50"
-        >
-          <WrenchIcon className="h-4 w-4" /> Vincular un equipo
-        </button>
+        <ActionButton onClick={onLink} disabled={busy}>
+          <WrenchIcon className="h-3.5 w-3.5" /> Vincular un equipo
+        </ActionButton>
       </Plate>
     );
   }
@@ -1356,22 +1335,14 @@ function AssetCard({
         Equipo afectado
       </h2>
 
-      <div className="rounded-lg border border-[var(--content-border)] bg-[var(--content-bg)] p-2.5">
+      {/* Entera es el enlace al equipo, si quien mira lo puede abrir. */}
+      <RecordCard to={asset.canOpen ? `/activos/${formatAssetNumber(asset.number)}` : undefined}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
               {formatAssetNumber(asset.number)}
             </p>
-            {asset.canOpen ? (
-              <Link
-                to={`/activos/${formatAssetNumber(asset.number)}`}
-                className="font-medium text-[var(--content-ink)] hover:underline"
-              >
-                {asset.name}
-              </Link>
-            ) : (
-              <p className="font-medium text-[var(--content-ink)]">{asset.name}</p>
-            )}
+            <p className="font-medium text-[var(--content-ink)]">{asset.name}</p>
           </div>
           <AssetStatusBadge status={asset.status} />
         </div>
@@ -1381,7 +1352,7 @@ function AssetCard({
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--content-ink-dim)]">
           Lo mantiene <AreaTag area={asset.area} />
         </p>
-      </div>
+      </RecordCard>
 
       {asset.recentFailures && (
         <div>
@@ -1411,21 +1382,25 @@ function AssetCard({
       {workOrders.length > 0 && (
         <div>
           <p className="mb-1 text-xs font-medium text-[var(--content-ink-dim)]">Órdenes de trabajo</p>
-          <ul className="space-y-1 text-xs">
+          {/* Una tarjeta por orden, como la del equipo: la API solo manda las que
+              quien mira puede abrir, así que todas son enlace. */}
+          <ul className="space-y-2">
             {workOrders.map((order) => (
-              <li key={order.id} className="flex items-center justify-between gap-2">
-                <Link
-                  to={`/ordenes/${formatWorkOrderNumber(order.number)}`}
-                  className="min-w-0 truncate text-[var(--content-ink)] hover:underline"
-                >
-                  <span className="font-display tabular text-[var(--content-ink-dim)]">
-                    {formatWorkOrderNumber(order.number)}
-                  </span>{" "}
-                  {order.title}
-                </Link>
-                <span className="shrink-0 rounded-md border border-[var(--content-border)] px-1.5 py-0.5 text-xs text-[var(--content-ink-dim)]">
-                  {WORK_ORDER_STATUS_LABEL[order.status]}
-                </span>
+              <li key={order.id}>
+                <RecordCard to={`/ordenes/${formatWorkOrderNumber(order.number)}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+                        {formatWorkOrderNumber(order.number)}
+                      </p>
+                      <p className="font-medium text-[var(--content-ink)]">{order.title}</p>
+                    </div>
+                    <WorkOrderStatusBadge status={order.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
+                    {WORK_ORDER_TYPE_LABEL[order.type]} · {formatWhen(order.createdAt)}
+                  </p>
+                </RecordCard>
               </li>
             ))}
           </ul>
@@ -1445,9 +1420,9 @@ function AssetCard({
               Antes, tómalo o asígnalo: un ticket sin responsable no se puede resolver.
             </p>
           ) : (
-            <button onClick={onResolve} className="mt-1.5 font-semibold text-accent-ink hover:underline">
+            <ActionButton onClick={onResolve} className="mt-1.5">
               Resolver el ticket
-            </button>
+            </ActionButton>
           )}
         </div>
       )}
@@ -1471,20 +1446,12 @@ function AssetCard({
           )}
           {permissions.linkAsset && (
             <>
-              <button
-                onClick={onLink}
-                disabled={busy}
-                className="text-xs text-accent-ink hover:underline disabled:opacity-50"
-              >
+              <ActionButton onClick={onLink} disabled={busy}>
                 Cambiar equipo
-              </button>
-              <button
-                onClick={onUnlink}
-                disabled={busy}
-                className="text-xs text-[var(--content-ink-dim)] hover:underline disabled:opacity-50"
-              >
+              </ActionButton>
+              <ActionButton onClick={onUnlink} disabled={busy}>
                 Quitar
-              </button>
+              </ActionButton>
             </>
           )}
         </div>

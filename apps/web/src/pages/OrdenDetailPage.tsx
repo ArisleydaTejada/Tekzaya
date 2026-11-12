@@ -10,7 +10,6 @@ import {
   formatWorkOrderNumber,
   hourlyServiceAmount,
   isSettledStatus,
-  TICKET_STATUS_LABEL,
   WORK_ORDER_HOLD_REASON_LABEL,
   WORK_ORDER_HOLD_REASONS,
   WORK_ORDER_STATUS_LABEL,
@@ -42,7 +41,9 @@ import {
 } from "../api/workOrders";
 import { AssetStatusBadge } from "../components/assets";
 import { Avatar } from "../components/Avatar";
-import { AreaTag } from "../components/badges";
+import { AreaTag, StatusBadge } from "../components/badges";
+import { ActionButton, ActionLink } from "../components/ActionButton";
+import { RecordCard } from "../components/RecordCard";
 import { CheckIcon, PaperclipIcon, PlusIcon, XIcon } from "../components/icons";
 import { RepairEstimateCard } from "../components/maintenanceAi";
 import { Modal } from "../components/Modal";
@@ -120,9 +121,7 @@ export default function OrdenDetailPage() {
     return (
       <Plate className="flex flex-col items-center gap-3 py-16 text-center">
         <p className="text-sm text-[var(--content-ink-dim)]">{error instanceof Error ? error.message : "Esa orden no existe."}</p>
-        <Link to="/ordenes" className="text-sm font-medium text-accent-ink hover:underline">
-          Volver a las órdenes
-        </Link>
+        <ActionLink to="/ordenes">Volver a las órdenes</ActionLink>
       </Plate>
     );
   }
@@ -133,89 +132,91 @@ export default function OrdenDetailPage() {
 
   return (
     <div>
-      <Link to="/ordenes" className="mb-3 inline-block text-xs font-medium text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]">
-        ← Órdenes de trabajo
-      </Link>
-
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">{formatWorkOrderNumber(order.number)}</p>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--content-ink)]">{order.title}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <WorkOrderStatusBadge status={order.status} holdReason={order.holdReason} />
-            <WorkOrderTypeTag type={order.type} />
-            {order.status === "on_hold" && order.holdReason && (
-              <span className="text-xs font-medium text-amber">{WORK_ORDER_HOLD_REASON_LABEL[order.holdReason]}</span>
-            )}
-            {order.scheduledFor && (
-              <span className="text-xs text-[var(--content-ink-dim)]">Programada para el {formatDay(order.scheduledFor)}</span>
-            )}
-            {order.overdue && <OverdueTag />}
-          </div>
-        </div>
-        {open && (
-          <div className="flex flex-wrap gap-2">
-            {permissions.take && (
-              <button disabled={busy} onClick={() => action.mutate(() => takeWorkOrder(order.id))} className={secondaryButton}>
-                Tomar
-              </button>
-            )}
-            {permissions.assign && (
-              <button disabled={busy} onClick={() => setDialog("assign")} className={secondaryButton}>
-                Asignar
-              </button>
-            )}
-            {permissions.work && (order.status === "assigned" || order.status === "on_hold") && (
-              <button
-                disabled={busy}
-                onClick={() => action.mutate(() => updateWorkOrder(order.id, { status: "in_progress" }))}
-                className={primaryButton}
-              >
-                {order.status === "on_hold" ? "Reanudar" : "Iniciar trabajo"}
-              </button>
-            )}
-            {permissions.work && (order.status === "assigned" || order.status === "in_progress") && (
-              <button disabled={busy} onClick={() => setDialog("hold")} className={secondaryButton}>
-                Poner en espera
-              </button>
-            )}
-            {permissions.work && order.status === "in_progress" && (
-              <button disabled={busy} onClick={() => setDialog("complete")} className={primaryButton}>
-                <CheckIcon className="h-3.5 w-3.5" /> Completar
-              </button>
-            )}
-            {permissions.work && (
-              <button
-                disabled={busy}
-                onClick={() => setDialog("cancel")}
-                className="flex items-center gap-1.5 rounded-lg border border-red/40 px-3 py-2 text-xs font-medium text-red hover:bg-red/10 disabled:opacity-50"
-              >
-                Cancelar orden
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {actionError && (
-        <p role="alert" className="mb-4 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
-          {actionError}
-        </p>
-      )}
-      {open && permissions.work && order.status === "pending" && (
-        <p className="mb-4 rounded-xl border border-[var(--content-border)] bg-[var(--content-bg)] px-4 py-3 text-sm text-[var(--content-ink-dim)]">
-          La orden está pendiente: asígnala a alguien del área para empezar a trabajar en ella.
-        </p>
-      )}
-
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-          <Plate className="p-4">
-            <h2 className="mb-2 font-display text-sm font-semibold text-[var(--content-ink)]">Descripción</h2>
-            <p className="whitespace-pre-wrap text-sm text-[var(--content-ink)]">{order.description || "Sin descripción."}</p>
-            {order.checklist.length > 0 && (
-              <Checklist order={order} disabled={!permissions.work || !open || busy} onToggle={(checklist) => action.mutate(() => updateWorkOrder(order.id, { checklist }))} />
+          {/* Como en el ticket: cabecera, aviso y descripción en una sola tarjeta, separados por líneas. */}
+          <Plate className="divide-y divide-[var(--content-border)]">
+            <div className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">{formatWorkOrderNumber(order.number)}</p>
+                  <h1 className="font-display text-xl font-semibold text-[var(--content-ink)]">{order.title}</h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <WorkOrderStatusBadge status={order.status} holdReason={order.holdReason} />
+                    <WorkOrderTypeTag type={order.type} />
+                    {order.status === "on_hold" && order.holdReason && (
+                      <span className="text-xs font-medium text-amber">{WORK_ORDER_HOLD_REASON_LABEL[order.holdReason]}</span>
+                    )}
+                    {order.scheduledFor && (
+                      <span className="text-xs text-[var(--content-ink-dim)]">Programada para el {formatDay(order.scheduledFor)}</span>
+                    )}
+                    {order.overdue && <OverdueTag />}
+                  </div>
+                </div>
+                {open && (
+                  <div className="flex flex-wrap gap-2">
+                    {permissions.take && (
+                      <button disabled={busy} onClick={() => action.mutate(() => takeWorkOrder(order.id))} className={secondaryButton}>
+                        Tomar
+                      </button>
+                    )}
+                    {permissions.assign && (
+                      <button disabled={busy} onClick={() => setDialog("assign")} className={secondaryButton}>
+                        Asignar
+                      </button>
+                    )}
+                    {permissions.work && (order.status === "assigned" || order.status === "on_hold") && (
+                      <button
+                        disabled={busy}
+                        onClick={() => action.mutate(() => updateWorkOrder(order.id, { status: "in_progress" }))}
+                        className={primaryButton}
+                      >
+                        {order.status === "on_hold" ? "Reanudar" : "Iniciar trabajo"}
+                      </button>
+                    )}
+                    {permissions.work && (order.status === "assigned" || order.status === "in_progress") && (
+                      <button disabled={busy} onClick={() => setDialog("hold")} className={secondaryButton}>
+                        Poner en espera
+                      </button>
+                    )}
+                    {permissions.work && order.status === "in_progress" && (
+                      <button disabled={busy} onClick={() => setDialog("complete")} className={primaryButton}>
+                        <CheckIcon className="h-3.5 w-3.5" /> Completar
+                      </button>
+                    )}
+                    {permissions.work && (
+                      <button
+                        disabled={busy}
+                        onClick={() => setDialog("cancel")}
+                        className="flex items-center gap-1.5 rounded-lg border border-red/40 px-3 py-2 text-xs font-medium text-red hover:bg-red/10 disabled:opacity-50"
+                      >
+                        Cancelar orden
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {actionError && (
+                <p role="alert" className="mt-3 rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
+                  {actionError}
+                </p>
+              )}
+            </div>
+
+            {open && permissions.work && order.status === "pending" && (
+              <p className="px-5 py-3 text-sm text-[var(--content-ink-dim)]">
+                La orden está pendiente: asígnala a alguien del área para empezar a trabajar en ella.
+              </p>
             )}
+
+            <div className="p-5">
+              <h2 className="mb-2 font-display text-sm font-semibold text-[var(--content-ink)]">Descripción</h2>
+              <p className="whitespace-pre-wrap text-sm text-[var(--content-ink)]">{order.description || "Sin descripción."}</p>
+              {order.checklist.length > 0 && (
+                <Checklist order={order} disabled={!permissions.work || !open || busy} onToggle={(checklist) => action.mutate(() => updateWorkOrder(order.id, { checklist }))} />
+              )}
+            </div>
           </Plate>
 
           {order.completionNotes && (
@@ -260,13 +261,21 @@ export default function OrdenDetailPage() {
 
           {order.ticket && (
             <Plate className="p-4 text-sm">
-              <h2 className="mb-1 font-display text-sm font-semibold text-[var(--content-ink)]">Ticket de origen</h2>
-              <Link to={`/tickets/${formatTicketNumber(order.ticket.number)}`} className="text-accent-ink hover:underline">
-                <span className="font-display tabular">{formatTicketNumber(order.ticket.number)}</span> · {order.ticket.title}
-              </Link>
-              <p className="mt-1 text-xs text-[var(--content-ink-dim)]">
-                {TICKET_STATUS_LABEL[order.ticket.status]}
-                {" · "}El solicitante sigue la conversación en el ticket; al completar la orden se le avisa ahí.
+              <h2 className="mb-2 font-display text-sm font-semibold text-[var(--content-ink)]">Ticket de origen</h2>
+              {/* Entera es el enlace, como las tarjetas de equipo y órdenes en el detalle del ticket. */}
+              <RecordCard to={`/tickets/${formatTicketNumber(order.ticket.number)}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-display text-xs tabular text-[var(--content-ink-dim)]">
+                      {formatTicketNumber(order.ticket.number)}
+                    </p>
+                    <p className="font-medium text-[var(--content-ink)]">{order.ticket.title}</p>
+                  </div>
+                  <StatusBadge status={order.ticket.status} />
+                </div>
+              </RecordCard>
+              <p className="mt-2 text-xs text-[var(--content-ink-dim)]">
+                El solicitante sigue la conversación en el ticket; al completar la orden se le avisa ahí.
               </p>
               {/* La orden terminó y el ticket sigue abierto: el solicitante lo ve
                   pendiente hasta que alguien lo resuelva con una nota. */}
@@ -281,9 +290,9 @@ export default function OrdenDetailPage() {
                     )}
                   </p>
                   {order.ticket.canResolve && (
-                    <button onClick={() => setDialog("resolveTicket")} className="mt-1.5 font-semibold text-accent-ink hover:underline">
+                    <ActionButton onClick={() => setDialog("resolveTicket")} className="mt-1.5">
                       Resolver el ticket
-                    </button>
+                    </ActionButton>
                   )}
                 </div>
               )}

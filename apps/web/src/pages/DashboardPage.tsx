@@ -27,6 +27,7 @@ import { Avatar } from "../components/Avatar";
 import { PriorityBadge, SlaTag, StatusBadge } from "../components/badges";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
+import { ActionLink } from "../components/ActionButton";
 import { GaugeDial, type GaugeTone } from "../components/GaugeDial";
 import { Readout, Readouts } from "../components/Readouts";
 import { StatTile } from "../components/StatTile";
@@ -246,12 +247,9 @@ export default function DashboardPage() {
             Posible incidente: {overview.data.incident.ticketCount} tickets sobre{" "}
             {overview.data.incident.label}
           </p>
-          <Link
-            to="/tickets"
-            className="ml-auto flex items-center gap-1 text-sm font-medium text-accent-ink hover:underline"
-          >
+          <ActionLink to="/tickets?scope=area" className="ml-auto">
             Ver tickets del incidente <ArrowRightIcon className="h-3.5 w-3.5" />
-          </Link>
+          </ActionLink>
         </Plate>
       )}
 
@@ -437,12 +435,9 @@ function AvailabilityPanel({ query, global }: { query: StatsRequest; global: boo
         <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
           Disponibilidad del equipo
         </h2>
-        <Link
-          to="/reportes"
-          className="flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
-        >
+        <ActionLink to="/reportes">
           Ver gráficas en Reportes <ArrowRightIcon className="h-3 w-3" />
-        </Link>
+        </ActionLink>
       </div>
       {isPending ? (
         <p className="py-6 text-center text-sm text-[var(--content-ink-dim)]">Cargando equipo…</p>
@@ -533,12 +528,9 @@ function AssignedPanel() {
           ))}
         </ul>
       )}
-      <Link
-        to="/tickets?scope=assigned"
-        className="mt-3 flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
-      >
+      <ActionLink to="/tickets?scope=assigned" className="mt-3">
         Ver todos los asignados a mí <ArrowRightIcon className="h-3 w-3" />
-      </Link>
+      </ActionLink>
     </Plate>
   );
 }
@@ -591,12 +583,9 @@ function RequestsPanel() {
           ))}
         </ul>
       )}
-      <Link
-        to="/tickets?scope=mine"
-        className="mt-3 flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
-      >
+      <ActionLink to="/tickets?scope=mine" className="mt-3">
         Ver todas mis solicitudes <ArrowRightIcon className="h-3 w-3" />
-      </Link>
+      </ActionLink>
     </Plate>
   );
 }

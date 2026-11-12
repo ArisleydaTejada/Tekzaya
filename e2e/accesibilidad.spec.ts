@@ -33,7 +33,8 @@ const PAGES: {
     // El principal de la fusión de la semilla: trae duplicados, responsables y
     // conversación, así que es el detalle con más piezas a la vista.
     name: "detalle de ticket",
-    path: "/tickets",
+    // Todos: la lista abre en "Asignados a mí" y este ticket no es de quien mira.
+    path: "/tickets?scope=all",
     role: "admin",
     ready: async (page) => {
       await page.getByRole("textbox", { name: "Buscar tickets" }).fill("Caída general de red");

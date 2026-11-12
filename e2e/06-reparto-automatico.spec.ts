@@ -29,7 +29,7 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test("reparte los tickets sin responsable tras una vista previa", async ({ page }) => {
-  await page.goto("/tickets");
+  await page.goto("/tickets?scope=area");
   await page.getByRole("textbox", { name: "Buscar tickets" }).fill(TAG);
   for (const title of TITLES) await expect(page.getByRole("link", { name: title })).toBeVisible();
 

@@ -35,6 +35,7 @@ import { areaKeys, listAreaMembers, listAreas } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
+import { ActionAnchor } from "../components/ActionButton";
 import { ChevronDownIcon, DownloadIcon, ChartIcon, PlusIcon, XIcon } from "../components/icons";
 import { TicketsOfPeriod } from "./reportes/TicketsOfPeriod";
 import { WidgetCard } from "./reportes/WidgetCard";
@@ -441,12 +442,9 @@ export default function ReportesPage() {
               explica nada una lista de tickets. */}
           {draftSource === "maintenance" ? (
             <>
-              <a
-                href="#ordenes-del-periodo"
-                className="no-print mt-4 inline-block text-xs font-medium text-accent-ink hover:underline"
-              >
+              <ActionAnchor href="#ordenes-del-periodo" className="no-print mt-4">
                 Ir a la lista de órdenes de trabajo ↓
-              </a>
+              </ActionAnchor>
               <WorkOrdersOfPeriod
                 scope={scope}
                 filters={workOrderFilters}
@@ -455,12 +453,9 @@ export default function ReportesPage() {
             </>
           ) : (
             <>
-              <a
-                href="#tickets-del-periodo"
-                className="no-print mt-4 inline-block text-xs font-medium text-accent-ink hover:underline"
-              >
+              <ActionAnchor href="#tickets-del-periodo" className="no-print mt-4">
                 Ir a la lista de tickets ↓
-              </a>
+              </ActionAnchor>
               <TicketsOfPeriod
                 scope={listScope}
                 filters={ticketFilters}

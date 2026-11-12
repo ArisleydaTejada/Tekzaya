@@ -15,7 +15,8 @@ import { getSparePart, listStockMovements, sparePartKeys, updateSparePart } from
 import { workOrderKeys } from "../api/workOrders";
 import { AssetStatusBadge } from "../components/assets";
 import { AreaTag } from "../components/badges";
-import { BoxIcon, PencilIcon, PlusIcon, SlidersIcon } from "../components/icons";
+import { ArrowLeftIcon, BoxIcon, PencilIcon, PlusIcon, SlidersIcon } from "../components/icons";
+import { ActionButton, ActionLink } from "../components/ActionButton";
 import { PhotoGallery } from "../components/PhotoGallery";
 import { Plate } from "../components/Plate";
 import { LowStockBadge, SparePartFormModal, StockMovementModal } from "../components/spareParts";
@@ -67,9 +68,7 @@ export default function RepuestoDetailPage() {
     return (
       <Plate className="flex flex-col items-center gap-3 py-16 text-center">
         <p className="text-sm text-[var(--content-ink-dim)]">{error instanceof Error ? error.message : "Ese repuesto no existe."}</p>
-        <Link to="/repuestos" className="text-sm font-medium text-accent-ink hover:underline">
-          Volver al almacén
-        </Link>
+        <ActionLink to="/repuestos">Volver al almacén</ActionLink>
       </Plate>
     );
   }
@@ -78,9 +77,9 @@ export default function RepuestoDetailPage() {
 
   return (
     <div>
-      <Link to="/repuestos" className="mb-3 inline-block text-xs font-medium text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]">
-        ← Repuestos
-      </Link>
+      <ActionLink to="/repuestos" className="mb-3">
+        <ArrowLeftIcon className="h-3.5 w-3.5" /> Repuestos
+      </ActionLink>
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start">
@@ -151,9 +150,7 @@ export default function RepuestoDetailPage() {
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">Equipos en los que se usa</h2>
           {manage && part.isActive && (
-            <button onClick={() => setDialog("edit")} className="text-xs font-medium text-accent-ink hover:underline">
-              Cambiar
-            </button>
+            <ActionButton onClick={() => setDialog("edit")}>Cambiar</ActionButton>
           )}
         </div>
         {part.assets.length === 0 ? (

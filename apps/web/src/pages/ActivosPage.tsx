@@ -17,6 +17,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useRowLink } from "../lib/useRowLink";
 import { assetKeys, assetsCsvUrl, listAssetLocations, listAssets } from "../api/assets";
 import { areaKeys, listAreas } from "../api/tickets";
 import { useAuth } from "../auth/AuthContext";
@@ -473,6 +474,8 @@ function AssetTable({
   dir: "asc" | "desc";
   onSort: (column: AssetSort) => void;
 }) {
+  const rowLink = useRowLink();
+
   return (
     <>
       {/* En el móvil, tarjetas: una tabla de seis columnas escondería el estado de lado. */}
@@ -525,9 +528,11 @@ function AssetTable({
             return (
               <tr
                 key={asset.id}
+                // Toda la fila abre el equipo; los enlaces de número y nombre siguen para el teclado.
+                {...rowLink(`/activos/${number}`)}
                 // Los dados de baja se distinguen por el fondo y su etiqueta, no
                 // atenuando el texto: bajaría del contraste AA.
-                className={`border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
+                className={`cursor-pointer border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
                   asset.status === "retired" ? "bg-[var(--content-bg)]/60" : ""
                 }`}
               >

@@ -29,7 +29,8 @@ import { AssetFormModal } from "../components/AssetFormModal";
 import { AssetStatusBadge, WarrantyBadge } from "../components/assets";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { AreaTag } from "../components/badges";
-import { AlertIcon, ArrowRightIcon, PencilIcon, PlusIcon, WrenchIcon, XIcon } from "../components/icons";
+import { AlertIcon, ArrowLeftIcon, ArrowRightIcon, PencilIcon, PlusIcon, WrenchIcon, XIcon } from "../components/icons";
+import { ActionButton, ActionLink } from "../components/ActionButton";
 import { Modal } from "../components/Modal";
 import { PhotoGallery } from "../components/PhotoGallery";
 import { ReplacementAdviceCard } from "../components/maintenanceAi";
@@ -105,9 +106,7 @@ export default function ActivoDetailPage() {
         <p className="text-sm text-[var(--content-ink-dim)]">
           {error instanceof Error ? error.message : "Ese activo no existe."}
         </p>
-        <Link to="/activos" className="text-sm font-medium text-accent-ink hover:underline">
-          Volver al inventario
-        </Link>
+        <ActionLink to="/activos">Volver al inventario</ActionLink>
       </Plate>
     );
   }
@@ -115,9 +114,9 @@ export default function ActivoDetailPage() {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <Link to="/activos" className="text-xs font-medium text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]">
-          ← Activos
-        </Link>
+        <ActionLink to="/activos">
+          <ArrowLeftIcon className="h-3.5 w-3.5" /> Activos
+        </ActionLink>
         {(asset.permissions.manage || asset.permissions.createWorkOrder) && (
           <div className="flex flex-wrap gap-2">
             {asset.permissions.createWorkOrder && (
@@ -467,13 +466,6 @@ function CardTitle({ title, action }: { title: string; action?: ReactNode }) {
   );
 }
 
-function LinkButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button onClick={onClick} className="text-xs font-medium text-accent-ink hover:underline">
-      {children}
-    </button>
-  );
-}
 
 function CurrentState({ asset, events, loading }: { asset: AssetDetail; events: readonly AssetEventView[]; loading: boolean }) {
   const lastChange = events.find((event) => statusAfter(event) === asset.status);
@@ -567,7 +559,7 @@ function StatRow({ label, hint, children }: { label: string; hint?: string; chil
 function EquipmentData({ asset, onEdit }: { asset: AssetDetail; onEdit?: (() => void) | undefined }) {
   return (
     <Plate className="p-4">
-      <CardTitle title="Datos del equipo" action={onEdit && <LinkButton onClick={onEdit}>Editar</LinkButton>} />
+      <CardTitle title="Datos del equipo" action={onEdit && <ActionButton onClick={onEdit}>Editar</ActionButton>} />
       <dl className="divide-y divide-[var(--content-border)] text-sm">
         <Item label="Tipo">{ASSET_TYPE_LABEL[asset.type]}</Item>
         <Item label="Marca">{asset.brand ?? "—"}</Item>
@@ -640,7 +632,7 @@ function RecentActivity({
 
   return (
     <Plate className="p-4">
-      <CardTitle title="Actividad reciente" action={events.length > 0 && <LinkButton onClick={onShow}>Ver todo</LinkButton>} />
+      <CardTitle title="Actividad reciente" action={events.length > 0 && <ActionButton onClick={onShow}>Ver todo</ActionButton>} />
       {loading ? (
         <p className="text-sm text-[var(--content-ink-dim)]">Cargando historial…</p>
       ) : shown.length === 0 ? (
@@ -680,7 +672,7 @@ function ServiceHistory({
 
   return (
     <Plate className="p-4">
-      <CardTitle title="Historial de servicio" action={service.length > shown.length && <LinkButton onClick={onShow}>Ver todo</LinkButton>} />
+      <CardTitle title="Historial de servicio" action={service.length > shown.length && <ActionButton onClick={onShow}>Ver todo</ActionButton>} />
       {loading ? (
         <p className="text-sm text-[var(--content-ink-dim)]">Cargando…</p>
       ) : shown.length === 0 ? (
@@ -842,9 +834,7 @@ function RequiredParts({ order }: { order: WorkOrderDetail }) {
       <CardTitle
         title="Repuestos requeridos"
         action={
-          <Link to="/repuestos" className="text-xs font-medium text-accent-ink hover:underline">
-            Ver almacén
-          </Link>
+          <ActionLink to="/repuestos">Ver almacén</ActionLink>
         }
       />
       <ul className="divide-y divide-[var(--content-border)]">
@@ -897,9 +887,7 @@ function AssetParts({ asset }: { asset: AssetDetail }) {
       <CardTitle
         title="Repuestos del equipo"
         action={
-          <Link to="/repuestos" className="text-xs font-medium text-accent-ink hover:underline">
-            Ver almacén
-          </Link>
+          <ActionLink to="/repuestos">Ver almacén</ActionLink>
         }
       />
       {isLoading ? (
@@ -1063,9 +1051,9 @@ function ActiveWorkOrderCard({ order, others, onShowAll }: { order: WorkOrderDet
           Abrir la orden
         </Link>
         {others > 0 && (
-          <LinkButton onClick={onShowAll}>
+          <ActionButton onClick={onShowAll}>
             {others === 1 ? "1 orden abierta más" : `${others} órdenes abiertas más`}
-          </LinkButton>
+          </ActionButton>
         )}
       </div>
     </Plate>

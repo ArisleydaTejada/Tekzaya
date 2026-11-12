@@ -9,11 +9,11 @@ colors:
   panel-seam: "#58506a"
   panel-ink: "#f5f3f7"
   panel-ink-dim: "#948da3"
-  placard: "#eceff5"
+  placard: "#f9f9f9"
   placard-surface: "#ffffff"
-  placard-border: "#dbe0e9"
+  placard-border: "#e0e0e0"
   placard-ink: "#12141a"
-  placard-ink-dim: "#5b6472"
+  placard-ink-dim: "#606060"
   accent: "#58479d"
   accent-soft: "#b5a3cf"
   accent-dim: "#463a7e"
@@ -33,25 +33,25 @@ colors:
   chart-cat-7: "#a0522d"
 typography:
   display:
-    fontFamily: "Oswald Variable, Arial Narrow, sans-serif"
+    fontFamily: "Poppins, system-ui, sans-serif"
     fontSize: "1.875rem"
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "-0.01em"
   label:
-    fontFamily: "Oswald Variable, Arial Narrow, sans-serif"
+    fontFamily: "Poppins, system-ui, sans-serif"
     fontSize: "0.625rem"
     fontWeight: 500
     lineHeight: 1.2
     letterSpacing: "0.14em"
   caption:
-    fontFamily: "Hanken Grotesk Variable, system-ui, sans-serif"
+    fontFamily: "Nunito Variable, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "normal"
   body:
-    fontFamily: "Hanken Grotesk Variable, system-ui, sans-serif"
+    fontFamily: "Nunito Variable, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
@@ -131,10 +131,11 @@ Paleta de instrumento: negro casi puro para el panel, blanco cálido para la pla
 - **Superficie del panel** (`#201c29` / `#292432`): placas y tarjetas sobre el panel oscuro, y el lienzo del tema oscuro.
 - **Bisel del panel** (`#3a3444`): bordes, remaches y anillos de bisel de los diales. **Costura** (`#58506a`): el brillo de la costura de montaje del login.
 - **Tinta del panel** (`#f5f3f7` texto principal / `#948da3` texto secundario).
-- **Placard** (`#eceff5`): fondo de la placa clara, a toda superficie.
+- **Placard** (`#f9f9f9`): fondo de la placa clara, a toda superficie. Gris neutro, sin tinte azulado.
 - **Superficie de la placa** (`#ffffff`): campos, botones y tarjetas sobre la placa clara.
-- **Borde de la placa** (`#dbe0e9`).
-- **Tinta de la placa** (`#12141a` texto principal / `#5b6472` texto secundario).
+- **Borde de la placa** (`#e0e0e0`).
+- **Tinta de la placa** (`#12141a` texto principal / `#606060` texto secundario, 6:1 sobre el lienzo).
+- **Barra (rail) en claro** (`#f3f0fa`, hover/activo `#e8e3f5`, borde `#ddd6ee`): lila suave de la marca para la barra lateral y la superior. Con el lienzo gris neutro, el casi blanco anterior se confundía con él; el lila las separa sin pesar. Texto secundario `#6a6380` (5:1 sobre la barra, 4,5:1 en hover).
 
 ### Chart categorical (identity, not a reading)
 Cuando un color codifica una **categoría** en una gráfica (área, persona, categoría) en vez de una **lectura de estado** (SLA, éxito/error), nunca toma prestado el trío semántico. La rampa `--chart-cat-1…7` abre con el **morado de la marca** `#58479d` (lila `#b5a3cf` en oscuro) y sigue con azul `#2f6fcb`, magenta `#d6449c`, verde azulado `#0e9c8e`, ocre `#c67f1e`, acero `#7c8cae` y oliva `#8a6d1e`. No usa el trío rojo/ámbar/verde.
@@ -153,10 +154,12 @@ El texto siempre acompaña al color. **Abierto** y **Asignado** son acero (un ti
 
 ## Typography
 
-**Display Font:** Oswald Variable (con Arial Narrow, sans-serif)
-**Body Font:** Hanken Grotesk Variable (con system-ui, sans-serif)
+**Display Font:** Poppins (con system-ui, sans-serif), pesos 400–700
+**Body Font:** Nunito Variable (con system-ui, sans-serif), con cursiva
 
-**Character:** Oswald es condensada, mayúscula y de números tabulares — la voz de las placas, los diales y los números de ticket. Hanken Grotesk es una humanista neutra que lleva todo el texto de trabajo: formularios, párrafos, botones largos. El contraste entre ambas es lo que separa "instrumento" de "tarea".
+**Character:** Poppins es una geométrica de trazo firme — la voz de los títulos, las placas, las etiquetas y los badges. Nunito es redondeada y amable y lleva todo el texto de trabajo: formularios, párrafos, botones largos. Ambas vienen de Google Fonts, empaquetadas con `@fontsource` para que la app funcione sin internet.
+
+**Números alineados:** Poppins no tiene cifras de ancho fijo. Lo que lleva `font-display` y `tabular` a la vez (números de ticket y orden en columnas, cifras de indicadores) se pinta en Nunito, que sí las tiene (regla `.font-display.tabular` en `index.css`).
 
 ### Hierarchy
 - **Display** (600, 1.875rem/tight, -0.01em): títulos de pantalla ("Bienvenido de nuevo"), wordmark "TEKZAYA".
@@ -174,7 +177,13 @@ Login: dos columnas a `lg` (≥1024px), 54%/46% con una costura de 8px entre amb
 
 **El resto de la app (shell interior):** la barra lateral y la superior siguen al tema de quien mira (`--rail-*`), igual que el área de contenido, que cambia de placa clara a panel oscuro con el selector de tema. Los tableros abren con **un dial protagonista** (cumplimiento de SLA en el tablero de área, preventivos de la semana en el panel de mantenimiento) y los contadores a su lado. Esto se implementa con variables CSS reactivas al tema (`--content-bg`, `--content-surface`, `--content-border`, `--content-ink`, `--content-ink-dim`, `--content-shadow`, más `--chart-*` para las gráficas), redeclaradas bajo `[data-theme="dark"]`; los componentes de contenido nunca usan directamente `bg-placard`/`bg-panel`, siempre las variables `--content-*`. Los diales conservan su cara oscura interna (vidrio de instrumento) en ambos temas — solo la placa que los contiene cambia; ver Shapes.
 
-**Pestañas de registros:** el detalle de ticket abre cada registro en una pestaña de la barra superior, al estilo de un navegador, para saltar entre tickets sin volver a la lista. Por debajo de 80rem, los datos del ticket se pliegan bajo la cabecera en un resumen «Detalles».
+**Pestañas de registros:** cada ticket u orden que se abre queda como pestaña en la barra superior, al estilo de un navegador, visible en cualquier pantalla. Tickets y órdenes comparten una sola tira, en el orden en que se abrieron, cada pestaña con el icono de su tipo (el mismo de la barra lateral); un solo "+" abre un buscador con ambos. Las inactivas llevan un tinte de la marca al 10 %; la activa, el fondo del contenido y una línea de marca arriba.
+
+**Pestañas de bandeja** (Sin asignar, Asignados a mí, Mi área… en Tickets y Órdenes de trabajo): la activa es una pestaña de carpeta — fondo de tarjeta, borde arriba y a los lados, esquinas superiores redondeadas — que tapa la línea inferior de la fila. Las inactivas no tienen fondo.
+
+**Detalle de ticket y de orden:** la cabecera (título, estado y acciones) y el cuerpo (resumen y conversación en el ticket; aviso y descripción en la orden) van en **una sola tarjeta**, separados por líneas, no en tarjetas sueltas. Por debajo de 80rem, los datos del ticket se pliegan dentro de esa tarjeta en un resumen «Detalles». Los registros vinculados (equipo, órdenes, ticket de origen) se muestran como `RecordCard`.
+
+**Filas de las listas:** en las tablas de tickets, activos y órdenes toda la fila abre el registro (Ctrl/⌘ o la rueda, en otra pestaña); el enlace del título sigue ahí para el teclado.
 
 ## Elevation & Depth
 
@@ -197,6 +206,8 @@ Radios: 8px (`rounded-lg`) para tarjetas de estado semántico, 12px (`rounded-xl
 ### Buttons
 - **Shape:** 12px de radio (`{rounded.md}`).
 - **Primary:** fondo índigo (`{colors.accent}`), texto blanco, `padding: 12px 16px`; hover oscurece a `{colors.accent-dim}`.
+- **Acción (`ActionButton` / `ActionLink`):** las acciones secundarias dentro de tarjetas y pantallas ("Editar", "Ver todo", "Ver almacén", "Cambiar", "Separar", volver a la lista) son un botón tintado de la marca: fondo `accent` al 10 % (20 % al pasar), texto `accent-ink`, `text-xs`, radio 8px. Nunca un enlace subrayado suelto: un enlace dentro de una frase se lee como texto, no como algo que se pulsa.
+- **Tarjeta de registro (`RecordCard`):** un equipo, una orden o un ticket vinculado se muestra como tarjeta (número, título, estado) y la tarjeta entera es el enlace.
 - **Lever (Google):** fondo de placa blanca, borde `{colors.placard-border}`, sombra escalonada de reposo (`lever-rest`) con una ranura horizontal recesada visible bajo la etiqueta incluso sin interacción; al presionar, se hunde 3px y la sombra colapsa.
 
 ### Status cards
@@ -209,13 +220,13 @@ Radios: 8px (`rounded-lg`) para tarjetas de estado semántico, 12px (`rounded-xl
 - **Error:** borde rojo sólido.
 
 ### Dial (Gauge)
-Un dial protagonista por tablero (cumplimiento de SLA en el de área, preventivos de la semana en el de mantenimiento), dibujado según `docs/ideas_diseno/dial.png`: tarjeta clara (`--content-surface`), arco de 270° con una **línea fina en degradado de la marca** (`--dial-start` → `--dial-end`, del morado `#58479d` al lila `#b5a3cf`; en oscuro, versiones aclaradas) y, por dentro, una **banda ancha y suave** del mismo degradado translúcido que se llena hasta el valor. Sin esfera oscura, sin aguja y sin remaches: sobre una pantalla clara, el bloque negro pesaba más que la cifra. La cifra va en Hanken Grotesk ligera (300), grande, con el `%` pequeño arriba a la derecha; bajo el arco, una píldora con el contexto (el período: «Mes»). Si el período no tiene datos, el dial mira el siguiente más amplio y lo dice en el pie; sin ningún dato, la línea queda gris y sin banda. El estado (en tiempo, en riesgo) lo cuentan la cifra y el pie, no el color del arco. El resto de KPI son lecturas compactas (`Readouts`) junto al dial.
+Un dial protagonista por tablero (cumplimiento de SLA en el de área, preventivos de la semana en el de mantenimiento), dibujado según `docs/ideas_diseno/dial.png`: tarjeta clara (`--content-surface`), arco de 270° con una **línea fina en degradado de la marca** (`--dial-start` → `--dial-end`, del morado `#58479d` al lila `#b5a3cf`; en oscuro, versiones aclaradas) y, por dentro, una **banda ancha y suave** del mismo degradado translúcido que se llena hasta el valor. Sin esfera oscura, sin aguja y sin remaches: sobre una pantalla clara, el bloque negro pesaba más que la cifra. La cifra va en Nunito ligera (300), grande, con el `%` pequeño arriba a la derecha; bajo el arco, una píldora con el contexto (el período: «Mes»). Si el período no tiene datos, el dial mira el siguiente más amplio y lo dice en el pie; sin ningún dato, la línea queda gris y sin banda. El estado (en tiempo, en riesgo) lo cuentan la cifra y el pie, no el color del arco. El resto de KPI son lecturas compactas (`Readouts`) junto al dial.
 
 ### SLA needle
 Marca miniatura (14px) exclusiva de una lectura de SLA: un arco tenue + una aguja corta en `currentColor`, heredando el color semántico (verde/ámbar/rojo) del texto que acompaña. Vive siempre junto al texto del estado, nunca sola. Ver The SLA Needle Rule.
 
 ### Avatar stack
-Círculos de 24px (`sm`) con iniciales en Oswald, fondo `steel/20`, anillo `ring-2` del color de fondo del contenedor. Solapamiento de `-6px` como máximo (`-ml-1.5`); el avatar más a la izquierda siempre pinta encima (z-index descendente) para que sus iniciales nunca queden cortadas. Máximo 3 visibles + una burbuja "+N".
+Círculos de 24px (`sm`) con iniciales en Poppins, fondo `steel/20`, anillo `ring-2` del color de fondo del contenedor. Solapamiento de `-6px` como máximo (`-ml-1.5`); el avatar más a la izquierda siempre pinta encima (z-index descendente) para que sus iniciales nunca queden cortadas. Máximo 3 visibles + una burbuja "+N".
 
 ### Tablas densas (Operate)
 Usadas en Tickets, Administración y "Tickets del período" de Reportes. Encabezado en `--content-ink-dim`, filas separadas por `--content-border`, sin cebra. Prioridad y SLA siempre como sus propios componentes (punto + aguja), nunca texto plano.
