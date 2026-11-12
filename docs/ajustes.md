@@ -1,4 +1,4 @@
 # AJUSTES
-- Que si el ticket es pasado a orden de trabajo y se ha resuelto la orden de trabajo, decir que se acuerde de resolver el ticket o un modal con un boton de "resolver ticket tambien", no se como me lo recomendarias
-- Que en vez de que salga automaticamente si Sugerir reparar o reemplazar un equipo, que salga un boton para que la ia no este evaluando cada activo y no gastar tokens. 
-- Si la garantia esta por vencerse avisar al area encargada en notificaciones
+- En el dashboard de mantenimiento filtrar por dia/semana/mes
+- En reportes, boton de exportar, imprime la pagina entera, no solo los graficos, arregla eso, pon que se pueda exportar a csv todos los graficos, y que no queden en texto. Cuando un grafico se descarga en png no lo muestra entero, arregla eso.
+-Si busco un ticket o orden de trabajo desde el side menu, que se muestre un menu con las coincidencias
