@@ -1,11 +1,17 @@
 @import "tailwindcss";
 
-@import "@fontsource-variable/oswald";
-@import "@fontsource-variable/hanken-grotesk";
+/* Poppins (títulos) y Nunito (texto), de Google Fonts, empaquetadas con la app:
+   funcionan sin internet. Poppins no es variable: se cargan los pesos que se usan. */
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+@import "@fontsource-variable/nunito/wght.css";
+@import "@fontsource-variable/nunito/wght-italic.css";
 
 @theme {
-  --font-display: "Oswald Variable", "Arial Narrow", sans-serif;
-  --font-body: "Hanken Grotesk Variable", system-ui, sans-serif;
+  --font-display: "Poppins", system-ui, sans-serif;
+  --font-body: "Nunito Variable", system-ui, sans-serif;
 
   /* Instrument panel (left, dark) — dark charcoal-violet, not blue-black */
   --color-panel: #221f2c;
@@ -15,12 +21,13 @@
   --color-panel-ink: #f5f3f7;
   --color-panel-ink-dim: #948da3;
 
-  /* Placard (right, light) */
-  --color-placard: #eceff5;
+  /* Placard (right, light). Grises neutros, sin el tinte azulado de antes.
+     ink-dim: 6,3:1 sobre blanco y 6:1 sobre el lienzo (AA). */
+  --color-placard: #f9f9f9;
   --color-placard-surface: #ffffff;
-  --color-placard-border: #dbe0e9;
+  --color-placard-border: #e0e0e0;
   --color-placard-ink: #12141a;
-  --color-placard-ink-dim: #5b6472;
+  --color-placard-ink-dim: #606060;
 
   /* Marca: el morado del trazo y el lila del contrachapado del logo.
      `dim` es el hover de lo que ya va pintado de primario. */
@@ -66,15 +73,17 @@
   --content-ink-dim: var(--color-placard-ink-dim);
   --content-shadow: var(--shadow-placard);
   /* Borde de los campos: 3:1 contra la tarjeta y el lienzo (WCAG 1.4.11); el de las tarjetas no lo necesita. */
-  --field-border: #808897;
+  --field-border: #858585;
 
   /*
    * La barra lateral es lo único del cromo que sigue al tema; la plancha del login
    * y las placas de los indicadores son oscuras a propósito.
+   * Lila suave de la marca: con el lienzo en #f9f9f9, el casi blanco de antes se perdía.
+   * rail-ink-dim: 5:1 sobre la barra y 4,5:1 sobre surface-2 (AA).
    */
-  --rail-bg: #faf9fc;
-  --rail-surface-2: #efecf6;
-  --rail-bezel: #e3def0;
+  --rail-bg: #f3f0fa;
+  --rail-surface-2: #e8e3f5;
+  --rail-bezel: #ddd6ee;
   --rail-ink: #1b1726;
   --rail-ink-dim: #6a6380;
 
@@ -294,6 +303,18 @@
   }
 }
 
+/*
+ * Poppins no tiene cifras de ancho fijo: los números alineados en columna (TK-000108,
+ * cifras de indicadores) usan Nunito, que sí las tiene. Fuera de las capas para ganar
+ * a la utilidad `font-display`.
+ * Los enlaces de número dentro de una frase ("… en OT-0167") se quedan en Poppins: no van
+ * en columna, y la otra fuente es lo que los distingue del texto (axe link-in-text-block).
+ */
+.font-display.tabular:not(a),
+.font-display .tabular:not(a) {
+  font-family: var(--font-body);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -336,10 +357,10 @@
     background: #ffffff !important;
     --content-bg: #ffffff;
     --content-surface: #ffffff;
-    --content-border: #d6d9e0;
-    --field-border: #808897;
+    --content-border: #dadada;
+    --field-border: #858585;
     --content-ink: #12141a;
-    --content-ink-dim: #5b6472;
+    --content-ink-dim: #606060;
     --content-shadow: none;
     --status-amber: #965000;
     --status-red: #b42318;

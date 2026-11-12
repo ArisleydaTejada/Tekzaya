@@ -12,7 +12,7 @@ test.use({ storageState: storageStateOf("supervisor") });
 const TITLE = `Revisar el proyector de la sala B ${Date.now().toString(36)}`;
 
 async function openBoard(page: Page) {
-  await page.goto("/tickets");
+  await page.goto("/tickets?scope=area");
   await page.getByRole("button", { name: "Kanban" }).click();
   await page.getByRole("textbox", { name: "Buscar tickets" }).fill(TITLE);
 }
@@ -90,8 +90,13 @@ test("arrastrar persiste, el teclado también mueve, y una transición inválida
   await page.keyboard.press("Space");
   // Al levantarla, dnd-kit anuncia de inmediato la columna en la que está.
   await expect(announcer).toContainText("sobre la columna En progreso");
-  await page.keyboard.press("ArrowLeft");
-  await expect(announcer).toContainText("sobre la columna Asignado");
+  // El sensor empieza a escuchar flechas un instante después del anuncio: si la
+  // primera llega antes se pierde sin mover nada, así que se repite hasta oír la columna.
+  // Una que sí llega se anuncia enseguida, de modo que nunca salta dos columnas.
+  await expect(async () => {
+    await page.keyboard.press("ArrowLeft");
+    await expect(announcer).toContainText("sobre la columna Asignado", { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
   await page.keyboard.press("Space");
   await expect(announcer).toContainText("soltado en Asignado");
   await expect(column(page, "Asignado").getByText(TITLE)).toBeVisible();

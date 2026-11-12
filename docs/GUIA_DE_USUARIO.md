@@ -97,9 +97,10 @@ Por seguridad, tras **5 intentos fallidos** la cuenta se bloquea 15 minutos.
 
 ### La pantalla principal
 
-- **Barra lateral (izquierda):** el menú. Se puede contraer para ganar espacio. Muestra cuántos tickets y órdenes tienes pendientes.
+- **Barra lateral (izquierda):** el menú. Se puede contraer para ganar espacio; contraída, al pasar el ratón por cada icono aparece su nombre. Muestra cuántos tickets y órdenes tienes pendientes.
 - **Barra superior:** la campana de notificaciones, el cambio de tema claro/oscuro y tu menú de perfil.
-- **Pestañas:** cuando abres varios tickets u órdenes de trabajo, quedan como pestañas arriba, como en un navegador. Se pueden cerrar, reordenar arrastrándolas (o con `Alt + Shift + ←/→`), y el botón **+** abre un buscador que muestra primero lo que tienes asignado.
+- **Pestañas:** cada ticket u orden de trabajo que abres queda como pestaña arriba, como en un navegador, y sigue ahí aunque vayas a otra pantalla. Tickets y órdenes van juntos en el orden en que los abriste; el icono de cada pestaña dice si es un ticket o una orden. Se pueden cerrar (con la ✕ o con la rueda del ratón), reordenar arrastrándolas (o con `Alt + Shift + ←/→`), y el botón **+** abre un buscador de tickets y órdenes que muestra primero lo que tienes asignado.
+- **Listas:** en las listas de tickets, activos y órdenes basta con hacer clic en cualquier parte de la fila para abrirla (con `Ctrl` + clic se abre en otra pestaña del navegador).
 
 ### El menú
 
@@ -139,6 +140,8 @@ Si cierras el formulario a medias, el texto se guarda como borrador en tu navega
 
 ### 5.2 La bandeja de tickets
 
+La bandeja se organiza en pestañas: **Sin asignar**, **Asignados a mí**, **Mi área**, **Mis solicitudes**, **Resueltos** y **Todos**, cada una con su número. Al entrar se abre siempre **Asignados a mí**, lo que te toca atender (los atajos del tablero abren directamente la pestaña que corresponde).
+
 Hay tres formas de ver los tickets:
 
 - **Lista:** una tabla con número, título, estado, prioridad, plazo, responsables… Se ordena y filtra.
@@ -148,6 +151,8 @@ Hay tres formas de ver los tickets:
 El supervisor puede usar el **reparto automático**: el sistema propone a quién dar cada ticket sin responsable, priorizando a quien está disponible y con menos carga. Nada se aplica hasta que el supervisor confirma, y puede cambiar cualquier asignación antes.
 
 ### 5.3 Dentro de un ticket
+
+La cabecera (título, estado y acciones), el resumen y la conversación están en una misma tarjeta. A la derecha van los datos del ticket y, si hay un equipo vinculado, su tarjeta y la de cada **orden de trabajo**: un clic en cualquiera de ellas lleva directo al equipo o a la orden.
 
 - **La conversación:** mensajes públicos (los ve el solicitante) y **notas internas** (solo el área). Se pueden adjuntar archivos y mencionar a un compañero con `@` en las notas.
 - **Enviar como…:** al responder se puede cambiar el estado en el mismo paso: *Enviar como En progreso*, *En espera* o *Resuelto*. Al resolver, la propia respuesta queda como nota de resolución, con sus adjuntos.
@@ -250,6 +255,8 @@ Un ticket vinculado todavía no es una falla: la falla cuenta desde que existe l
 Una orden de trabajo es la parte técnica del arreglo. Puede nacer de un ticket, de un **plan preventivo** o crearse directamente.
 
 Estados: **Pendiente → Asignada → En progreso → En espera → Completada** (o **Cancelada**).
+
+**La ficha de una orden** reúne en una tarjeta el título, el estado, los botones (Tomar, Asignar, Cancelar orden…), un aviso de qué falta para avanzar y la descripción. Si la orden nació de un ticket, el **ticket de origen** aparece como tarjeta: un clic lleva a la conversación con quien reportó.
 
 **El costo de una orden = repuestos usados + servicios externos** (un proveedor, por ejemplo). Las horas de los técnicos de la empresa no se cobran.
 

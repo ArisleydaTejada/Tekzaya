@@ -32,6 +32,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { AssetPicker, type PickedAsset } from "../components/AssetPicker";
 import { AssetStatusBadge } from "../components/assets";
+import { ActionButton } from "../components/ActionButton";
 import { CheckIcon, LightbulbIcon, PaperclipIcon, SparkleIcon, WrenchIcon, XIcon } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
@@ -393,13 +394,7 @@ export default function CreateTicketPage() {
                   {asset.name}
                 </span>
                 <AssetStatusBadge status={asset.status} />
-                <button
-                  type="button"
-                  onClick={() => setPickingAsset(true)}
-                  className="text-xs text-accent-ink hover:underline"
-                >
-                  Cambiar
-                </button>
+                <ActionButton onClick={() => setPickingAsset(true)}>Cambiar</ActionButton>
                 <button
                   type="button"
                   onClick={() => {

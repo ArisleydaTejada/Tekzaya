@@ -35,6 +35,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useRowLink } from "../lib/useRowLink";
 import { ticketsCsvUrl } from "../api/stats";
 import {
   areaKeys,
@@ -179,7 +180,9 @@ export default function TicketsPage() {
    */
   const [params, setParams] = useSearchParams();
   const tabsFade = useOverflowFade<HTMLDivElement>();
-  const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "area");
+  // Sin pestaña en la URL se abre "Asignados a mí": lo primero es lo que le toca a quien entra.
+  // Si el enlace pide otra (las fichas del tablero), manda el enlace.
+  const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "assigned");
   const [view, setViewState] = useState<ViewMode>(() => oneOf(VIEW_MODES, params.get("vista") ?? "") ?? "lista");
   const [search, setSearch] = useState(() => params.get("q") ?? "");
   // La búsqueda de la barra lateral llega como "?q=": si cambia estando ya aquí, se adopta.
@@ -422,19 +425,22 @@ export default function TicketsPage() {
             key={tab.scope}
             aria-pressed={scope === tab.scope}
             onClick={() => changeScope(tab.scope)}
-            className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+            // La activa es una pestaña de carpeta: fondo de tarjeta y borde arriba y a los lados,
+            // y tapa la línea inferior de la fila (una sombra interior del contenedor).
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === tab.scope
-                ? "text-accent-ink"
-                : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                ? "border-[var(--content-border)] bg-[var(--content-surface)] text-accent-ink"
+                : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
             {tab.label}
-            <span className="rounded-full bg-[var(--content-surface)] px-1.5 py-0.5 font-display text-[10px] tabular">
+            <span
+              className={`rounded-full px-1.5 py-0.5 font-display text-[10px] tabular ${
+                scope === tab.scope ? "bg-accent/10" : "bg-[var(--content-surface)]"
+              }`}
+            >
               {counts[index]?.data?.total ?? "—"}
             </span>
-            {scope === tab.scope && (
-              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-accent" />
-            )}
           </button>
         ))}
       </div>
@@ -935,6 +941,7 @@ function ListView({
   /** Todas las filas son del área de quien mira: no hace falta repetir el chip. */
   sameArea?: boolean;
 }) {
+  const rowLink = useRowLink();
   const pageIds = tickets.map((ticket) => ticket.id);
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
 
@@ -965,7 +972,8 @@ function ListView({
           return (
             <li
               key={ticket.id}
-              className={`flex gap-1 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] py-1.5 pr-3 ${
+              {...rowLink(`/tickets/${number}`)}
+              className={`flex cursor-pointer gap-1 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] py-1.5 pr-3 hover:border-accent/40 ${
                 isSelected ? "bg-accent/5" : ""
               }`}
             >
@@ -1042,7 +1050,9 @@ function ListView({
             {tickets.map((ticket) => (
               <tr
                 key={ticket.id}
-                className={`border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
+                // Toda la fila abre el ticket; el enlace del título sigue para el teclado.
+                {...rowLink(`/tickets/${formatTicketNumber(ticket.number)}`)}
+                className={`cursor-pointer border-b border-[var(--content-border)] last:border-0 hover:bg-[var(--content-bg)] ${
                   selected.includes(ticket.id) ? "bg-accent/5" : ""
                 }`}
               >

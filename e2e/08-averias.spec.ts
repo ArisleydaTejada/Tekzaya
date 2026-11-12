@@ -123,7 +123,8 @@ test("crear ticket con equipo → convertir en OT → repararlo → resolver el 
   await expect(supervisor.page.getByText("Completada", { exact: true }).first()).toBeVisible();
   await expect(supervisor.page.getByText("La orden se completó, pero el ticket sigue abierto.")).toHaveCount(0);
 
-  await supervisor.page.getByRole("link", { name: new RegExp(number) }).click();
+  // En la página, no en las pestañas del menú superior, que también enlazan al ticket.
+  await supervisor.page.getByRole("main").getByRole("link", { name: new RegExp(number) }).click();
   await expect(supervisor.page).toHaveURL(`/tickets/${number}`);
   await expect(supervisor.page.getByText(`La orden de trabajo ${order} se completó`)).toBeVisible();
   await expect(supervisor.page.getByText("Cambiamos el tóner de la multifuncional").first()).toBeVisible();

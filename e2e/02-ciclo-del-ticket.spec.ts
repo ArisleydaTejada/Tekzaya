@@ -45,7 +45,7 @@ test("crear → tomar → responder → nota interna → resolver → CSAT", asy
   await expect(employee.page.getByText("Media", { exact: true })).toBeVisible();
 
   // ── El supervisor de IT lo encuentra en su bandeja y lo toma ──
-  await supervisor.page.goto("/tickets");
+  await supervisor.page.goto("/tickets?scope=area");
   await supervisor.page.getByRole("link", { name: new RegExp(TITLE) }).first().click();
   await expect(supervisor.page).toHaveURL(`/tickets/${number}`);
   await supervisor.page.getByRole("button", { name: "Tomar" }).click();
