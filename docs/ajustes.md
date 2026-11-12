@@ -1,4 +1,15 @@
 # AJUSTES
-- Que si el ticket es pasado a orden de trabajo y se ha resuelto la orden de trabajo, decir que se acuerde de resolver el ticket o un modal con un boton de "resolver ticket tambien", no se como me lo recomendarias
-- Que en vez de que salga automaticamente si Sugerir reparar o reemplazar un equipo, que salga un boton para que la ia no este evaluando cada activo y no gastar tokens. 
-- Si la garantia esta por vencerse avisar al area encargada en notificaciones
+
+- En el sidebar quita el icono en Administracion. Agrega iconos para Usuarios, Areas y Categorias, Configuracion.
+
+- Cuando el sidebar esta collapse agrega un Tooltip para cada opcion con el nombre.
+
+- En ticket, poder abrir al dar clic en todo el row.
+
+- En el top menu los Tickets abiertos, colocarle un color de  fondo para que se noten. Tambien al boton de cerrar cambiar el hover  para que se note un poco mas, ademas de agregar un tooltip de cerrar. Tambien manten los to
+
+- Los Tickets abiertos y Órdenes abiertas, mantenlos abiertos y visibles en el top menu, en cualquier parte de la web donde se necesario.
+
+- Al abrir Tickets, siempre mostasr Asignados a mi.
+
+- En Detalle del ticke, Órdenes de trabajo, cambiarlo a un card cliqueable para ir directo a la orden, similar al card de Equipo afectado.
