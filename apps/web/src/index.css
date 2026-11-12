@@ -78,10 +78,12 @@
   /*
    * La barra lateral es lo único del cromo que sigue al tema; la plancha del login
    * y las placas de los indicadores son oscuras a propósito.
+   * Lila suave de la marca: con el lienzo en #f9f9f9, el casi blanco de antes se perdía.
+   * rail-ink-dim: 5:1 sobre la barra y 4,5:1 sobre surface-2 (AA).
    */
-  --rail-bg: #faf9fc;
-  --rail-surface-2: #efecf6;
-  --rail-bezel: #e3def0;
+  --rail-bg: #f3f0fa;
+  --rail-surface-2: #e8e3f5;
+  --rail-bezel: #ddd6ee;
   --rail-ink: #1b1726;
   --rail-ink-dim: #6a6380;
 

@@ -474,7 +474,9 @@ Además, la **lista de tickets** tiene un botón **"Exportar CSV"** que descarga
 
 **Pestañas rápidas** en la parte superior (inspiradas en `ticket_groups.webp`), cada una con su contador:
 
-`Mis solicitudes | Asignados a mí | Mi área | Sin asignar` (+ `Todos` para el admin)
+`Sin asignar | Asignados a mí | Mi área | Mis solicitudes | Resueltos | Todos`
+
+Al entrar se abre **"Asignados a mí"**, lo que toca atender a quien mira. Un enlace que indique otra pestaña (las fichas del tablero, por ejemplo `?scope=area`) abre esa. En la vista Lista, toda la fila abre el ticket.
 
 **Barra de herramientas:** buscador (número o título) · filtros (estado, prioridad, área, categoría, responsable, solicitante, estado de SLA y rango de fechas) · selector de vista `Lista | Grupos | Kanban` · ordenar por · **Exportar CSV**.
 

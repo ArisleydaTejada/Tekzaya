@@ -135,6 +135,7 @@ Paleta de instrumento: negro casi puro para el panel, blanco cálido para la pla
 - **Superficie de la placa** (`#ffffff`): campos, botones y tarjetas sobre la placa clara.
 - **Borde de la placa** (`#e0e0e0`).
 - **Tinta de la placa** (`#12141a` texto principal / `#606060` texto secundario, 6:1 sobre el lienzo).
+- **Barra (rail) en claro** (`#f3f0fa`, hover/activo `#e8e3f5`, borde `#ddd6ee`): lila suave de la marca para la barra lateral y la superior. Con el lienzo gris neutro, el casi blanco anterior se confundía con él; el lila las separa sin pesar. Texto secundario `#6a6380` (5:1 sobre la barra, 4,5:1 en hover).
 
 ### Chart categorical (identity, not a reading)
 Cuando un color codifica una **categoría** en una gráfica (área, persona, categoría) en vez de una **lectura de estado** (SLA, éxito/error), nunca toma prestado el trío semántico. La rampa `--chart-cat-1…7` abre con el **morado de la marca** `#58479d` (lila `#b5a3cf` en oscuro) y sigue con azul `#2f6fcb`, magenta `#d6449c`, verde azulado `#0e9c8e`, ocre `#c67f1e`, acero `#7c8cae` y oliva `#8a6d1e`. No usa el trío rojo/ámbar/verde.
@@ -176,7 +177,13 @@ Login: dos columnas a `lg` (≥1024px), 54%/46% con una costura de 8px entre amb
 
 **El resto de la app (shell interior):** la barra lateral y la superior siguen al tema de quien mira (`--rail-*`), igual que el área de contenido, que cambia de placa clara a panel oscuro con el selector de tema. Los tableros abren con **un dial protagonista** (cumplimiento de SLA en el tablero de área, preventivos de la semana en el panel de mantenimiento) y los contadores a su lado. Esto se implementa con variables CSS reactivas al tema (`--content-bg`, `--content-surface`, `--content-border`, `--content-ink`, `--content-ink-dim`, `--content-shadow`, más `--chart-*` para las gráficas), redeclaradas bajo `[data-theme="dark"]`; los componentes de contenido nunca usan directamente `bg-placard`/`bg-panel`, siempre las variables `--content-*`. Los diales conservan su cara oscura interna (vidrio de instrumento) en ambos temas — solo la placa que los contiene cambia; ver Shapes.
 
-**Pestañas de registros:** el detalle de ticket abre cada registro en una pestaña de la barra superior, al estilo de un navegador, para saltar entre tickets sin volver a la lista. Por debajo de 80rem, los datos del ticket se pliegan bajo la cabecera en un resumen «Detalles».
+**Pestañas de registros:** cada ticket u orden que se abre queda como pestaña en la barra superior, al estilo de un navegador, visible en cualquier pantalla. Tickets y órdenes comparten una sola tira, en el orden en que se abrieron, cada pestaña con el icono de su tipo (el mismo de la barra lateral); un solo "+" abre un buscador con ambos. Las inactivas llevan un tinte de la marca al 10 %; la activa, el fondo del contenido y una línea de marca arriba.
+
+**Pestañas de bandeja** (Sin asignar, Asignados a mí, Mi área… en Tickets y Órdenes de trabajo): la activa es una pestaña de carpeta — fondo de tarjeta, borde arriba y a los lados, esquinas superiores redondeadas — que tapa la línea inferior de la fila. Las inactivas no tienen fondo.
+
+**Detalle de ticket y de orden:** la cabecera (título, estado y acciones) y el cuerpo (resumen y conversación en el ticket; aviso y descripción en la orden) van en **una sola tarjeta**, separados por líneas, no en tarjetas sueltas. Por debajo de 80rem, los datos del ticket se pliegan dentro de esa tarjeta en un resumen «Detalles». Los registros vinculados (equipo, órdenes, ticket de origen) se muestran como `RecordCard`.
+
+**Filas de las listas:** en las tablas de tickets, activos y órdenes toda la fila abre el registro (Ctrl/⌘ o la rueda, en otra pestaña); el enlace del título sigue ahí para el teclado.
 
 ## Elevation & Depth
 
@@ -199,6 +206,8 @@ Radios: 8px (`rounded-lg`) para tarjetas de estado semántico, 12px (`rounded-xl
 ### Buttons
 - **Shape:** 12px de radio (`{rounded.md}`).
 - **Primary:** fondo índigo (`{colors.accent}`), texto blanco, `padding: 12px 16px`; hover oscurece a `{colors.accent-dim}`.
+- **Acción (`ActionButton` / `ActionLink`):** las acciones secundarias dentro de tarjetas y pantallas ("Editar", "Ver todo", "Ver almacén", "Cambiar", "Separar", volver a la lista) son un botón tintado de la marca: fondo `accent` al 10 % (20 % al pasar), texto `accent-ink`, `text-xs`, radio 8px. Nunca un enlace subrayado suelto: un enlace dentro de una frase se lee como texto, no como algo que se pulsa.
+- **Tarjeta de registro (`RecordCard`):** un equipo, una orden o un ticket vinculado se muestra como tarjeta (número, título, estado) y la tarjeta entera es el enlace.
 - **Lever (Google):** fondo de placa blanca, borde `{colors.placard-border}`, sombra escalonada de reposo (`lever-rest`) con una ranura horizontal recesada visible bajo la etiqueta incluso sin interacción; al presionar, se hunde 3px y la sombra colapsa.
 
 ### Status cards

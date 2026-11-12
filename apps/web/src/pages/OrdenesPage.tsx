@@ -90,7 +90,12 @@ export default function OrdenesPage() {
     <div>
       <PageHeader title="Órdenes de trabajo" subtitle="Reparaciones y mantenimientos del área, con su costo real." />
 
-      <div className="mb-3 flex flex-wrap gap-1 border-b border-[var(--content-border)]" role="tablist" aria-label="Bandejas">
+      {/* Mismo estilo que las pestañas de Tickets: la activa es una pestaña de carpeta. */}
+      <div
+        className="mb-3 flex flex-wrap gap-1 shadow-[inset_0_-1px_0_var(--content-border)]"
+        role="tablist"
+        aria-label="Bandejas"
+      >
         {WORK_ORDER_SCOPES.map((option) => (
           <button
             key={option}
@@ -100,9 +105,9 @@ export default function OrdenesPage() {
               setScope(option);
               setPage(1);
             }}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            className={`whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === option
-                ? "border-accent text-[var(--content-ink)]"
+                ? "border-[var(--content-border)] bg-[var(--content-surface)] text-accent-ink"
                 : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >

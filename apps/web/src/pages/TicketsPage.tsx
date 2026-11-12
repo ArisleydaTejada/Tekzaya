@@ -425,19 +425,22 @@ export default function TicketsPage() {
             key={tab.scope}
             aria-pressed={scope === tab.scope}
             onClick={() => changeScope(tab.scope)}
-            className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+            // La activa es una pestaña de carpeta: fondo de tarjeta y borde arriba y a los lados,
+            // y tapa la línea inferior de la fila (una sombra interior del contenedor).
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === tab.scope
-                ? "text-accent-ink"
-                : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                ? "border-[var(--content-border)] bg-[var(--content-surface)] text-accent-ink"
+                : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
             {tab.label}
-            <span className="rounded-full bg-[var(--content-surface)] px-1.5 py-0.5 font-display text-[10px] tabular">
+            <span
+              className={`rounded-full px-1.5 py-0.5 font-display text-[10px] tabular ${
+                scope === tab.scope ? "bg-accent/10" : "bg-[var(--content-surface)]"
+              }`}
+            >
               {counts[index]?.data?.total ?? "—"}
             </span>
-            {scope === tab.scope && (
-              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-accent" />
-            )}
           </button>
         ))}
       </div>
