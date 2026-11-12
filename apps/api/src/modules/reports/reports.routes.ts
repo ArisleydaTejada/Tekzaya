@@ -1,11 +1,13 @@
 import {
   createReportInput,
+  reportExportAllInput,
   reportQueryInput,
   reportTicketsQuery,
   reportWorkOrdersQuery,
   updateReportInput,
   type Actor,
   type CreateReportInput,
+  type ReportExportAllInput,
   type ReportQueryInput,
   type ReportTicketsQuery,
   type ReportWorkOrdersQuery,
@@ -19,7 +21,8 @@ import { csvFile, sendCsv } from "../tickets/ticket.csv";
 import { routeParam } from "../tickets/ticket.access";
 import { PERIOD_FILE_LABEL, resolveRange } from "../stats/stats.period";
 import { catalogFor } from "./reports.catalog";
-import { chartToCsv, ticketRowsToCsv } from "./reports.csv";
+import { chartTable, chartToCsv, ticketRowsToCsv } from "./reports.csv";
+import { buildXlsx, type XlsxSheet } from "./xlsx";
 import { runWidget } from "./reports.query";
 import {
   createReport,
@@ -172,6 +175,48 @@ router.post("/reports/query/export", validateBody(reportQueryInput), async (req,
   });
 
   sendCsv(res, "tekzaya-grafica", csvFile(chartToCsv(result, input.widget.title)));
+});
+
+/**
+ * Todas las gráficas del reporte en un libro de Excel, una hoja por gráfica con su
+ * título arriba y la tabla debajo. La que no se puede calcular conserva su hoja con
+ * una nota en vez de tumbar el archivo entero, igual que en pantalla.
+ */
+router.post("/reports/query/export-xlsx", validateBody(reportExportAllInput), async (req, res) => {
+  const actor = res.locals.actor as Actor;
+  const input = req.body as ReportExportAllInput;
+  const { scope, range } = await context(input as never, actor);
+  const now = new Date();
+
+  const sheets = await Promise.all(
+    input.widgets.map(async (widget): Promise<XlsxSheet> => {
+      try {
+        const result = await runWidget({
+          actor,
+          widget,
+          scope,
+          perspective: effectivePerspective(scope, widget.perspective),
+          range,
+          now,
+        });
+        const { header, rows } = chartTable(result);
+
+        return { name: widget.title, rows: [[widget.title], [], header, ...rows], boldRows: [0, 2] };
+      } catch (cause) {
+        if (!(cause instanceof AppError)) throw cause;
+
+        return { name: widget.title, rows: [[widget.title], ["No se pudo calcular esta gráfica"]], boldRows: [0] };
+      }
+    }),
+  );
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="tekzaya-reporte-${PERIOD_FILE_LABEL[range.period]}-${stamp}.xlsx"`,
+  );
+  res.send(buildXlsx(sheets));
 });
 
 router.get("/reports/:id", async (_req, res) => {

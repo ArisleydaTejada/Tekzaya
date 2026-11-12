@@ -131,3 +131,27 @@ export async function downloadWidgetCsv(
   link.click();
   URL.revokeObjectURL(url);
 }
+
+/** Todas las gráficas del reporte en un libro de Excel, una hoja por gráfica. */
+export async function downloadReportXlsx(
+  scope: ReportScopeRequest,
+  widgets: ReportWidget[],
+  filename: string,
+): Promise<void> {
+  const response = await sessionFetch("/reports/query/export-xlsx", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...scope, widgets }),
+  });
+
+  if (!response.ok) throw new Error("No se pudieron exportar las gráficas");
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${filename.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLowerCase() || "reporte"}.xlsx`;
+  link.click();
+  URL.revokeObjectURL(url);
+}

@@ -66,15 +66,12 @@ function cellOf(row: ReportTicketRow, column: ReportColumn): unknown {
   }
 }
 
-/**
- * Los datos de una gráfica, tal como se ven (spec §7.8.8). Un bloque por gráfica en
- * un único archivo, en vez de un `.zip` con un archivo cada una: el `.zip` obligaría
- * a añadir una dependencia de compresión para que Excel enseñe lo mismo.
- */
-export function chartToCsv(result: ReportQueryResult, title: string): string {
+/** La tabla de una gráfica, tal como se ve: cabecera, una fila por grupo y el total. */
+export function chartTable(result: ReportQueryResult): { header: string[]; rows: (string | number | null)[][] } {
+  const split = result.rows.some((row) => row.split !== undefined);
   const header = [
     "Grupo",
-    ...(result.rows.some((row) => row.split !== undefined) ? ["Segmento"] : []),
+    ...(split ? ["Segmento"] : []),
     ...result.measures.map((measure) =>
       measure.aggregation
         ? `${measure.label} (${AGGREGATION_LABEL[measure.aggregation].toLowerCase()})`
@@ -82,27 +79,26 @@ export function chartToCsv(result: ReportQueryResult, title: string): string {
     ),
   ];
 
-  const lines = [
-    csvRow([title]),
-    csvRow(header),
-    ...result.rows.map((row) =>
-      csvRow([
-        row.label,
-        ...(header[1] === "Segmento" ? [row.split ?? ""] : []),
-        ...row.values.map((value) => (value === null ? "" : value)),
-      ]),
-    ),
-  ];
+  const rows: (string | number | null)[][] = result.rows.map((row) => [
+    row.label,
+    ...(split ? [row.split ?? ""] : []),
+    ...row.values,
+  ]);
 
   if (result.rows.length > 1) {
-    lines.push(
-      csvRow([
-        "Total",
-        ...(header[1] === "Segmento" ? [""] : []),
-        ...result.totals.map((value) => (value === null ? "" : value)),
-      ]),
-    );
+    rows.push(["Total", ...(split ? [""] : []), ...result.totals]);
   }
 
-  return lines.join("\r\n");
+  return { header, rows };
+}
+
+/** Los datos de una gráfica en CSV, desde su menú `⋯` (spec §7.8.8). */
+export function chartToCsv(result: ReportQueryResult, title: string): string {
+  const { header, rows } = chartTable(result);
+
+  return [
+    csvRow([title]),
+    csvRow(header),
+    ...rows.map((row) => csvRow(row.map((value) => (value === null ? "" : value)))),
+  ].join("\r\n");
 }

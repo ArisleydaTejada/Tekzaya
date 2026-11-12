@@ -305,11 +305,30 @@
   }
 }
 
+/* Solo existe en papel: el encabezado del PDF del reporte. */
+.print-only {
+  display: none;
+}
+
 /* El PDF del reporte se imprime desde el navegador (spec §7.8.8): sin cromo, en papel blanco
    y sin partir una gráfica entre dos hojas. */
 @media print {
   .no-print {
     display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* "Exportar → PDF" de Reportes: solo las gráficas. Se oculta todo lo que ni contiene
+     el área impresa ni está dentro de ella (menú lateral, barra, encabezado, la lista). */
+  html.printing-charts body *:not(:has(.print-area)):not(.print-area):not(.print-area *) {
+    display: none !important;
+  }
+
+  html.printing-charts main {
+    padding: 0 !important;
   }
 
   body,

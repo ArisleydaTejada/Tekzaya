@@ -1,6 +1,6 @@
 import { AGGREGATION_LABEL, type ReportWidget } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { downloadWidgetCsv, reportKeys, runReportWidget, type ReportScopeRequest } from "../../api/reports";
 import { Plate } from "../../components/Plate";
 import { DownloadIcon, MoreIcon } from "../../components/icons";
@@ -53,6 +53,24 @@ export function WidgetCard({
     queryKey: reportKeys.widget(scope, widget),
     queryFn: () => runReportWidget(scope, widget),
   });
+
+  // Abrir el menú ⋯ cambia el estado de la tarjeta; si eso volviera a pintar la
+  // gráfica, Recharts repetiría la animación y escondería las etiquetas justo cuando
+  // se descarga el PNG.
+  const groupBy = widget.groupBy;
+  const source = widget.source ?? "tickets";
+
+  const chart = useMemo(
+    () =>
+      query.data ? (
+        <ReportChart
+          widget={widget}
+          result={query.data}
+          {...(onDrill && groupBy ? { onSelect: (key: string) => onDrill(groupBy, key, source) } : {})}
+        />
+      ) : null,
+    [widget, query.data, onDrill, groupBy, source],
+  );
 
   const span = widget.chart === "kpi" ? "lg:col-span-2 xl:col-span-2" : SPAN.get(widget.layout.w) ?? "lg:col-span-2";
   const aggregation = widget.measures[0]?.aggregation;
@@ -111,15 +129,7 @@ export function WidgetCard({
         {query.isError && <Failed />}
         {/* La lista de abajo es la del módulo del reporte; la página decide qué
             dimensiones de cada fuente sabe filtrar. */}
-        {query.data && (
-          <ReportChart
-            widget={widget}
-            result={query.data}
-            {...(onDrill && widget.groupBy
-              ? { onSelect: (key: string) => onDrill(widget.groupBy!, key, widget.source ?? "tickets") }
-              : {})}
-          />
-        )}
+        {chart}
       </div>
     </Plate>
   );

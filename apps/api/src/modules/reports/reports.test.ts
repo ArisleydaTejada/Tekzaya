@@ -5,6 +5,7 @@ import { Settings, SETTINGS_ID } from "../../models/support.models";
 import { Ticket } from "../../models/ticket.model";
 import { invalidateSettingsCache } from "../settings/settings.service";
 import { connect, loginAs, resetDatabase, seedTicket, type Fixture } from "../../test/fixtures";
+import { readZip } from "../../test/zip";
 
 /**
  * El DoD de F7 es una sola frase: *un empleado que manipule el `userId` o el `areaId`
@@ -139,6 +140,36 @@ describe("reportes", () => {
       const agent = await loginAs(fx.users.agentIt.email);
       const response = await agent.get("/api/v1/reports/tickets/export?scope=global");
       expect(response.status).toBe(403);
+      const all = await agent
+        .post("/api/v1/reports/query/export-xlsx")
+        .send({ scope: "global", widgets: [widget()] });
+      expect(all.status).toBe(403);
+    });
+
+    it("el Excel trae una hoja por gráfica", async () => {
+      const agent = await loginAs(fx.users.agentIt.email);
+      const response = await agent
+        .post("/api/v1/reports/query/export-xlsx")
+        .send({
+          scope: "me",
+          widgets: [widget({ id: "a", title: "Primera gráfica" }), widget({ id: "b", title: "Segunda gráfica" })],
+        })
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (chunk: Buffer) => chunks.push(chunk));
+          res.on("end", () => done(null, Buffer.concat(chunks)));
+        });
+      expect(response.status).toBe(200);
+      expect(response.headers["content-type"]).toContain("spreadsheetml");
+      expect(response.headers["content-disposition"]).toMatch(/\.xlsx"$/);
+
+      const files = readZip(response.body as Buffer);
+      const workbook = files.get("xl/workbook.xml")!;
+      expect(workbook).toContain('name="Primera gráfica"');
+      expect(workbook).toContain('name="Segunda gráfica"');
+      expect(files.get("xl/worksheets/sheet1.xml")).toContain("Primera gráfica");
+      expect(files.get("xl/worksheets/sheet2.xml")).toContain("Segunda gráfica");
     });
   });
 

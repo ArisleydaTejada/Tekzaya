@@ -23,6 +23,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   createSavedReport,
   deleteSavedReport,
+  downloadReportXlsx,
   duplicateSavedReport,
   getReportCatalog,
   listSavedReports,
@@ -277,9 +278,25 @@ export default function ReportesPage() {
             <ExportMenu
               open={exportOpen}
               setOpen={setExportOpen}
+              disabled={!draft || draft.widgets.length === 0}
               onPdf={() => {
                 setExportOpen(false);
-                window.print();
+                printCharts();
+              }}
+              onExcel={async () => {
+                if (!draft) return;
+                setExportOpen(false);
+                setError(null);
+
+                try {
+                  await downloadReportXlsx(
+                    scope,
+                    draft.widgets.map((widget) => ({ ...widget, perspective: draft.perspective || widget.perspective })),
+                    draft.title || "reporte",
+                  );
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "No se pudieron exportar las gráficas");
+                }
               }}
             />
           </div>
@@ -391,7 +408,18 @@ export default function ReportesPage() {
               </div>
             </Plate>
           ) : (
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="print-area mt-4">
+              <div className="print-only mb-4">
+                <p className="font-display text-lg font-semibold text-[var(--content-ink)]">
+                  {draft.title || "Reporte sin nombre"}
+                </p>
+                <p className="text-xs text-[var(--content-ink-dim)]">
+                  {draft.period === "range" && draft.from && draft.to
+                    ? `Del ${draft.from} al ${draft.to}`
+                    : `Período: ${STATS_PERIOD_LABEL[draft.period]}`}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
               {draft.widgets.map((widget) => (
                 <WidgetCard
                   key={widget.id}
@@ -405,6 +433,7 @@ export default function ReportesPage() {
                   onDrill={drillInto}
                 />
               ))}
+              </div>
             </div>
           )}
 
@@ -677,21 +706,44 @@ function RangePicker({
   );
 }
 
-/** El PDF sale del navegador tal como se ve (spec §7.8.8); los CSV van en cada gráfica y en la lista. */
+/**
+ * El PDF sale del navegador con solo las gráficas (spec §7.8.8): la clase en `<html>`
+ * hace que la hoja de impresión oculte todo lo demás, y se quita al terminar.
+ */
+function printCharts() {
+  const root = document.documentElement;
+
+  const done = () => {
+    root.classList.remove("printing-charts");
+    window.removeEventListener("afterprint", done);
+  };
+
+  root.classList.add("printing-charts");
+  window.addEventListener("afterprint", done);
+  window.print();
+}
+
+/** PDF y Excel de las gráficas del reporte; el CSV de la lista va en la propia lista. */
 function ExportMenu({
   open,
   setOpen,
+  disabled,
   onPdf,
+  onExcel,
 }: {
   open: boolean;
   setOpen: (value: boolean) => void;
+  disabled: boolean;
   onPdf: () => void;
+  onExcel: () => void;
 }) {
   return (
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+        disabled={disabled}
+        title={disabled ? "El reporte no tiene gráficas que exportar" : undefined}
+        className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)] disabled:opacity-40"
       >
         <DownloadIcon className="h-3.5 w-3.5" /> Exportar <ChevronDownIcon className="h-3.5 w-3.5" />
       </button>
@@ -703,12 +755,14 @@ function ExportMenu({
               onClick={onPdf}
               className="block w-full rounded-md px-2.5 py-1.5 text-left text-xs text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
             >
-              Imprimir o guardar PDF
+              Imprimir o guardar PDF de las gráficas
             </button>
-            <p className="px-2.5 py-1.5 text-xs leading-snug text-[var(--content-ink-dim)]">
-              El CSV de cada gráfica está en su menú ⋯, y el de la lista de tickets, en
-              la propia lista.
-            </p>
+            <button
+              onClick={onExcel}
+              className="block w-full rounded-md px-2.5 py-1.5 text-left text-xs text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+            >
+              Excel con todas las gráficas
+            </button>
           </div>
         </>
       )}

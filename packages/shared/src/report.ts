@@ -942,6 +942,12 @@ export const reportQueryInput = statsQueryFields
   .superRefine(scopeRangeRules);
 export type ReportQueryInput = z.infer<typeof reportQueryInput>;
 
+/** Todas las gráficas del reporte en un Excel, una hoja cada una: `POST /reports/query/export-xlsx`. */
+export const reportExportAllInput = statsQueryFields
+  .extend({ widgets: z.array(reportWidget).min(1).max(24) })
+  .superRefine(scopeRangeRules);
+export type ReportExportAllInput = z.infer<typeof reportExportAllInput>;
+
 export const reportRow = z.object({
   /** Clave cruda del grupo (identificador, fecha ISO, enumerado); ausente sin dimensión. */
   key: z.string().optional(),
