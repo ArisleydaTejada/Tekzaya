@@ -2,9 +2,12 @@ import {
   formatAssetNumber,
   formatMoney,
   formatSparePartNumber,
+  MAINTENANCE_PERIODS,
+  STATS_PERIOD_LABEL,
   type MaintenanceDashboard,
+  type MaintenancePeriod,
 } from "@tekzaya/shared";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState, type ComponentType, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getMaintenanceDashboard, maintenanceKeys } from "../api/maintenance";
@@ -22,10 +25,13 @@ import { formatDay, formatQuantity, warrantyCountdown } from "../lib/format";
  */
 export default function MantenimientoPage() {
   const [areaId, setAreaId] = useState<string | undefined>(undefined);
+  const [period, setPeriod] = useState<MaintenancePeriod>("week");
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: maintenanceKeys.dashboard(areaId),
-    queryFn: () => getMaintenanceDashboard(areaId),
+    queryKey: maintenanceKeys.dashboard(areaId, period),
+    queryFn: () => getMaintenanceDashboard(areaId, period),
+    // Al cambiar de período se queda el panel anterior mientras llega el nuevo.
+    placeholderData: keepPreviousData,
   });
 
   return (
@@ -50,6 +56,25 @@ export default function MantenimientoPage() {
                 ))}
               </select>
             )}
+            <div
+              role="group"
+              aria-label="Período"
+              className="flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5"
+            >
+              {MAINTENANCE_PERIODS.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-pressed={period === item}
+                  onClick={() => setPeriod(item)}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    period === item ? "bg-accent text-white" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                  }`}
+                >
+                  {STATS_PERIOD_LABEL[item]}
+                </button>
+              ))}
+            </div>
             <Link
               to="/reportes?modulo=mantenimiento"
               className="flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] px-3 py-2 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
@@ -77,35 +102,40 @@ export default function MantenimientoPage() {
   );
 }
 
+/** "de hoy", "de la semana", "del mes": para los títulos del dial y del costo. */
+const OF_PERIOD: Record<MaintenancePeriod, string> = { day: "de hoy", week: "de la semana", month: "del mes" };
+
+/** Para el pie del dial cuando el período no tiene preventivos. */
+const IN_PERIOD: Record<MaintenancePeriod, string> = { day: "hoy", week: "esta semana", month: "este mes" };
+
 function Dashboard({ data }: { data: MaintenanceDashboard }) {
-  const { kpis, alerts, rules } = data;
-  const pending = kpis.preventivesThisWeek.total - kpis.preventivesThisWeek.done;
+  const { kpis, alerts, rules, period } = data;
+  const preventives = kpis.preventives;
+  const pending = preventives.total - preventives.done;
 
   return (
     <>
-      {/* La lectura de la semana —¿se están haciendo los preventivos?— va en el dial; los
+      {/* La lectura del período —¿se están haciendo los preventivos?— va en el dial; los
           contadores la acompañan al lado, en una sola placa de la misma altura. */}
       <div className="mb-5 grid gap-3 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-4">
         <Linked to="/preventivos">
           <GaugeDial
             id="maintenance-preventives"
-            label="Preventivos de la semana"
-            {...(kpis.preventivesThisWeek.total ? { badge: "Hechos" } : {})}
+            label={`Preventivos ${OF_PERIOD[period]}`}
+            {...(preventives.total ? { badge: "Hechos" } : {})}
             featured
             className="h-full"
-            value={kpis.preventivesThisWeek.total ? (kpis.preventivesThisWeek.done / kpis.preventivesThisWeek.total) * 100 : 0}
-            displayValue={
-              kpis.preventivesThisWeek.total ? `${kpis.preventivesThisWeek.done}/${kpis.preventivesThisWeek.total}` : "—"
-            }
-            tone={kpis.preventivesThisWeek.total === 0 ? "neutral" : pending === 0 ? "green" : "steel"}
+            value={preventives.total ? (preventives.done / preventives.total) * 100 : 0}
+            displayValue={preventives.total ? `${preventives.done}/${preventives.total}` : "—"}
+            tone={preventives.total === 0 ? "neutral" : pending === 0 ? "green" : "steel"}
             caption={
-              kpis.preventivesThisWeek.total
+              preventives.total
                 ? pending === 0
                   ? "Todos hechos"
                   : `${pending} por hacer`
                 : kpis.preventivesOverdue
-                  ? "Nada esta semana; hay vencidos"
-                  : "Nada esta semana; todo al día"
+                  ? `Nada ${IN_PERIOD[period]}; hay vencidos`
+                  : `Nada ${IN_PERIOD[period]}; todo al día`
             }
           />
         </Linked>
@@ -132,8 +162,8 @@ function Dashboard({ data }: { data: MaintenanceDashboard }) {
             caption={kpis.lowStockParts ? "Conviene reponer" : "Almacén en orden"}
           />
           <Readout
-            label="Costo del mes"
-            value={formatMoney(kpis.monthCost, data.currency)}
+            label={`Costo ${OF_PERIOD[period]}`}
+            value={formatMoney(kpis.cost, data.currency)}
             icon={<WrenchIcon className="h-4 w-4" />}
             caption="Repuestos y servicios externos"
           />

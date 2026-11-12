@@ -132,6 +132,47 @@ describe("panel de mantenimiento (plan A6)", () => {
     expect(body.alerts.lowStock[0]).toMatchObject({ name: "Tóner", stock: 1, minStock: 3 });
   });
 
+  it("los preventivos y el costo siguen el período elegido", async () => {
+    const asset = await seedAsset();
+    const preventive = async (scheduledFor: string, status: string) =>
+      WorkOrder.collection.insertOne({
+        number: await nextNumber("work_order"),
+        type: "preventive",
+        title: "Limpieza",
+        assetId: asset._id,
+        areaId: fixture.areas.it,
+        status,
+        scheduledFor,
+        assigneeIds: [],
+        outOfService: false,
+        checklist: [],
+        partsUsed: [],
+        externalCosts: [],
+        statusHistory: [],
+        costTotal: 500,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...(status === "completed" ? { completedAt: new Date() } : {}),
+      });
+    await preventive(today(), "completed");
+    // Con el día solo cuenta el de hoy; el de mañana puede caer en otro mes, así que
+    // con el mes solo se mira lo hecho.
+    await preventive(addDaysToKey(today(), 1), "pending");
+
+    const agent = await loginAs(fixture.users.agentIt.email);
+    const day = (await agent.get("/api/v1/maintenance/dashboard?period=day")).body as MaintenanceDashboard;
+    expect(day.period).toBe("day");
+    expect(day.kpis.preventives).toEqual({ total: 1, done: 1 });
+    expect(day.kpis.cost).toBe(500);
+
+    const month = (await agent.get("/api/v1/maintenance/dashboard?period=month")).body as MaintenanceDashboard;
+    expect(month.kpis.cost).toBe(500);
+    expect(month.kpis.preventives.done).toBe(1);
+
+    expect((await agent.get("/api/v1/maintenance/dashboard")).body.period).toBe("week");
+    expect((await agent.get("/api/v1/maintenance/dashboard?period=year")).status).toBe(422);
+  });
+
   it("un área que no mantiene equipos no tiene panel; nadie lee el de otra", async () => {
     await seedAsset();
     expect((await (await loginAs(fixture.users.employeeVentas.email)).get("/api/v1/maintenance/dashboard")).status).toBe(404);

@@ -16,7 +16,10 @@ test.describe("supervisor de IT", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Panel de mantenimiento" })).toBeVisible();
     await expect(page.getByLabel("Cargando panel")).toHaveCount(0);
     await expect(page.getByText("Órdenes abiertas")).toBeVisible();
+    await expect(page.getByText("Costo de la semana")).toBeVisible();
+    await page.getByRole("group", { name: "Período" }).getByRole("button", { name: "Mes" }).click();
     await expect(page.getByText("Costo del mes")).toBeVisible();
+    await expect(page.getByText("Preventivos del mes")).toBeVisible();
 
     const repeated = page.getByRole("heading", { name: /^Fallas repetidas/ }).locator("xpath=ancestor::div[2]");
     await repeated.getByRole("link", { name: /Impresora multifuncional de Ventas/ }).click();

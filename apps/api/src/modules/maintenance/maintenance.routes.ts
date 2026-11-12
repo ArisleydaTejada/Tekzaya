@@ -2,11 +2,11 @@ import {
   addDaysToKey,
   isAdmin,
   maintenanceDashboardQuery,
-  wallClockIn,
   zonedTimeToUtc,
   type AreaRef,
   type MaintenanceDashboard,
   type MaintenanceDashboardQuery,
+  type MaintenancePeriod,
   type PartUnit,
 } from "@tekzaya/shared";
 import { Router } from "express";
@@ -46,12 +46,21 @@ function assetLineOf(asset: AlertAsset) {
   };
 }
 
-/** Lunes y domingo de la semana en curso, como fechas de calendario de la empresa. */
-function weekKeys(today: string): { monday: string; sunday: string } {
+/**
+ * Primer y último día del período en curso como fechas de calendario de la empresa:
+ * hoy, lunes a domingo, o el mes entero.
+ */
+function periodKeys(today: string, period: MaintenancePeriod): { first: string; last: string } {
   const [year, month, day] = today.split("-").map(Number) as [number, number, number];
+  if (period === "day") return { first: today, last: today };
+  if (period === "month") {
+    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const first = `${today.slice(0, 8)}01`;
+    return { first, last: addDaysToKey(first, days - 1) };
+  }
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   const monday = addDaysToKey(today, -((weekday + 6) % 7));
-  return { monday, sunday: addDaysToKey(monday, 6) };
+  return { first: monday, last: addDaysToKey(monday, 6) };
 }
 
 router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), async (_req, res) => {
@@ -79,17 +88,17 @@ router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), a
   const zone = settings.businessHours.timezone;
   const now = new Date();
   const today = todayKey(zone, now);
-  const week = weekKeys(today);
-  const clock = wallClockIn(now, zone);
-  const monthStart = zonedTimeToUtc({ ...clock, day: 1 }, 0, 0, zone);
+  const range = periodKeys(today, query.period);
+  const [startYear, startMonth, startDay] = range.first.split("-").map(Number) as [number, number, number];
+  const periodStart = zonedTimeToUtc({ year: startYear, month: startMonth, day: startDay }, 0, 0, zone);
 
-  const [open, weekPreventives, overdue, lowStock, cost, warranty, repeated, area, maintainingAreas] = await Promise.all([
+  const [open, periodPreventives, overdue, lowStock, cost, warranty, repeated, area, maintainingAreas] = await Promise.all([
     WorkOrder.countDocuments({ ...byArea, ...OPEN_WORK_ORDER }),
     WorkOrder.find({
       ...byArea,
       type: "preventive",
       status: { $ne: "cancelled" },
-      scheduledFor: { $gte: week.monday, $lte: week.sunday },
+      scheduledFor: { $gte: range.first, $lte: range.last },
     })
       .select("status")
       .lean(),
@@ -99,7 +108,7 @@ router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), a
       .sort({ stock: 1, name: 1 })
       .lean(),
     WorkOrder.aggregate<{ total: number }>([
-      { $match: { ...byArea, status: "completed", completedAt: { $gte: monthStart, $lte: now } } },
+      { $match: { ...byArea, status: "completed", completedAt: { $gte: periodStart, $lte: now } } },
       { $group: { _id: null, total: { $sum: "$costTotal" } } },
     ]),
     warrantyExpiring(settings.maintenance, today, byArea),
@@ -116,15 +125,16 @@ router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), a
     ...(area ? { area: areaRefOf(area) } : {}),
     areas,
     currency: settings.maintenance.currency,
+    period: query.period,
     kpis: {
       openWorkOrders: open,
-      preventivesThisWeek: {
-        total: weekPreventives.length,
-        done: weekPreventives.filter((order) => order.status === "completed").length,
+      preventives: {
+        total: periodPreventives.length,
+        done: periodPreventives.filter((order) => order.status === "completed").length,
       },
       preventivesOverdue: overdue,
       lowStockParts: lowStock.length,
-      monthCost: cost[0]?.total ?? 0,
+      cost: cost[0]?.total ?? 0,
     },
     alerts: {
       warranty: warranty.map((asset) => ({

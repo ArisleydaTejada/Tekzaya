@@ -7,9 +7,15 @@ import { currencyCode } from "./money";
 // Plan A6: el panel de mantenimiento. Página propia, no mezclada con el tablero de
 // tickets: cinco números y tres listas de cosas que piden atención.
 
+export const MAINTENANCE_PERIODS = ["day", "week", "month"] as const;
+export const maintenancePeriod = z.enum(MAINTENANCE_PERIODS);
+export type MaintenancePeriod = z.infer<typeof maintenancePeriod>;
+
 export const maintenanceDashboardQuery = z.object({
   /** Solo para quien ve todas las áreas; el resto ve siempre la suya. */
   areaId: objectId.optional(),
+  /** Hoy, la semana (lunes a domingo) o el mes en curso; mueve los preventivos y el costo. */
+  period: maintenancePeriod.default("week"),
 });
 export type MaintenanceDashboardQuery = z.infer<typeof maintenanceDashboardQuery>;
 
@@ -27,14 +33,15 @@ export const maintenanceDashboard = z.object({
   /** Áreas que mantienen equipos, para el selector de quien ve todas; vacía para el resto. */
   areas: z.array(areaRef),
   currency: currencyCode,
+  period: maintenancePeriod,
   kpis: z.object({
     openWorkOrders: z.number().int().min(0),
-    /** Preventivos programados de lunes a domingo de esta semana, y cuántos ya se hicieron. */
-    preventivesThisWeek: z.object({ total: z.number().int().min(0), done: z.number().int().min(0) }),
+    /** Preventivos programados en el período, y cuántos ya se hicieron. */
+    preventives: z.object({ total: z.number().int().min(0), done: z.number().int().min(0) }),
     preventivesOverdue: z.number().int().min(0),
     lowStockParts: z.number().int().min(0),
-    /** Centavos: repuestos y servicios externos de las OT completadas este mes. */
-    monthCost: z.number().int().min(0),
+    /** Centavos: repuestos y servicios externos de las OT completadas en el período. */
+    cost: z.number().int().min(0),
   }),
   alerts: z.object({
     warranty: z.array(assetLine.extend({ warrantyUntil: z.iso.date() })),
