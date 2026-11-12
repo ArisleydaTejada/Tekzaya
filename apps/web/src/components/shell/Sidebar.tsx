@@ -19,33 +19,13 @@ import {
   ACTIVE_TICKET_STATUSES,
   canManageSettings,
   canManageUsers,
-  formatAssetNumber,
-  formatSparePartNumber,
-  formatTicketNumber,
-  formatWorkOrderNumber,
 } from "@tekzaya/shared";
 import { useQuery } from "@tanstack/react-query";
 import { listTickets, ticketKeys } from "../../api/tickets";
 import { listWorkOrders, workOrderKeys } from "../../api/workOrders";
 import { useAuth } from "../../auth/AuthContext";
 import { LogoLockup, LogoMark } from "../Logo";
-
-/** Un código completo (TK-12, act 3, OT-0005…) lleva directo a su ficha en vez de a una búsqueda. */
-function recordRoute(term: string): string | null {
-  const match = /^(tk|act|ot|rep)[-\s]?0*(\d+)$/i.exec(term.trim());
-
-  if (!match) return null;
-  const n = Number(match[2]);
-  const prefix = match[1]!.toLowerCase();
-
-  if (prefix === "tk") return `/tickets/${formatTicketNumber(n)}`;
-
-  if (prefix === "act") return `/activos/${formatAssetNumber(n)}`;
-
-  if (prefix === "ot") return `/ordenes/${formatWorkOrderNumber(n)}`;
-
-  return `/repuestos/${formatSparePartNumber(n)}`;
-}
+import { SidebarSearch } from "./SidebarSearch";
 
 const NAV_ITEMS = [
   { to: "/tablero", label: "Tablero", icon: GaugeNavIcon },
@@ -256,30 +236,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <SearchIcon />
         </button>
       ) : (
-        <form
-          role="search"
-          className="relative"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const field = event.currentTarget.elements.namedItem("q");
-            const term = field instanceof HTMLInputElement ? field.value.trim() : "";
-
-            navigate(term ? (recordRoute(term) ?? `/tickets?scope=all&q=${encodeURIComponent(term)}`) : "/tickets");
-          }}
-        >
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rail-ink-dim)]" />
-          <input
-            type="search"
-            name="q"
-            id={collapsed ? undefined : "buscar-global"}
-            aria-label="Buscar tickets por número o título"
-            placeholder="Buscar…"
-            className="w-full rounded-lg border border-[var(--rail-bezel)] bg-[var(--rail-surface-2)] py-2 pl-9 pr-8 text-sm text-[var(--rail-ink)] outline-none placeholder:text-[var(--rail-ink-dim)] focus:border-accent"
-          />
-          <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-[var(--rail-bezel)] px-1 font-display text-[10px] text-[var(--rail-ink-dim)]">
-            /
-          </kbd>
-        </form>
+        <SidebarSearch seesWorkOrders={seesWorkOrders} />
       )}
 
       <nav className="flex flex-col gap-1">
