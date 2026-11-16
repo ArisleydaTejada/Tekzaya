@@ -474,3 +474,32 @@ export function ActivityIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function CameraIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...props}>
+      <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.4a1.5 1.5 0 0 0 1.2-.6l.8-1.1A1.5 1.5 0 0 1 11.1 4h1.8a1.5 1.5 0 0 1 1.2.6l.8 1.1a1.5 1.5 0 0 0 1.2.6h1.4A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z" />
+      <circle cx="12" cy="12.5" r="3.25" />
+    </svg>
+  );
+}
+
+export function TrashIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...props}>
+      <path d="M4 7h16" />
+      <path d="M9.5 7V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2" />
+      <path d="M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+export function MessageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...props}>
+      <path d="M5.5 5h13A2.5 2.5 0 0 1 21 7.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.2a.6.6 0 0 1-1-.5V17h-.3A2.5 2.5 0 0 1 3 14.5v-7A2.5 2.5 0 0 1 5.5 5Z" />
+      <path d="M8 10h8M8 13h5" />
+    </svg>
+  );
+}

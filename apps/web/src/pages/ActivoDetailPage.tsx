@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import {
   ASSET_EVENT_LABEL,
   ASSET_STATUS_LABEL,
@@ -169,12 +170,20 @@ export default function ActivoDetailPage() {
                 aria-selected={view === option}
                 aria-controls={`panel-${option}`}
                 onClick={() => show(option)}
-                className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                className={`relative -mb-px flex items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm font-medium transition-colors ${
                   view === option
-                    ? "border-accent text-[var(--content-ink)]"
-                    : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                    ? "text-[var(--content-ink)]"
+                    : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
                 }`}
               >
+                {view === option && (
+                  <motion.span
+                    layoutId="activo-section"
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-[-2px] h-0.5 bg-accent"
+                    transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+                  />
+                )}
                 {VIEW_LABEL[option]}
                 {option === "ordenes" && !!asset.openWorkOrders && (
                   <span className="rounded-full bg-accent/15 px-1.5 text-[10px] font-semibold tabular text-accent-ink">
@@ -978,12 +987,20 @@ function ActiveWorkOrderCard({ order, others, onShowAll }: { order: WorkOrderDet
             role="tab"
             aria-selected={tab === option}
             onClick={() => setTab(option)}
-            className={`-mb-px border-b-2 px-2 py-1.5 text-xs font-medium ${
+            className={`relative -mb-px border-b-2 border-transparent px-2 py-1.5 text-xs font-medium ${
               tab === option
-                ? "border-accent text-[var(--content-ink)]"
-                : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                ? "text-[var(--content-ink)]"
+                : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
+            {tab === option && (
+              <motion.span
+                layoutId="activo-order-tab"
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-[-2px] h-0.5 bg-accent"
+                transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+              />
+            )}
             {option === "checklist" ? `Verificación (${done}/${order.checklist.length})` : "Detalles"}
           </button>
         ))}

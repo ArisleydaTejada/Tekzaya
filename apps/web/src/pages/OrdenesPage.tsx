@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import {
   formatAssetNumber,
   formatMoney,
@@ -105,13 +106,21 @@ export default function OrdenesPage() {
               setScope(option);
               setPage(1);
             }}
-            className={`whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`relative whitespace-nowrap rounded-t-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === option
-                ? "border-[var(--content-border)] bg-[var(--content-surface)] text-accent-ink"
-                : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                ? "text-accent-ink"
+                : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
-            {WORK_ORDER_SCOPE_LABEL[option]}
+            {scope === option && (
+              <motion.span
+                layoutId="ordenes-tab"
+                aria-hidden="true"
+                className="absolute inset-0 rounded-t-lg border border-b-0 border-[var(--content-border)] bg-[var(--content-surface)]"
+                transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+              />
+            )}
+            <span className="relative">{WORK_ORDER_SCOPE_LABEL[option]}</span>
           </button>
         ))}
       </div>

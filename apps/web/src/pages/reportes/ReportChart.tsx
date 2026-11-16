@@ -1,4 +1,5 @@
 import { MEASURE_META, type ReportQueryResult, type ReportWidget } from "@tekzaya/shared";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
   Area,
@@ -27,6 +28,34 @@ import { StatTile } from "../../components/StatTile";
 import { ChartIcon } from "../../components/icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { formatAxis, formatValue, hoverCursor, readChartTheme, tooltipStyle, trendOf } from "./chartTheme";
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(query.matches);
+    query.addEventListener("change", update);
+
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return reduced;
+}
+
+/**
+ * Las gráficas se dibujan al aparecer: Recharts dura 1,5 s por defecto, que en un panel que se abre
+ * muchas veces es una espera. 650 ms con salida suave; cada serie arranca 70 ms después de la anterior.
+ * Con "reducir movimiento" se pintan ya terminadas.
+ */
+function drawIn(reduced: boolean, order = 0) {
+  return {
+    isAnimationActive: !reduced,
+    animationBegin: order * 70,
+    animationDuration: 650,
+    animationEasing: "ease-out" as const,
+  };
+}
 
 /** Los once tipos del spec §7.8.6. El servidor manda las filas ya agrupadas; aquí solo se elige la forma. */
 export function ReportChart({
@@ -59,6 +88,7 @@ export function ReportChart({
   // Los colores son tokens de CSS y se releen en cada render: cambiar de tema repinta sin invalidar nada.
   const { theme: mode } = useTheme();
   const theme = readChartTheme(mode);
+  const reduced = usePrefersReducedMotion();
   const units = result.measures.map((measure) => measure.unit);
   const unit = units[0]!;
 
@@ -144,6 +174,7 @@ export function ReportChart({
               stroke={theme.categorical[0]}
               fill={theme.categorical[0]}
               fillOpacity={0.3}
+              {...drawIn(reduced)}
             />
             {result.comparison && (
               <Radar
@@ -152,6 +183,7 @@ export function ReportChart({
                 stroke={theme.compare}
                 fill={theme.compare}
                 fillOpacity={0.15}
+                {...drawIn(reduced, 1)}
               />
             )}
             {common.legend}
@@ -189,6 +221,7 @@ export function ReportChart({
                 paddingAngle={2}
                 startAngle={half ? 180 : 90}
                 endAngle={half ? 0 : -270}
+                {...drawIn(reduced)}
                 {...clickHandler}
                 {...(widget.showValues ? { label: ({ value }: { value: number }) => value } : {})}
               >
@@ -255,6 +288,7 @@ export function ReportChart({
                   fill={`url(#g-${widget.id}-${index})`}
                   strokeWidth={2}
                   connectNulls
+                  {...drawIn(reduced, index)}
                 />
               ) : (
                 <Line
@@ -266,6 +300,7 @@ export function ReportChart({
                   strokeWidth={2}
                   dot={false}
                   connectNulls
+                  {...drawIn(reduced, index)}
                 />
               ),
             )}
@@ -279,6 +314,7 @@ export function ReportChart({
                 strokeDasharray="4 3"
                 dot={false}
                 connectNulls
+                {...drawIn(reduced, result.measures.length)}
               />
             )}
           </Chart>
@@ -305,6 +341,7 @@ export function ReportChart({
                 stackId="a"
                 fill={theme.categorical[index % theme.categorical.length]}
                 maxBarSize={36}
+                {...drawIn(reduced, index)}
               />
             ))}
           </BarChart>
@@ -346,6 +383,7 @@ export function ReportChart({
               fill={theme.categorical[0]}
               radius={[0, 4, 4, 0]}
               maxBarSize={18}
+              {...drawIn(reduced)}
               {...clickHandler}
               {...(widget.showValues
                 ? { label: { position: "right", fontSize: 11, fill: theme.axis } }
@@ -386,6 +424,7 @@ export function ReportChart({
                 fill={theme.categorical[index]}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={36}
+                {...drawIn(reduced, index)}
                 {...clickHandler}
               />
             ))}
@@ -564,7 +603,7 @@ function Segmented({
 
   return (
     <div>
-      <div className="flex h-3 overflow-hidden rounded-full">
+      <div className="reveal-x flex h-3 overflow-hidden rounded-full">
         {result.rows.map((row, index) => (
           <button
             key={row.key ?? row.label}

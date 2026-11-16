@@ -297,7 +297,7 @@ function subtitleOf(overview: StatsOverview | undefined): string {
 }
 
 function KpiRow({ children }: { children: React.ReactNode }) {
-  return <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">{children}</div>;
+  return <div className="stagger mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">{children}</div>;
 }
 
 function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
@@ -305,6 +305,7 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
     <>
       <Link to="/tickets?scope=area">
         <StatTile
+          className="lift"
           label="Sin resolver en tu área"
           value={String(kpis.areaPending)}
           icon={<TicketIcon className="h-4 w-4" />}
@@ -312,6 +313,7 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
       </Link>
       <Link to="/tickets?scope=assigned">
         <StatTile
+          className="lift"
           label="Resueltos por ti"
           value={String(kpis.resolvedByMe)}
           icon={<CheckIcon className="h-4 w-4" />}
@@ -319,6 +321,7 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
       </Link>
       <Link to="/tickets?scope=assigned">
         <StatTile
+          className="lift"
           label="Asignados a ti"
           value={String(kpis.pendingForMe)}
           icon={<TicketIcon className="h-4 w-4" />}
@@ -326,6 +329,7 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
       </Link>
       <Link to="/tickets?scope=area&priority=urgent">
         <StatTile
+          className="lift"
           label="Urgentes"
           value={String(kpis.urgent)}
           icon={<ShieldIcon className="h-4 w-4" />}
@@ -442,7 +446,7 @@ function AvailabilityPanel({ query, global }: { query: StatsRequest; global: boo
       {isPending ? (
         <p className="py-6 text-center text-sm text-[var(--content-ink-dim)]">Cargando equipo…</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-[var(--content-border)]">
+        <ul className="stagger flex flex-col divide-y divide-[var(--content-border)]">
           {(data ?? []).map((person) => (
             <AvailabilityRow key={person.id} person={person} showArea={global} />
           ))}

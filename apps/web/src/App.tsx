@@ -1,3 +1,4 @@
+import { AppToaster } from "./components/AppToaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
@@ -46,6 +47,7 @@ export default function App() {
             <AuthProvider>
               {/* Un solo socket para toda la sesión; de él viven la campana y los listados. */}
               <RealtimeProvider>
+                <AppToaster />
                 <Routes>
                   <Route element={<RequireGuest />}>
                     <Route path="/" element={<LoginPage />} />

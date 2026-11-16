@@ -185,6 +185,9 @@ export function SlaTimeline({
         aria-label={`SLA ${label}`}
         className={`inline-flex items-center rounded-md px-1.5 py-0.5 font-display text-xs font-semibold tabular ${CHIP_TONE[tone]}`}
       >
+        {!settled && (tone === "red" || tone === "amber") && (
+          <span aria-hidden="true" className="soft-pulse mr-1 h-1.5 w-1.5 rounded-full bg-current" />
+        )}
         {label}
       </button>
 
@@ -196,8 +199,9 @@ export function SlaTimeline({
               left: anchor.left,
               top: anchor.top,
               bottom: anchor.bottom,
+              transformOrigin: anchor.bottom !== undefined ? "bottom left" : "top left",
             }}
-            className="pointer-events-none fixed z-50 w-72 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-4 text-left shadow-[var(--content-shadow)]"
+            className="pop-in pointer-events-none fixed z-50 w-72 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-4 text-left shadow-[var(--content-shadow)]"
           >
             <div className="flex flex-col gap-4">
               {legs.map((leg, index) => (

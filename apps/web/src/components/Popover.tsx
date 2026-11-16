@@ -73,8 +73,8 @@ export function Popover({
           role="dialog"
           aria-label={label}
           onClick={closeFromPanel}
-          className={`absolute top-full z-30 mt-2 w-64 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] shadow-[var(--content-shadow)] ${
-            align === "right" ? "right-0" : "left-0"
+          className={`pop-in absolute top-full z-30 mt-2 w-64 rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] shadow-[var(--content-shadow)] ${
+            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left"
           }`}
         >
           {title && (

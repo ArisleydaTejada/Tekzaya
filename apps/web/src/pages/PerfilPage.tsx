@@ -10,6 +10,7 @@ import {
   type AwayReason,
 } from "@tekzaya/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { notify } from "../lib/notify";
 import { useId, useRef, useState } from "react";
 import {
   changeMyPassword,
@@ -21,8 +22,8 @@ import {
 import { ME_QUERY_KEY, useAuth } from "../auth/AuthContext";
 import { Avatar } from "../components/Avatar";
 import { PageHeader } from "../components/PageHeader";
+import { CameraIcon, CheckIcon, ClockIcon, KeyIcon, TrashIcon, UserIcon } from "../components/icons";
 import { Plate } from "../components/Plate";
-import { CheckIcon } from "../components/icons";
 import { formatWhen } from "../lib/format";
 import { oneOf } from "../lib/oneOf";
 
@@ -48,17 +49,6 @@ export default function PerfilPage() {
   );
 }
 
-/** Estado de guardado compartido por las tres tarjetas, sin librerías de más. */
-function Saved({ shown }: { shown: boolean }) {
-  if (!shown) return null;
-
-  return (
-    <span className="flex items-center gap-1 text-xs font-medium text-green">
-      <CheckIcon className="h-3.5 w-3.5" /> Guardado
-    </span>
-  );
-}
-
 function IdentityCard() {
   const { me } = useAuth();
   const queryClient = useQueryClient();
@@ -70,6 +60,7 @@ function IdentityCard() {
     onSuccess: (updated) => {
       setError(null);
       queryClient.setQueryData(ME_QUERY_KEY, updated);
+      notify("Datos guardados", UserIcon);
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -82,12 +73,9 @@ function IdentityCard() {
 
   return (
     <Plate className="p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
-          Datos
-        </h2>
-        <Saved shown={save.isSuccess && !changed} />
-      </div>
+      <h2 className="mb-4 font-display text-sm font-semibold text-[var(--content-ink)]">
+        Datos
+      </h2>
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <PhotoPicker />
@@ -119,7 +107,7 @@ function IdentityCard() {
         />
       </dl>
       <p className="mt-3 text-xs text-[var(--content-ink-dim)]">
-        El correo, el área y el rol los administra el equipo de sistemas o de RRHH.
+        El correo, el área y el rol los administra el administrador o el supervisor de RRHH.
       </p>
 
       {error && <p className="mt-3 text-sm text-red">{error}</p>}
@@ -155,8 +143,24 @@ function PhotoPicker() {
     onError: (cause: Error) => setError(cause.message),
   };
 
-  const upload = useMutation({ mutationFn: uploadMyAvatar, ...onDone });
-  const remove = useMutation({ mutationFn: removeMyAvatar, ...onDone });
+  const upload = useMutation({
+    mutationFn: uploadMyAvatar,
+    ...onDone,
+    onSuccess: (updated) => {
+      onDone.onSuccess(updated);
+      notify("Foto actualizada", CameraIcon);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: removeMyAvatar,
+    ...onDone,
+    onSuccess: (updated) => {
+      onDone.onSuccess(updated);
+      notify("Foto eliminada", TrashIcon, "red");
+    },
+  });
+
   const busy = upload.isPending || remove.isPending;
 
   if (!me) return null;
@@ -243,9 +247,12 @@ function AvailabilityCard() {
             }
           : { state: "available" },
       ),
-    onSuccess: (updated) => {
+    onSuccess: (updated, next) => {
       setError(null);
       queryClient.setQueryData(ME_QUERY_KEY, updated);
+
+      if (next === "away") notify("Quedaste como ausente", ClockIcon, "amber");
+      else notify("Quedaste como disponible", CheckIcon);
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -344,6 +351,7 @@ function PasswordCard() {
       setCurrent("");
       setNext("");
       setRepeat("");
+      notify("Contraseña actualizada", KeyIcon);
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -354,12 +362,9 @@ function PasswordCard() {
 
   return (
     <Plate className="p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-display text-sm font-semibold text-[var(--content-ink)]">
-          Contraseña
-        </h2>
-        <Saved shown={save.isSuccess && current === ""} />
-      </div>
+      <h2 className="mb-4 font-display text-sm font-semibold text-[var(--content-ink)]">
+        Contraseña
+      </h2>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <PasswordField label="Actual" value={current} onChange={setCurrent} autoComplete="current-password" />

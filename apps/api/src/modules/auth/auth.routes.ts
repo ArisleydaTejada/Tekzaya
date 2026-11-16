@@ -93,6 +93,11 @@ router.post("/auth/login", loginLimiter, validateBody(loginInput), async (req, r
   res.json(await buildMeResponse(String(user._id)));
 });
 
+/** El ID de cliente es público por diseño; la interfaz lo necesita para abrir el botón de Google. */
+router.get("/auth/google/config", (_req, res) => {
+  res.json({ clientId: env.GOOGLE_CLIENT_ID ?? null });
+});
+
 router.post("/auth/google", validateBody(googleLoginInput), async (req, res) => {
   if (!isGoogleConfigured) {
     throw new AppError(

@@ -33,6 +33,7 @@ import {
   TICKET_SCOPES,
 } from "@tekzaya/shared";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useRowLink } from "../lib/useRowLink";
@@ -427,15 +428,23 @@ export default function TicketsPage() {
             onClick={() => changeScope(tab.scope)}
             // La activa es una pestaña de carpeta: fondo de tarjeta y borde arriba y a los lados,
             // y tapa la línea inferior de la fila (una sombra interior del contenedor).
-            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               scope === tab.scope
-                ? "border-[var(--content-border)] bg-[var(--content-surface)] text-accent-ink"
-                : "border-transparent text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                ? "text-accent-ink"
+                : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
-            {tab.label}
+            {scope === tab.scope && (
+              <motion.span
+                layoutId="tickets-tab"
+                aria-hidden="true"
+                className="absolute inset-0 rounded-t-lg border border-b-0 border-[var(--content-border)] bg-[var(--content-surface)]"
+                transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+              />
+            )}
+            <span className="relative">{tab.label}</span>
             <span
-              className={`rounded-full px-1.5 py-0.5 font-display text-[10px] tabular ${
+              className={`relative rounded-full px-1.5 py-0.5 font-display text-[10px] tabular ${
                 scope === tab.scope ? "bg-accent/10" : "bg-[var(--content-surface)]"
               }`}
             >
@@ -506,13 +515,19 @@ export default function TicketsPage() {
                 setView(id);
                 setPage(1);
               }}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                view === id
-                  ? "bg-accent text-white"
-                  : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+              className={`relative flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                view === id ? "text-white" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
+              {view === id && (
+                <motion.span
+                  layoutId="tickets-view"
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-md bg-accent"
+                  transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+                />
+              )}
+              <Icon className="relative h-3.5 w-3.5" aria-hidden="true" /> <span className="relative">{label}</span>
             </button>
           ))}
         </div>
@@ -565,6 +580,7 @@ export default function TicketsPage() {
           </button>
         </Plate>
       ) : view === "lista" ? (
+        <div key="lista" className="fade-in">
         <ListView
           tickets={items}
           sort={sort}
@@ -574,9 +590,13 @@ export default function TicketsPage() {
           onSelectedChange={setSelected}
           sameArea={scope === "area"}
         />
+        </div>
       ) : view === "grupos" ? (
-        <GroupedView tickets={items} />
+        <div key="grupos" className="fade-in">
+          <GroupedView tickets={items} />
+        </div>
       ) : (
+        <div key="kanban" className="fade-in">
         <KanbanView
           tickets={items}
           me={me}
@@ -584,6 +604,7 @@ export default function TicketsPage() {
           onTake={takeOnDrop}
           onAssign={assignOnDrop}
         />
+        </div>
       )}
 
       <AssignTicketsModal
@@ -1261,7 +1282,7 @@ function KanbanColumn({ status, tickets }: { status: TicketStatus; tickets: Tick
           {tickets.length}
         </span>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="stagger flex flex-col gap-2">
         {tickets.map((ticket) => (
           <KanbanCard key={ticket.id} ticket={ticket} />
         ))}

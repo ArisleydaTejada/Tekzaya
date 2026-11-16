@@ -1,5 +1,6 @@
 import { useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useCountUp } from "./CountUp";
 
 export type GaugeTone = "neutral" | "steel" | "accent" | "green" | "amber" | "red";
 
@@ -72,6 +73,17 @@ export function GaugeDial({
   // "75%" se pinta como en la referencia: la cifra grande y el símbolo pequeño, arriba.
   const percent = displayValue.endsWith("%");
   const figure = percent ? displayValue.slice(0, -1) : displayValue;
+  const animatedFigure = useCountUp(figure);
+
+  // La banda arranca vacía y se llena en el siguiente cuadro: sin eso la transición no ocurre
+  // al aparecer, porque el valor ya nace en su destino.
+  const [filled, setFilled] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setFilled(true));
+
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <div
@@ -109,8 +121,8 @@ export function GaugeDial({
               strokeWidth={bandWidth}
               strokeDasharray={bandLength}
               style={{
-                strokeDashoffset: bandLength * (1 - clamped / 100),
-                transition: prefersReducedMotion ? "none" : "stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+                strokeDashoffset: bandLength * (1 - (filled || prefersReducedMotion ? clamped : 0) / 100),
+                transition: prefersReducedMotion ? "none" : "stroke-dashoffset 700ms cubic-bezier(0.23, 1, 0.32, 1)",
               }}
             />
           )}
@@ -125,7 +137,7 @@ export function GaugeDial({
             fontWeight={300}
             fontSize={figure.length > 4 ? 34 : 46}
           >
-            {figure}
+            {animatedFigure}
             {percent && (
               <tspan fontSize={18} fontWeight={500} dx={2} dy={-20}>
                 %

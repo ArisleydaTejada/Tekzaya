@@ -150,7 +150,7 @@ describe("notificaciones", () => {
       ).toHaveLength(1);
     });
 
-    it("una respuesta pública del área avisa al solicitante; una nota interna no avisa a nadie", async () => {
+    it("una respuesta pública del área avisa al solicitante; una nota interna sin otros responsables no avisa a nadie", async () => {
       const ticket = await seedTicket({
         areaId: fx.areas.it,
         requesterId: fx.users.employeeIt.id,
@@ -175,6 +175,70 @@ describe("notificaciones", () => {
       // La nota interna no genera ni un aviso: ni al solicitante (que no debe saber
       // que existe) ni al resto, que ya tiene el ticket en su lista.
       expect(await inboxOf(fx.users.employeeIt.id)).toHaveLength(1);
+    });
+
+    it("una nota interna avisa a los demás responsables, no al solicitante ni a quien la escribe", async () => {
+      const ticket = await seedTicket({
+        areaId: fx.areas.it,
+        requesterId: fx.users.employeeIt.id,
+        assigneeIds: [fx.users.agentIt.id, fx.users.supIt.id],
+        status: "in_progress",
+      });
+
+      const agent = await loginAs(fx.users.agentIt.email);
+      await agent
+        .post(`/api/v1/tickets/${ticket._id}/messages`)
+        .send({ type: "internal", body: "Ojo: su cuenta está bloqueada en el directorio." })
+        .expect(201);
+
+      const colleague = await inboxOf(fx.users.supIt.id);
+      expect(colleague.map((item) => item.type)).toEqual(["ticket_internal_note"]);
+      expect(colleague[0]!.title).toContain("Aldo Agente");
+
+      expect(await inboxOf(fx.users.agentIt.id)).toHaveLength(0);
+      expect(await inboxOf(fx.users.employeeIt.id)).toHaveLength(0);
+    });
+
+    it("la respuesta pública de un responsable avisa al solicitante y a los otros responsables", async () => {
+      const ticket = await seedTicket({
+        areaId: fx.areas.it,
+        requesterId: fx.users.employeeIt.id,
+        assigneeIds: [fx.users.agentIt.id, fx.users.supIt.id],
+        status: "in_progress",
+      });
+
+      const agent = await loginAs(fx.users.agentIt.email);
+      await agent
+        .post(`/api/v1/tickets/${ticket._id}/messages`)
+        .send({ type: "public", body: "Ya estamos revisando tu acceso." })
+        .expect(201);
+
+      expect((await inboxOf(fx.users.employeeIt.id)).map((item) => item.type)).toEqual(["ticket_reply"]);
+
+      const colleague = await inboxOf(fx.users.supIt.id);
+      expect(colleague.map((item) => item.type)).toEqual(["ticket_assignee_reply"]);
+      expect(colleague[0]!.title).toContain("Aldo Agente");
+
+      expect(await inboxOf(fx.users.agentIt.id)).toHaveLength(0);
+    });
+
+    it("la respuesta del solicitante no se repite como aviso de compañero", async () => {
+      const ticket = await seedTicket({
+        areaId: fx.areas.it,
+        requesterId: fx.users.employeeIt.id,
+        assigneeIds: [fx.users.agentIt.id, fx.users.supIt.id],
+        status: "in_progress",
+      });
+
+      const requester = await loginAs(fx.users.employeeIt.email);
+      await requester
+        .post(`/api/v1/tickets/${ticket._id}/messages`)
+        .send({ type: "public", body: "Sigue igual." })
+        .expect(201);
+
+      for (const id of [fx.users.agentIt.id, fx.users.supIt.id]) {
+        expect((await inboxOf(id)).map((item) => item.type)).toEqual(["ticket_reply"]);
+      }
     });
 
     it("la respuesta del solicitante avisa a los responsables", async () => {

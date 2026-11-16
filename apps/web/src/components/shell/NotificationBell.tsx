@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { listNotifications, markNotifications, notificationKeys } from "../../api/notifications";
 import { formatWhen } from "../../lib/format";
+import { notificationLink } from "../../lib/notificationLink";
 import { BellIcon } from "../icons";
 
 const PANEL_SIZE = 20;
@@ -57,7 +58,8 @@ export function NotificationBell() {
         <BellIcon />
         {unread > 0 && (
           <span
-            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-display text-[10px] font-semibold tabular text-white"
+            key={unread}
+            className="badge-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-display text-[10px] font-semibold tabular text-white"
             aria-hidden="true"
           >
             {unread > 9 ? "9+" : unread}
@@ -74,10 +76,10 @@ export function NotificationBell() {
               aria-label="Cerrar notificaciones"
             />
             <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1, transition: { duration: 0.16, ease: [0.23, 1, 0.32, 1] } }}
+              exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}
+              style={{ transformOrigin: "top right" }}
               className="absolute right-0 z-50 mt-2 max-h-[70vh] w-80 overflow-y-auto rounded-xl border border-[var(--content-border)] bg-[var(--content-surface)] p-2 shadow-[var(--content-shadow)]"
             >
               <div className="flex items-center justify-between gap-2 px-2 py-1.5">
@@ -156,15 +158,7 @@ function NotificationRow({
 
   // Un aviso sin ticket (alguien se marcó ausente, por ejemplo) no lleva a ningún
   // sitio: se queda como texto en vez de fingir un enlace que no abre nada.
-  const to = item.ticketNumber
-    ? `/tickets/${formatTicketNumber(item.ticketNumber)}`
-    : item.workOrderNumber
-      ? `/ordenes/${formatWorkOrderNumber(item.workOrderNumber)}`
-      : item.sparePartNumber
-        ? `/repuestos/${formatSparePartNumber(item.sparePartNumber)}`
-        : item.assetNumber
-          ? `/activos/${formatAssetNumber(item.assetNumber)}`
-          : null;
+  const to = notificationLink(item);
 
   if (!to) return <li>{content}</li>;
 

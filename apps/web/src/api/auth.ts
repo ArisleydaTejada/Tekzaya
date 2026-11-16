@@ -22,6 +22,11 @@ export function login(input: LoginInput): Promise<MeResponse> {
   });
 }
 
+/** `null` cuando el servidor no tiene `GOOGLE_CLIENT_ID`. */
+export async function getGoogleClientId(): Promise<string | null> {
+  return (await apiFetch("/auth/google/config", z.object({ clientId: z.string().nullable() }))).clientId;
+}
+
 export function loginWithGoogle(credential: string): Promise<MeResponse> {
   return apiFetch("/auth/google", meResponse, {
     method: "POST",

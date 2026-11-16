@@ -19,7 +19,7 @@ const MENU_WIDTH = 216;
 /** Con `text`, el disparador muestra la palabra junto al icono (p. ej. "Más" en una barra de botones). */
 export function DropdownMenu({ label, items, text }: { label: string; items: DropdownItem[]; text?: string }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; below: boolean } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
@@ -32,6 +32,7 @@ export function DropdownMenu({ label, items, text }: { label: string; items: Dro
     setPosition({
       top: below ? rect.bottom + 4 : rect.top - 4 - height,
       left: Math.max(8, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)),
+      below,
     });
   }, [open, items.length]);
 
@@ -113,8 +114,9 @@ export function DropdownMenu({ label, items, text }: { label: string; items: Dro
               top: position?.top ?? -9999,
               left: position?.left ?? -9999,
               width: MENU_WIDTH,
+              transformOrigin: position?.below === false ? "bottom right" : "top right",
             }}
-            className="z-50 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-1 shadow-[var(--content-shadow)]"
+            className="pop-in z-50 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-1 shadow-[var(--content-shadow)]"
           >
             {items.map((item) => (
               <button

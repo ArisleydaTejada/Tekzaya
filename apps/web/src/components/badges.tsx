@@ -106,7 +106,7 @@ export function SlaTag({
 
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-medium ${TONE_TEXT[tone]}`}>
-      <SlaNeedleIcon className="shrink-0" />
+      <SlaNeedleIcon className={`shrink-0 ${!settled && state !== "on_time" ? "soft-pulse" : ""}`} />
       {text}
     </span>
   );

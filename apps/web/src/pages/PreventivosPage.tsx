@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import {
   ASSET_TYPE_LABEL,
   describeEvery,
@@ -78,11 +79,19 @@ export default function PreventivosPage() {
             role="tab"
             aria-selected={view === option.value}
             onClick={() => setView(option.value)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              view === option.value ? "bg-accent text-white" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+            className={`relative rounded-md px-3 py-1.5 text-sm font-medium ${
+              view === option.value ? "text-white" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
             }`}
           >
-            {option.label}
+            {view === option.value && (
+              <motion.span
+                layoutId="preventivos-view"
+                aria-hidden="true"
+                className="absolute inset-0 rounded-md bg-accent"
+                transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+              />
+            )}
+            <span className="relative">{option.label}</span>
           </button>
         ))}
       </div>

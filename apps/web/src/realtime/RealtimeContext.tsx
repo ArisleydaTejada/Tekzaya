@@ -12,6 +12,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
+import { notifyEvent } from "../lib/notify";
+import { useNavigate } from "react-router-dom";
 import type { z } from "zod";
 import { refreshSession } from "../api/client";
 import { notificationKeys } from "../api/notifications";
@@ -48,6 +50,13 @@ function listen<T>(socket: Socket, event: string, schema: z.ZodType<T>, handle: 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { me } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   /** Salas pedidas antes de que el socket estuviera listo, o perdidas al reconectar. */
@@ -78,6 +87,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     });
 
     listen(socket, REALTIME_EVENTS.notification, notificationEvent, (event) => {
+      notifyEvent(event, (path) => navigateRef.current(path));
       queryClient.setQueriesData<NotificationListResponse>(
         { queryKey: notificationKeys.all },
         (current) =>

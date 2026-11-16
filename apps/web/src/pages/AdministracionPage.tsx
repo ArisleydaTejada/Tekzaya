@@ -13,6 +13,7 @@ import {
   aiFeatures,
 } from "@tekzaya/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { notify } from "../lib/notify";
 import { Fragment, useId, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -21,7 +22,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Plate } from "../components/Plate";
 import { DropdownMenu, type DropdownItem } from "../components/DropdownMenu";
-import { CheckIcon, KeyIcon, MailIcon, PencilIcon, PlusIcon, PowerIcon, SearchIcon } from "../components/icons";
+import { CheckIcon, KeyIcon, MailIcon, PencilIcon, PlusIcon, PowerIcon, SearchIcon, SlidersIcon } from "../components/icons";
 import {
   addCategory,
   adminKeys,
@@ -35,6 +36,7 @@ import {
   updateCategory,
   updateUser,
 } from "../api/admin";
+import { aiKeys, getAiStatus } from "../api/ai";
 import {
   areaKeys,
   getSettings,
@@ -1162,6 +1164,17 @@ function ConfiguracionTab() {
   // del administrador: ni se le muestran ni viajan en lo que guarda.
   const isAdmin = me?.role === "admin";
   const { data: settings, isLoading } = useQuery({ queryKey: settingsKey, queryFn: getSettings });
+
+  const { data: aiStatus } = useQuery({
+    queryKey: aiKeys.status,
+    queryFn: getAiStatus,
+    staleTime: 60_000,
+    enabled: isAdmin,
+  });
+
+  // Mientras no responda el servidor no se avisa ni se bloquea nada.
+  const aiMissingKey = aiStatus !== undefined && !aiStatus.configured;
+
   const [draft, setDraft] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newHoliday, setNewHoliday] = useState("");
@@ -1183,6 +1196,7 @@ function ConfiguracionTab() {
     },
     onSuccess: async (saved) => {
       setError(null);
+      notify("Cambios guardados", SlidersIcon);
       queryClient.setQueryData(settingsKey, saved);
       await queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
@@ -1473,16 +1487,24 @@ function ConfiguracionTab() {
           <p className="mb-1 text-xs text-[var(--content-ink-dim)]">
             Apagarlas no rompe nada: el ticket se crea igual, con el área elegida a mano, y los equipos y las órdenes muestran sus números sin la tarjeta de IA.
           </p>
+          {aiMissingKey && (
+            <p role="alert" className="rounded-lg bg-[var(--content-bg)] px-3 py-2 text-xs text-red">
+              No se detectó GEMINI_API_KEY en el servidor. Agrégala al .env del backend y reinicia para poder activar estas funciones.
+            </p>
+          )}
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {AI_FEATURES.map((key) => (
               <div
                 key={key}
-                className="flex items-center justify-between gap-3 rounded-lg bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)]"
+                className={`flex items-center justify-between gap-3 rounded-lg bg-[var(--content-bg)] px-3 py-2.5 text-sm text-[var(--content-ink)] ${
+                  aiMissingKey ? "opacity-60" : ""
+                }`}
               >
                 <span id={`ia-${key}`}>{AI_LABEL[key]}</span>
                 <Switch
                   labelledBy={`ia-${key}`}
-                  checked={draft.aiEnabled[key]}
+                  disabled={aiMissingKey}
+                  checked={!aiMissingKey && draft.aiEnabled[key]}
                   onChange={(checked) => patch({ aiEnabled: { ...draft.aiEnabled, [key]: checked } })}
                 />
               </div>
@@ -1499,11 +1521,6 @@ function ConfiguracionTab() {
         >
           {save.isPending ? "Guardando…" : "Guardar cambios"}
         </button>
-        {save.isSuccess && !save.isPending && (
-          <span className="flex items-center gap-1 text-xs text-green">
-            <CheckIcon className="h-3.5 w-3.5" /> Cambios guardados.
-          </span>
-        )}
         {error && (
           <span role="alert" className="text-xs text-red">
             {error}
@@ -1519,10 +1536,12 @@ function Switch({
   checked,
   onChange,
   labelledBy,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   labelledBy: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -1530,8 +1549,9 @@ function Switch({
       role="switch"
       aria-checked={checked}
       aria-labelledby={labelledBy}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed ${
         checked ? "bg-accent" : "bg-[var(--content-border)]"
       }`}
     >

@@ -315,6 +315,114 @@
   font-family: var(--font-body);
 }
 
+/*
+ * Movimiento. Curvas con más empuje que las de CSS; todo es entrada (ease-out) y corto:
+ * la interfaz se usa decenas de veces al día y no debe hacerse esperar.
+ */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Al cambiar de página el contenido entra, no aparece de golpe. */
+.page-enter {
+  animation: rise-in 220ms var(--ease-out) backwards;
+}
+
+/*
+ * Los hijos directos de un `.stagger` entran en cascada, 40 ms entre uno y otro y con tope
+ * en el noveno: una lista larga no puede tardar un segundo en terminar de pintarse.
+ */
+.stagger > * {
+  animation: rise-in 260ms var(--ease-out) backwards;
+}
+.stagger > :nth-child(2) { animation-delay: 40ms; }
+.stagger > :nth-child(3) { animation-delay: 80ms; }
+.stagger > :nth-child(4) { animation-delay: 120ms; }
+.stagger > :nth-child(5) { animation-delay: 160ms; }
+.stagger > :nth-child(6) { animation-delay: 200ms; }
+.stagger > :nth-child(7) { animation-delay: 240ms; }
+.stagger > :nth-child(8) { animation-delay: 280ms; }
+.stagger > :nth-child(n + 9) { animation-delay: 320ms; }
+
+/* Menús y paneles nacen de su botón (el origen lo pone cada uno) y no desde la nada: parten de 95 %. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+.pop-in {
+  animation: pop-in 140ms var(--ease-out) backwards;
+}
+
+/* Cambio de vista: un fundido corto; moverla o deslizarla sería ruido en algo que se alterna a menudo. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: fade-in 160ms ease-out backwards;
+}
+
+/* El contador de la campana rebota al cambiar de cifra. */
+@keyframes badge-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.badge-pop {
+  animation: badge-pop 220ms var(--ease-out) backwards;
+}
+
+/* Un plazo en riesgo o vencido late despacio: llama la atención sin gritar. */
+@keyframes soft-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.soft-pulse {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
+
+/* Barras que no son de Recharts (la segmentada): se descubren de izquierda a derecha. */
+@keyframes reveal-x {
+  from {
+    clip-path: inset(0 100% 0 0 round 9999px);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 9999px);
+  }
+}
+.reveal-x {
+  animation: reveal-x 650ms var(--ease-out) backwards;
+}
+
+/* Un botón que se pulsa responde: baja un poco, como algo que se presiona. */
+button:not(:disabled):not([role="switch"]):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+}
+
+/* Las tarjetas que se pueden abrir se levantan al pasar el ratón; en táctil no, porque allí el hover se queda pegado. */
+@media (hover: hover) and (pointer: fine) {
+  .lift {
+    transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), border-color 180ms var(--ease-out);
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -10px rgb(18 20 26 / 0.25);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

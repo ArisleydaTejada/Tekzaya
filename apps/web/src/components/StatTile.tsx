@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CountUp } from "./CountUp";
 import { Plate } from "./Plate";
 import { TrendDownIcon, TrendUpIcon } from "./icons";
 
@@ -30,7 +31,9 @@ export function StatTile({ label, value, icon, caption, trend, className = "" }:
           {icon}
         </span>
       </div>
-      <p className="mt-2 font-display text-3xl font-semibold tabular leading-none text-[var(--content-ink)]">{value}</p>
+      <p className="mt-2 font-display text-3xl font-semibold tabular leading-none text-[var(--content-ink)]">
+        <CountUp text={value} />
+      </p>
       <div className="mt-auto flex items-center justify-between gap-1.5 pt-2.5 text-xs">
         {caption && <span className="text-[var(--content-ink-dim)]">{caption}</span>}
         {trend && (

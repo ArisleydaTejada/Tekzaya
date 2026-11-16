@@ -158,6 +158,49 @@ export async function notifyPublicReply(
     ticketId: idOf(ticket),
     ticketNumber: ticket.get("number"),
   });
+
+  // Si quien contesta es del área, los demás responsables también se enteran: el solicitante
+  // ya tiene su aviso, pero un compañero que lleva el mismo ticket no debe descubrir la
+  // respuesta al abrirlo. Quien ya recibió el aviso de arriba no recibe un segundo.
+  if (!fromRequester) {
+    const requesters = new Set(requesterSide(plain));
+    const colleagues = without(refOf(plain).assigneeIds.map(String), actor.id).filter((id) => !requesters.has(id));
+    const name = await authorName(actor);
+
+    await notify(colleagues, {
+      type: "ticket_assignee_reply",
+      title: name ? `${name} respondió en un ticket tuyo` : "Un compañero respondió en un ticket tuyo",
+      body: label(ticket),
+      ticketId: idOf(ticket),
+      ticketNumber: ticket.get("number"),
+    });
+  }
+}
+
+/**
+ * Una nota interna es del área, así que solo la ven quienes llevan el ticket: los demás
+ * responsables. El solicitante no se entera de que existe (spec §10.4), ni el supervisor que no
+ * es responsable: su bandeja ya le muestra la actividad del área.
+ */
+export async function notifyInternalNote(ticket: TicketDoc, actor: Actor): Promise<void> {
+  const assignees = without(refOf(ticket.toObject() as LeanTicket).assigneeIds.map(String), actor.id);
+
+  if (!assignees.length) return;
+  const name = await authorName(actor);
+
+  await notify(assignees, {
+    type: "ticket_internal_note",
+    title: name ? `${name} dejó una nota interna` : "Dejaron una nota interna",
+    body: label(ticket),
+    ticketId: idOf(ticket),
+    ticketNumber: ticket.get("number"),
+  });
+}
+
+async function authorName(actor: Actor): Promise<string | undefined> {
+  const author = await User.findById(actor.id).select("name").lean();
+
+  return author?.name;
 }
 
 // ── Cambios de estado ─────────────────────────────────────────

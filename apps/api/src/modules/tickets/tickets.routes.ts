@@ -56,6 +56,7 @@ import {
   broadcastMessage,
   broadcastTicket,
   notifyAssigned,
+  notifyInternalNote,
   notifyPublicReply,
   notifyStatusChange,
   notifyTicketCreated,
@@ -659,9 +660,10 @@ router.post("/tickets/:id/messages", validateBody(createMessageInput), async (re
   ticket.set("lastActivityAt", at);
   await ticket.save();
 
-  // Una nota interna no genera aviso para nadie de fuera y su evento de socket no
-  // entra en la sala del ticket, donde está el solicitante (spec §10.4).
+  // Una nota interna solo avisa a los demás responsables, nunca al solicitante, y su evento de
+  // socket no entra en la sala del ticket, donde está el solicitante (spec §10.4).
   if (input.type === "public") await notifyPublicReply(ticket, actor, fromRequester);
+  else await notifyInternalNote(ticket, actor);
   broadcastMessage(ticket, messageId, input.type, at, actor.id);
   broadcastTicket(ticket);
 

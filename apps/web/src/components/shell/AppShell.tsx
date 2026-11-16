@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Modal } from "../Modal";
 import { SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -10,6 +10,7 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   /*
    * Atajos de teclado (la lista completa sale con "?"). Las letras se ignoran mientras se
@@ -136,7 +137,9 @@ export function AppShell() {
           </dl>
         </Modal>
         <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8">
-          <Outlet />
+          <div key={pathname} className="page-enter">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -1,9 +1,11 @@
 import { loginInput } from "@tekzaya/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, loginWithGoogle } from "../api/auth";
+import { getGoogleClientId, login, loginWithGoogle } from "../api/auth";
+import ticketsShot from "../assets/login/tickets.png";
+import { loadGoogleIdentity } from "../lib/googleIdentity";
 import { ApiRequestError } from "../api/client";
 import { ME_QUERY_KEY } from "../auth/AuthContext";
 import { Field } from "../components/Field";
@@ -97,20 +99,78 @@ export default function LoginPage() {
     loginMutation.mutate(parsed.data);
   }
 
+  const googleHost = useRef<HTMLDivElement>(null);
+
+  const { data: googleClientId } = useQuery({
+    queryKey: ["auth", "google-config"],
+    queryFn: getGoogleClientId,
+    staleTime: Infinity,
+  });
+
+  const { mutate: sendGoogleCredential } = googleMutation;
+
+  // El botón oficial de Google se monta oculto y el nuestro lo acciona: así se
+  // conserva el diseño de la pantalla sin perder el flujo que Google verifica.
+  useEffect(() => {
+    if (!googleClientId || !googleHost.current) return;
+    const host = googleHost.current;
+    let cancelled = false;
+
+    loadGoogleIdentity()
+      .then((google) => {
+        if (cancelled) return;
+        google.initialize({
+          client_id: googleClientId,
+          callback: ({ credential }) => sendGoogleCredential(credential),
+        });
+        google.renderButton(host, { type: "standard", size: "large", width: 300 });
+      })
+      .catch(() => setGoogleMessage("No se pudo cargar Google. Revisa tu conexión."));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, sendGoogleCredential]);
+
   function handleGoogle() {
-    // Google Identity Services se integra en F5 junto con su clave; mientras
-    // tanto se consulta al servidor, que responde si está configurado o no.
     setGoogleMessage("");
-    googleMutation.mutate("pendiente-de-configurar");
+
+    if (googleClientId === null) {
+      setGoogleMessage("El acceso con Google no está configurado en este servidor");
+
+      return;
+    }
+
+    const target = googleHost.current?.querySelector<HTMLElement>("div[role=button]");
+
+    if (target) target.click();
+    else setGoogleMessage("Google todavía está cargando. Inténtalo de nuevo.");
   }
 
   return (
     <div className="min-h-dvh w-full bg-panel lg:flex">
-      {/* Left panel — left empty by design, just the brand mark. */}
-      <section className="hidden bg-panel px-10 py-12 lg:flex lg:w-1/2 lg:flex-col lg:justify-center xl:px-16">
-        <div>
-          <Wordmark on="dark" />
-          <p className="mt-6 max-w-sm text-base text-panel-ink-dim">Soporte y mantenimiento, en un solo lugar.</p>
+      {/* Panel de marca: logo y lema arriba; una tablet inclinada con el sistema se sale por la esquina. */}
+      <section className="relative hidden overflow-hidden bg-panel px-10 py-12 lg:block lg:w-1/2 xl:px-16">
+        <div className="relative z-10 max-w-md">
+          <Wordmark size="sm" on="dark" />
+
+          <h2 className="font-display mt-10 text-3xl font-semibold leading-tight text-white xl:text-[2rem]">
+            Soporte y mantenimiento, en un solo lugar.
+          </h2>
+          <p className="mt-3 text-sm text-panel-ink-dim">
+            Tickets, equipos y reportes de tu organización, a un inicio de sesión.
+          </p>
+        </div>
+
+        <div
+          aria-hidden="true"
+          className="absolute left-[26%] top-[40%] w-[88%] origin-top-left rotate-[16deg] rounded-[2rem] bg-black p-3 shadow-2xl shadow-black/70 ring-1 ring-white/15"
+        >
+          <img
+            src={ticketsShot}
+            alt=""
+            className="block w-full rounded-[1.4rem]"
+          />
         </div>
       </section>
 
@@ -241,6 +301,7 @@ export default function LoginPage() {
           <LeverButton icon={<GoogleMark />} busy={googleMutation.isPending} onClick={handleGoogle}>
             Continuar con Google
           </LeverButton>
+          <div ref={googleHost} aria-hidden="true" className="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0" />
           <AnimatePresence>
             {googleMessage && (
               <motion.p

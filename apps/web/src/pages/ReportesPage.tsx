@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import {
   PERSPECTIVE_LABEL,
   PERSPECTIVES,
@@ -895,14 +896,22 @@ function ReportsRail({
               aria-selected={tab === item.id}
               aria-controls="reportes-panel"
               onClick={() => onTabChange(item.id)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+              className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
                 tab === item.id
-                  ? "bg-[var(--content-surface)] text-[var(--content-ink)] shadow-[var(--content-shadow)]"
+                  ? "text-[var(--content-ink)]"
                   : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
               }`}
             >
-              {item.label}
-              <span className="tabular text-xs text-[var(--content-ink-dim)]">{item.count}</span>
+              {tab === item.id && (
+                <motion.span
+                  layoutId="reportes-tab"
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-md bg-[var(--content-surface)] shadow-[var(--content-shadow)]"
+                  transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+                />
+              )}
+              <span className="relative">{item.label}</span>
+              <span className="relative tabular text-xs text-[var(--content-ink-dim)]">{item.count}</span>
             </button>
           ))}
         </div>
