@@ -559,7 +559,12 @@ function StatRow({ label, hint, children }: { label: string; hint?: string; chil
 function EquipmentData({ asset, onEdit }: { asset: AssetDetail; onEdit?: (() => void) | undefined }) {
   return (
     <Plate className="p-4">
-      <CardTitle title="Datos del equipo" action={onEdit && <ActionButton onClick={onEdit}>Editar</ActionButton>} />
+      <CardTitle title="Datos del equipo" action={onEdit &&  <button
+            onClick={onEdit}
+            className="flex items-center gap-1 rounded-lg border border-[var(--content-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--content-ink)] hover:bg-[var(--content-bg)]"
+          >
+            <PencilIcon className="h-3.5 w-3.5" aria-hidden="true" /> Editar
+          </button>} />  
       <dl className="divide-y divide-[var(--content-border)] text-sm">
         <Item label="Tipo">{ASSET_TYPE_LABEL[asset.type]}</Item>
         <Item label="Marca">{asset.brand ?? "—"}</Item>

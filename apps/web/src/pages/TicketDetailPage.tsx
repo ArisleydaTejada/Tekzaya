@@ -691,6 +691,9 @@ export default function TicketDetailPage() {
               {actionError}
             </p>
           )}
+            {isAgentView && ai?.configured && ai.enabled.summary && (
+          <SummaryPanel ticketId={ticket.id} />
+        )}
         </div>
 
         {/* Sin columna lateral, los datos irían tras toda la conversación: suben aquí, plegados, con lo que más se consulta a la vista. */}
@@ -712,9 +715,7 @@ export default function TicketDetailPage() {
             </details>
         )}
 
-        {isAgentView && ai?.configured && ai.enabled.summary && (
-          <SummaryPanel ticketId={ticket.id} />
-        )}
+      
 
         <div className="p-5">
           {messagesQuery.isLoading ? (
@@ -1074,7 +1075,7 @@ function SummaryPanel({ ticketId }: { ticketId: string }) {
   // un resumen que todavía no existe.
   if (!requested) {
     return (
-      <div className="px-5 py-3.5">
+      <div className="mt-4">
         <ActionButton onClick={() => setRequested(true)}>
           <SummaryIcon className="h-3.5 w-3.5" /> Ver resumen del ticket
         </ActionButton>
@@ -1083,7 +1084,7 @@ function SummaryPanel({ ticketId }: { ticketId: string }) {
   }
 
   return (
-    <div className="px-5 py-4">
+    <div className="mt-4">
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => setOpen((value) => !value)}

@@ -4,8 +4,3 @@
 
 - Configuracion: Avisar si no detecta GEMINI_API_KEY, y desactivar las opciones.
 
-## Manuelas de Ari
-
-- Mover Componente resumen de IA en el detalle ticket arriba.
-
-- Cambiar en el detalle activo, el boton editar de Datos del equipo, a uno con icono similar a Nuevo plan de Planes preventivos.
