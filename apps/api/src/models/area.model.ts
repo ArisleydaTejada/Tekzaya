@@ -15,6 +15,8 @@ const areaSchema = new Schema(
     description: { type: String, trim: true },
     color: { type: String, required: true },
     isActive: { type: Boolean, default: true },
+    // Las áreas anteriores al campo no lo tienen: se leen como `true`.
+    receivesTickets: { type: Boolean, default: true },
     categories: { type: [categorySchema], default: [] },
   },
   { timestamps: true },

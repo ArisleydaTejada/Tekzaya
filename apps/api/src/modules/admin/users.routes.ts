@@ -3,6 +3,9 @@ import {
   canGrantPrivileges,
   formatTicketNumber,
   inviteUserInput,
+  requesterWithPrivileges,
+  ROLE_OUTSIDE_SERVICE_AREA,
+  roleFitsArea,
   updateUserInput,
   type Actor,
   type AdminUser,
@@ -130,9 +133,12 @@ router.post("/users", validateBody(inviteUserInput), async (req, res) => {
   if (await User.exists({ email })) {
     throw new AppError(409, "email_taken", "Ya existe una cuenta con ese correo");
   }
-  const area = await Area.findById(input.areaId).select("name isActive").lean();
+  const area = await Area.findById(input.areaId).select("name isActive receivesTickets").lean();
   if (!area || area.isActive === false) {
     throw new AppError(422, "validation_error", "Esa área no existe o está desactivada");
+  }
+  if (!roleFitsArea(input, area.receivesTickets !== false)) {
+    throw new AppError(422, "role_outside_service_area", ROLE_OUTSIDE_SERVICE_AREA);
   }
 
   // Nace "invitada" y sin contraseña: la elige la persona al abrir el enlace, así
@@ -268,9 +274,44 @@ router.patch("/users/:id", validateBody(updateUserInput), async (req, res) => {
     user.set("areaId", input.areaId);
   }
 
+  const wasRequester = user.get("role") === "requester";
   for (const field of ["name", "role", "isAreaSupervisor", "hasGlobalReadAccess"] as const) {
     if (input[field] !== undefined) user.set(field, input[field]);
   }
+
+  if (user.get("role") === "requester") {
+    if (requesterWithPrivileges({ role: "requester", ...input })) {
+      throw new AppError(
+        422,
+        "validation_error",
+        "Un solicitante no puede ser supervisor ni tener lectura global",
+      );
+    }
+    // Pasar a solicitante con tickets asignados los dejaría sin nadie que los
+    // atienda: primero hay que reasignarlos (docs/PLAN_ROL_SOLICITANTE.md §6).
+    if (!wasRequester) {
+      const assigned = await Ticket.countDocuments({
+        assigneeIds: user._id,
+        status: { $in: [...ACTIVE_TICKET_STATUSES] },
+      });
+      if (assigned > 0) {
+        throw new AppError(
+          409,
+          "has_open_tickets",
+          `Tiene ${assigned} ${assigned === 1 ? "ticket activo asignado" : "tickets activos asignados"}: reasígnalos antes de hacerlo solicitante`,
+        );
+      }
+    }
+    user.set("isAreaSupervisor", false);
+    user.set("hasGlobalReadAccess", false);
+  }
+
+  const finalArea = await Area.findById(user.get("areaId")).select("receivesTickets").lean();
+  const fits = roleFitsArea(
+    { role: user.get("role"), hasGlobalReadAccess: user.get("hasGlobalReadAccess") },
+    finalArea?.receivesTickets !== false,
+  );
+  if (!fits) throw new AppError(422, "role_outside_service_area", ROLE_OUTSIDE_SERVICE_AREA);
 
   let released = 0;
   if (input.status && input.status !== user.get("status")) {

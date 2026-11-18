@@ -23,7 +23,7 @@ export async function buildMeResponse(userId: string): Promise<MeResponse> {
     email: user.email,
     areaId: String(user.areaId),
     areaName: area?.name ?? "Sin área",
-    maintainsAssets: Boolean(maintained),
+    maintainsAssets: user.role !== "requester" && Boolean(maintained),
     role: user.role ?? "employee",
     isAreaSupervisor: user.isAreaSupervisor ?? false,
     hasGlobalReadAccess: user.hasGlobalReadAccess ?? false,

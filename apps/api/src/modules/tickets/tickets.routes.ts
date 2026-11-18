@@ -221,6 +221,9 @@ router.post("/tickets", validateBody(createTicketInput), async (req, res) => {
   if (!area || area.isActive === false) {
     throw new AppError(422, "validation_error", "Esa área no existe o está desactivada");
   }
+  if (area.receivesTickets === false) {
+    throw new AppError(422, "validation_error", "Esa área no atiende tickets");
+  }
 
   const category = input.categoryId
     ? area.categories?.find((item) => String(item._id) === input.categoryId)

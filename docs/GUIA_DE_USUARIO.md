@@ -69,10 +69,11 @@ Además, Tekzaya usa **inteligencia artificial** para ahorrar trabajo (sugerir a
 
 ## 3. Quién ve qué: los roles
 
-La regla de oro: **todo empleado pertenece a un área, y el área atiende lo que le llega**. Por eso una misma persona puede **pedir ayuda** a otras áreas y también **atender** los tickets de la suya.
+La regla de oro: **todo empleado pertenece a un área, y el área atiende lo que le llega**. Por eso una misma persona puede **pedir ayuda** a otras áreas y también **atender** los tickets de la suya. La excepción es el **solicitante**: está en un área, pero no la atiende.
 
 | Rol | Qué puede hacer |
 |---|---|
+| **Solicitante** | Solo pide ayuda: crea tickets, sigue los suyos, responde cuando le preguntan y califica la atención. No ve los tickets de su área ni atiende ninguno. Pensado para personas o áreas que nunca resuelven tickets, por ejemplo en empresas donde solo TI da soporte. |
 | **Empleado** | Crear tickets hacia cualquier área, seguir los suyos y atender los de su área (tomarlos, responder, resolver). Ve los equipos que usa su área o que tiene a su cargo, para poder reportar sus fallas. |
 | **Supervisor de área** | Todo lo del empleado, y además: asignar tickets, cambiar prioridades, ver las estadísticas y reportes de su área. Si su área mantiene equipos, también gestiona el inventario, las órdenes de trabajo, los repuestos y los preventivos. |
 | **Supervisor de RRHH** | Supervisor de su propia área **más una vista de solo lectura de todas las áreas**: estadísticas y reportes globales. No configura el sistema ni reparte trabajo de otras áreas. |
@@ -390,7 +391,8 @@ Tus tickets actuales **no** se reasignan solos: tu supervisor recibe un aviso pa
 Solo para el administrador (RRHH puede consultarla en modo lectura):
 
 - **Usuarios:** invitar (se genera un enlace para compartir), editar, desactivar (no se borra, para conservar el historial) y generar enlaces para restablecer la contraseña.
-- **Áreas y categorías:** crearlas, editarlas y designar supervisores.
+- **Áreas y categorías:** crearlas, editarlas y designar supervisores. Cada área tiene la opción **"Atiende tickets"**: si la desmarcas, el área sigue agrupando a su gente pero deja de aparecer como destino al crear o transferir un ticket, y la IA no la sugiere. Si un área atiende tickets pero todos sus miembros son solicitantes, la tarjeta del área lo avisa. En un área que no atiende tickets solo se puede invitar a solicitantes (o al administrador), y al desmarcar la opción sus empleados y supervisores, incluido el de RRHH, pasan a ser solicitantes; si alguno tiene tickets activos asignados, hay que reasignarlos antes.
+- **Rol Solicitante:** al invitar o editar a alguien, elige "Solicitante" en el rol. No puede ser supervisor ni tener la lectura global, y no se puede hacer solicitante a quien todavía tiene tickets activos asignados: primero hay que reasignarlos.
 - **Configuración:**
   - Plazos (SLA) por prioridad.
   - Horario laboral, zona horaria y días festivos.

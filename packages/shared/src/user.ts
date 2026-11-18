@@ -40,10 +40,45 @@ export function roleLabelOf(user: {
   hasGlobalReadAccess: boolean;
 }): string {
   if (user.role === "admin") return "Administrador";
+  if (user.role === "requester") return "Solicitante";
   if (user.hasGlobalReadAccess) return "Supervisor de RRHH";
   if (user.isAreaSupervisor) return "Supervisor de área";
   return "Empleado";
 }
+
+/**
+ * El solicitante no atiende ningún área: ser supervisor o tener la lectura
+ * global de RRHH no tendría sentido y abriría datos que no le tocan.
+ */
+export function requesterWithPrivileges(user: {
+  role?: Role | undefined;
+  isAreaSupervisor?: boolean | undefined;
+  hasGlobalReadAccess?: boolean | undefined;
+}): boolean {
+  return user.role === "requester" && Boolean(user.isAreaSupervisor || user.hasGlobalReadAccess);
+}
+
+/**
+ * En un área que no atiende tickets nadie tiene nada que atender ni que
+ * supervisar: solo caben solicitantes y el administrador. Tampoco el supervisor
+ * de RRHH, que es un supervisor de área con lectura global.
+ */
+export function roleFitsArea(
+  user: { role: Role; hasGlobalReadAccess?: boolean | undefined },
+  areaReceivesTickets: boolean,
+): boolean {
+  if (areaReceivesTickets) return true;
+  return user.role !== "employee";
+}
+
+export const ROLE_OUTSIDE_SERVICE_AREA =
+  "Esa área no atiende tickets: quien está en ella solo puede ser solicitante";
+
+const personName = z
+  .string()
+  .trim()
+  .min(2, "Escribe al menos 2 caracteres")
+  .max(80, "Máximo 80 caracteres");
 
 export const updateAvailabilityInput = z.object({
   state: availabilityState,
@@ -53,12 +88,15 @@ export const updateAvailabilityInput = z.object({
 export type UpdateAvailabilityInput = z.infer<typeof updateAvailabilityInput>;
 
 export const inviteUserInput = z.object({
-  name: z.string().min(2).max(80),
-  email: z.email(),
-  areaId: objectId,
+  name: personName,
+  email: z.email("Escribe un correo completo, por ejemplo nombre@empresa.com"),
+  areaId: z.string().min(1, "Elige un área").pipe(objectId),
   role: role.default("employee"),
   isAreaSupervisor: z.boolean().default(false),
   hasGlobalReadAccess: z.boolean().default(false),
+}).refine((input) => !requesterWithPrivileges(input), {
+  message: "Un solicitante no puede ser supervisor ni tener lectura global",
+  path: ["role"],
 });
 export type InviteUserInput = z.infer<typeof inviteUserInput>;
 
@@ -75,7 +113,7 @@ export const adminUser = user.extend({
 export type AdminUser = z.infer<typeof adminUser>;
 
 export const updateUserInput = z.object({
-  name: z.string().min(2).max(80).optional(),
+  name: personName.optional(),
   areaId: objectId.optional(),
   role: role.optional(),
   isAreaSupervisor: z.boolean().optional(),

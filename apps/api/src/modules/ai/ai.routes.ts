@@ -4,6 +4,8 @@ import {
   canViewAssetDetails,
   FINAL_WORK_ORDER_STATUSES,
   isAdmin,
+  isAreaMember,
+  isSupervisorOf,
   suggestAreaInput,
   type AutocompleteInput,
   type SuggestAreaInput,
@@ -132,7 +134,7 @@ router.post("/ai/tickets/:id/incident", async (req, res) => {
   const ticket = await loadVisibleTicket(routeParam(req.params["id"]), actor);
   const ref = refOf(ticket.toObject() as LeanTicket);
 
-  if (!isAdmin(actor) && actor.areaId !== ref.areaId) {
+  if (!isAdmin(actor) && !isAreaMember(actor, ref.areaId)) {
     throw new AppError(403, "forbidden", "Solo el área que atiende el ticket busca incidentes");
   }
 
@@ -145,7 +147,7 @@ router.post("/tickets/:id/incident/dismiss", async (req, res) => {
   const ref = refOf(ticket.toObject() as LeanTicket);
 
   // Descartar un incidente afecta a todo el grupo: es decisión del supervisor.
-  if (!isAdmin(actor) && !(actor.isAreaSupervisor && actor.areaId === ref.areaId)) {
+  if (!isSupervisorOf(actor, ref.areaId)) {
     throw new AppError(403, "forbidden", "Solo el supervisor del área descarta un incidente");
   }
 

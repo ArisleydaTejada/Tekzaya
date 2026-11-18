@@ -1,4 +1,5 @@
 import {
+  isRequester,
   isAdmin,
   isScopeAllowed,
   maxReportScope,
@@ -78,8 +79,11 @@ export function narrowScope(
 export function effectivePerspective(
   scope: ResolvedScope,
   requested: Perspective | undefined,
+  actor?: Actor,
 ): Perspective | undefined {
   if (scope.scope !== "me" && scope.scope !== "user") return undefined;
+  // El solicitante no atiende nada: su único lado es el de quien pide.
+  if (actor && isRequester(actor) && scope.scope === "me") return "requester";
   return requested ?? "agent";
 }
 
@@ -185,6 +189,10 @@ export async function resolveListScope(
   actor: Actor,
 ): Promise<ResolvedScope> {
   if (query.scope === "area") {
+    // La excepción del §7.5 es para quien atiende el área; el solicitante no la atiende.
+    if (isRequester(actor)) {
+      throw new AppError(403, "forbidden", "Solo puedes consultar tus propias solicitudes");
+    }
     const areaId = query.areaId ?? actor.areaId;
     if (areaId !== actor.areaId && !isAdmin(actor) && !actor.hasGlobalReadAccess) {
       throw new AppError(403, "forbidden", "Solo puedes consultar los tickets de tu área");
@@ -208,5 +216,6 @@ export async function memberIdsOf(scope: ResolvedScope): Promise<Types.ObjectId[
 
 /** ¿Puede este usuario reportar sobre otras personas? Decide qué dimensiones se ofrecen. */
 export function canReportOnOthers(actor: Actor): boolean {
+  if (isRequester(actor)) return false;
   return isAdmin(actor) || actor.hasGlobalReadAccess || actor.isAreaSupervisor;
 }

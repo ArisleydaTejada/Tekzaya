@@ -30,12 +30,16 @@ async function listAdminAreas(): Promise<AdminArea[]> {
   const areas = await Area.find().sort({ name: 1 }).lean();
   const areaIds = areas.map((area) => area._id);
 
-  const [supervisors, members, tickets] = await Promise.all([
+  const [supervisors, members, agents, tickets] = await Promise.all([
     User.find({ areaId: { $in: areaIds }, isAreaSupervisor: true, status: "active" })
       .select("name areaId")
       .lean(),
     User.aggregate<{ _id: Types.ObjectId; count: number }>([
       { $match: { areaId: { $in: areaIds }, status: { $ne: "disabled" } } },
+      { $group: { _id: "$areaId", count: { $sum: 1 } } },
+    ]),
+    User.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { areaId: { $in: areaIds }, status: "active", role: { $ne: "requester" } } },
       { $group: { _id: "$areaId", count: { $sum: 1 } } },
     ]),
     Ticket.aggregate<{ _id: Types.ObjectId; count: number }>([
@@ -45,6 +49,7 @@ async function listAdminAreas(): Promise<AdminArea[]> {
   ]);
 
   const memberCount = new Map(members.map((row) => [String(row._id), row.count]));
+  const agentCount = new Map(agents.map((row) => [String(row._id), row.count]));
   const ticketCount = new Map(tickets.map((row) => [String(row._id), row.count]));
 
   return areas.map((area) => ({
@@ -53,6 +58,7 @@ async function listAdminAreas(): Promise<AdminArea[]> {
     ...(area.description ? { description: area.description } : {}),
     color: area.color!,
     isActive: area.isActive !== false,
+    receivesTickets: area.receivesTickets !== false,
     categories: (area.categories ?? []).map((category) => ({
       id: String(category._id),
       name: category.name!,
@@ -62,6 +68,7 @@ async function listAdminAreas(): Promise<AdminArea[]> {
       .filter((user) => String(user.areaId) === String(area._id))
       .map((user) => ({ id: String(user._id), name: user.name! })),
     memberCount: memberCount.get(String(area._id)) ?? 0,
+    agentCount: agentCount.get(String(area._id)) ?? 0,
     activeTickets: ticketCount.get(String(area._id)) ?? 0,
   }));
 }
@@ -89,6 +96,7 @@ router.post("/admin/areas", validateBody(createAreaInput), async (req, res) => {
     description: input.description,
     color: input.color,
     isActive: true,
+    receivesTickets: input.receivesTickets,
     categories: input.categories.map((name) => ({ name, isActive: true })),
   });
 
@@ -121,7 +129,35 @@ router.patch("/admin/areas/:id", validateBody(updateAreaInput), async (req, res)
     }
   }
 
-  for (const field of ["name", "description", "color", "isActive"] as const) {
+  // Un área que deja de atender tickets no tiene nada que darle a sus empleados:
+  // pasan a ser solicitantes. Si alguno lleva tickets activos, primero se reasignan.
+  if (input.receivesTickets === false && area.get("receivesTickets") !== false) {
+    const employees = await User.find({
+      areaId: area._id,
+      role: "employee",
+      status: { $ne: "disabled" },
+    })
+      .select("_id")
+      .lean();
+    const ids = employees.map((user) => user._id);
+    const busy = await Ticket.countDocuments({
+      assigneeIds: { $in: ids },
+      status: { $in: [...ACTIVE_TICKET_STATUSES] },
+    });
+    if (busy > 0) {
+      throw new AppError(
+        409,
+        "area_in_use",
+        `Su gente tiene ${busy} ${busy === 1 ? "ticket activo asignado" : "tickets activos asignados"}: reasígnalos antes de que el área deje de atender tickets`,
+      );
+    }
+    await User.updateMany(
+      { _id: { $in: ids } },
+      { $set: { role: "requester", isAreaSupervisor: false, hasGlobalReadAccess: false } },
+    );
+  }
+
+  for (const field of ["name", "description", "color", "isActive", "receivesTickets"] as const) {
     if (input[field] !== undefined) area.set(field, input[field]);
   }
   await area.save();
@@ -182,6 +218,9 @@ router.put("/admin/areas/:id/supervisors", validateBody(setSupervisorsInput), as
     });
     if (belong !== new Set(input.userIds).size) {
       throw new AppError(422, "validation_error", "Solo se supervisa el área a la que se pertenece");
+    }
+    if (await User.exists({ _id: { $in: input.userIds }, role: "requester" })) {
+      throw new AppError(422, "validation_error", "Un solicitante no puede supervisar un área");
     }
   }
 

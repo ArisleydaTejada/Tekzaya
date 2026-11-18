@@ -8,6 +8,7 @@ import {
   fixedOccurrences,
   generationDate,
   isAdmin,
+  isRequester,
   isWorkOrderOverdue,
   nextFixedDue,
   planListQuery,
@@ -47,6 +48,8 @@ const unknownArea = (id: unknown): AreaRef => ({ id: String(id), name: "Área el
 
 function scopeFilter(actor: Actor): Record<string, unknown> {
   if (isAdmin(actor) || actor.hasGlobalReadAccess) return {};
+  // El solicitante no atiende su área: no ve su trabajo de mantenimiento.
+  if (isRequester(actor)) return { _id: { $exists: false } };
   return { areaId: oid(actor.areaId) };
 }
 

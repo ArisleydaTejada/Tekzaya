@@ -1,4 +1,5 @@
 import {
+  isRequester,
   statsQuery,
   type AvailabilityResponse,
   type StatsByCategory,
@@ -23,6 +24,7 @@ import {
   byCategoryFor,
   byPersonFor,
   personalKpisFor,
+  requesterKpisFor,
   timeseriesFor,
 } from "./stats.service";
 
@@ -41,6 +43,20 @@ async function context(res: { locals: Record<string, unknown> }) {
 
 router.get("/stats/overview", validateQuery(statsQuery), async (_req, res) => {
   const { scope, range } = await context(res);
+  const actor = res.locals.actor;
+
+  // El solicitante no atiende nada: su tablero mide sus solicitudes, no su trabajo.
+  if (isRequester(actor)) {
+    const response: StatsOverview = {
+      scope: scope.scope,
+      ...(scope.areaId ? { areaId: scope.areaId } : {}),
+      ...(scope.areaName ? { areaName: scope.areaName } : {}),
+      range,
+      kpis: await requesterKpisFor(actor.id, range),
+    };
+    res.json(response);
+    return;
+  }
 
   // El alcance decide qué bloque de 4 tarjetas se devuelve: la vista personal y la
   // de área miden cosas distintas y no son dos versiones de la misma consulta.
@@ -67,7 +83,8 @@ router.get("/stats/overview", validateQuery(statsQuery), async (_req, res) => {
 
 router.get("/stats/availability", validateQuery(statsQuery), async (_req, res) => {
   const { scope } = await context(res);
-  const response: AvailabilityResponse = { items: await availabilityFor(scope) };
+  const items = isRequester(res.locals.actor) ? [] : await availabilityFor(scope);
+  const response: AvailabilityResponse = { items };
   res.json(response);
 });
 

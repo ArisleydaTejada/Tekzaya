@@ -21,6 +21,8 @@ const PAGES: {
 }[] = [
   { name: "tablero (supervisor)", path: "/tablero", role: "supervisor" },
   { name: "tablero (empleado)", path: "/tablero", role: "employee" },
+  { name: "tablero (solicitante)", path: "/tablero", role: "requester" },
+  { name: "mis solicitudes (solicitante)", path: "/tickets", role: "requester" },
   { name: "tickets · lista", path: "/tickets", role: "supervisor" },
   {
     name: "tickets · kanban",
@@ -248,6 +250,21 @@ test.describe("360 px de ancho", () => {
       expect(overflow, "la página entera no debe desplazarse de lado").toBeLessThanOrEqual(0);
     });
   }
+
+  test.describe("solicitante", () => {
+    test.use({ storageState: storageStateOf("requester") });
+
+    for (const path of ["/tablero", "/tickets"]) {
+      test(`${path} no desborda horizontalmente`, async ({ page }) => {
+        await page.goto(path);
+        await page.waitForLoadState("networkidle");
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow, "la página entera no debe desplazarse de lado").toBeLessThanOrEqual(0);
+      });
+    }
+  });
 
   test("la ficha con ¿reparar o reemplazar? no desborda horizontalmente", async ({ page }) => {
     await mockMaintenanceAi(page);

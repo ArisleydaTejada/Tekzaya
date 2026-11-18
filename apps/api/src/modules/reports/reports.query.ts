@@ -1,6 +1,9 @@
 import {
   CHART_META,
+  isRequester,
   MEASURE_META,
+  REQUESTER_HIDDEN_DIMENSIONS,
+  REQUESTER_MEASURES,
   validateWidget,
   type Actor,
   type BusinessCalendar,
@@ -68,6 +71,16 @@ export async function runWidget(options: QueryOptions): Promise<ReportQueryResul
 
   const invalid = validateWidget(widget);
   if (invalid) throw new AppError(422, "validation_error", invalid);
+  // La pantalla no le ofrece estas medidas; un reporte guardado o una petición a mano tampoco.
+  if (
+    isRequester(options.actor) &&
+    (widget.measures.some((measure) => !REQUESTER_MEASURES.includes(measure.key)) ||
+      [widget.groupBy, widget.splitBy].some(
+        (dimension) => dimension !== undefined && REQUESTER_HIDDEN_DIMENSIONS.includes(dimension),
+      ))
+  ) {
+    throw new AppError(403, "forbidden", "Esa medida no está disponible para tu rol");
+  }
   const maintenance = widget.source === "maintenance";
   if (maintenance && !(await canReportMaintenance(options.actor))) {
     throw new AppError(403, "forbidden", "Los reportes de mantenimiento son de las áreas que mantienen equipos");
@@ -430,7 +443,7 @@ async function compare(
     actor,
   );
 
-  const perspective = effectivePerspective(scope, widget.perspective);
+  const perspective = effectivePerspective(scope, widget.perspective, actor);
   const members = await memberIdsOf(scope);
   const other: Shared = {
     ...shared,

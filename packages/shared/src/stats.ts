@@ -84,6 +84,24 @@ export const personalKpis = z.object({
 });
 export type PersonalKpis = z.infer<typeof personalKpis>;
 
+/**
+ * Las 4 tarjetas del solicitante: solo sus propias solicitudes, las que pidió o
+ * creó (docs/PLAN_ROL_SOLICITANTE.md, S3).
+ */
+export const requesterKpis = z.object({
+  kind: z.literal("requester"),
+  open: z.number().int().min(0),
+  /** En espera: el área necesita algo de él para seguir. */
+  awaitingMe: z.number().int().min(0),
+  /** Abiertas que nadie del área ha respondido todavía. */
+  unanswered: z.number().int().min(0),
+  /** Resueltas dentro del período. */
+  resolved: z.number().int().min(0),
+  /** Resueltas cuya encuesta de satisfacción sigue sin responder. */
+  pendingSurveys: z.number().int().min(0),
+});
+export type RequesterKpis = z.infer<typeof requesterKpis>;
+
 /** Las 4 tarjetas de la vista de área o global (spec §7.2.2). */
 export const areaKpis = z.object({
   kind: z.literal("area"),
@@ -115,7 +133,7 @@ export const statsOverview = z.object({
   areaId: objectId.optional(),
   areaName: z.string().optional(),
   range: statsRange,
-  kpis: z.discriminatedUnion("kind", [personalKpis, areaKpis]),
+  kpis: z.discriminatedUnion("kind", [personalKpis, requesterKpis, areaKpis]),
   incident: statsIncident.optional(),
 });
 export type StatsOverview = z.infer<typeof statsOverview>;

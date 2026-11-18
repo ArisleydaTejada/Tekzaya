@@ -923,6 +923,29 @@ export function measuresForScope(scope: z.infer<typeof statsScope>): MeasureKey[
   });
 }
 
+/**
+ * Lo que un solicitante puede medir: cuánto pidió, cómo avanzó y cómo calificó.
+ * Fuera queda la trastienda del área que lo atiende —SLA, IA, carga, notas,
+ * fusiones— y lo que él no hace, como crear en nombre de otros
+ * (docs/PLAN_ROL_SOLICITANTE.md).
+ */
+export const REQUESTER_MEASURES: readonly MeasureKey[] = [
+  "created",
+  "resolved",
+  "closed",
+  "cancelled",
+  "reopened",
+  "backlog",
+  "first_response_time",
+  "resolution_time",
+  "hold_time",
+  "csat_average",
+  "csat_responses",
+];
+
+/** Agrupaciones que hablan de la trastienda del área o de crear en nombre de otros. */
+export const REQUESTER_HIDDEN_DIMENSIONS: readonly DimensionKey[] = ["sla_state", "created_on_behalf"];
+
 export function dimensionsForScope(
   scope: z.infer<typeof statsScope>,
   isSupervisor: boolean,

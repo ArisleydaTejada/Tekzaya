@@ -6,6 +6,7 @@ import {
   type AvailabilityEntry,
   type MeResponse,
   type PersonalKpis,
+  type RequesterKpis,
   type StatsOverview,
   type StatsPeriod,
   type StatsScope,
@@ -37,6 +38,7 @@ import {
   ChevronDownIcon,
   ClockIcon,
   DownloadIcon,
+  MessageIcon,
   ShieldIcon,
   StarIcon,
   TicketIcon,
@@ -97,6 +99,7 @@ export default function DashboardPage() {
   if (!me) return null;
 
   const personal = activeScope === "me";
+  const requesterKpis = overview.data?.kpis.kind === "requester" ? overview.data.kpis : null;
 
   return (
     <div>
@@ -225,12 +228,34 @@ export default function DashboardPage() {
             ))}
           </>
         ) : (
-          overview.data.kpis.kind === "personal" && <PersonalTiles kpis={overview.data.kpis} />
+          <>
+            {overview.data.kpis.kind === "personal" && <PersonalTiles kpis={overview.data.kpis} />}
+            {overview.data.kpis.kind === "requester" && <RequesterTiles kpis={overview.data.kpis} />}
+          </>
         )}
       </KpiRow>
       )}
 
-      {personal ? (
+      {requesterKpis && requesterKpis.pendingSurveys > 0 && (
+        <Plate className="mb-4 flex flex-wrap items-center gap-3 border-accent/30 bg-accent/5 px-4 py-3">
+          <StarIcon className="h-4 w-4 shrink-0 text-accent-ink" aria-hidden="true" />
+          <p className="text-sm text-[var(--content-ink)]">
+            {requesterKpis.pendingSurveys === 1
+              ? "Tienes 1 solicitud resuelta esperando tu opinión."
+              : `Tienes ${requesterKpis.pendingSurveys} solicitudes resueltas esperando tu opinión.`}
+          </p>
+          <ActionLink to="/tickets?scope=mine&status=resolved" className="ml-auto">
+            Calificar la atención <ArrowRightIcon className="h-3.5 w-3.5" />
+          </ActionLink>
+        </Plate>
+      )}
+
+      {me.role === "requester" ? (
+        // Quien solo pide no tiene nada asignado: sus solicitudes ocupan todo el ancho.
+        <div className="mb-6">
+          <RequestsPanel limit={8} />
+        </div>
+      ) : personal ? (
         // Lo que más mira quien pide ayuda son sus solicitudes: van primero; lo asignado, después.
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <RequestsPanel />
@@ -278,6 +303,20 @@ function subtitleOf(overview: StatsOverview | undefined): string {
     if (pending === 0) return `${subject} no tiene tickets pendientes.`;
 
     return `${subject} tiene ${pending} ${pending === 1 ? "ticket" : "tickets"} sin resolver, ${unassigned} sin asignar.`;
+  }
+
+  if (overview.kpis.kind === "requester") {
+    const { awaitingMe, open } = overview.kpis;
+
+    if (awaitingMe > 0) {
+      return awaitingMe === 1
+        ? "Una de tus solicitudes necesita tu respuesta."
+        : `${awaitingMe} de tus solicitudes necesitan tu respuesta.`;
+    }
+
+    if (open > 0) return `Tienes ${open} ${open === 1 ? "solicitud abierta" : "solicitudes abiertas"}.`;
+
+    return "No tienes solicitudes abiertas.";
   }
 
   const { pendingForMe: pending, areaPending, urgent } = overview.kpis;
@@ -334,6 +373,47 @@ function PersonalTiles({ kpis }: { kpis: PersonalKpis }) {
           value={String(kpis.urgent)}
           icon={<ShieldIcon className="h-4 w-4" />}
           caption={kpis.urgent > 0 ? "requieren atención" : "todo en orden"}
+        />
+      </Link>
+    </>
+  );
+}
+
+/** Las 4 tarjetas de quien solo pide: el estado de sus solicitudes, nada del área. */
+function RequesterTiles({ kpis }: { kpis: RequesterKpis }) {
+  return (
+    <>
+      <Link to="/tickets?scope=mine">
+        <StatTile
+          className="lift"
+          label="Abiertas"
+          value={String(kpis.open)}
+          icon={<TicketIcon className="h-4 w-4" />}
+        />
+      </Link>
+      <Link to="/tickets?scope=mine&status=on_hold">
+        <StatTile
+          className="lift"
+          label="Necesitan tu respuesta"
+          value={String(kpis.awaitingMe)}
+          icon={<MessageIcon className="h-4 w-4" />}
+          caption={kpis.awaitingMe > 0 ? "te están esperando" : "nada pendiente"}
+        />
+      </Link>
+      <Link to="/tickets?scope=mine">
+        <StatTile
+          className="lift"
+          label="Sin respuesta aún"
+          value={String(kpis.unanswered)}
+          icon={<ClockIcon className="h-4 w-4" />}
+        />
+      </Link>
+      <Link to="/tickets?scope=settled">
+        <StatTile
+          className="lift"
+          label="Resueltas"
+          value={String(kpis.resolved)}
+          icon={<CheckIcon className="h-4 w-4" />}
         />
       </Link>
     </>
@@ -539,9 +619,9 @@ function AssignedPanel() {
   );
 }
 
-/** Las cinco solicitudes más recientes que creé, con o sin respuesta (spec §7.2.1). */
-function RequestsPanel() {
-  const query = { scope: "mine" as const, sort: "recent" as const, limit: 5 };
+/** Las solicitudes más recientes que creé, con o sin respuesta (spec §7.2.1). */
+function RequestsPanel({ limit = 5 }: { limit?: number }) {
+  const query = { scope: "mine" as const, sort: "recent" as const, limit };
 
   const { data, isPending } = useQuery({
     queryKey: ticketKeys.list(query),

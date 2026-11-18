@@ -14,6 +14,7 @@ import {
   ACTIVE_TICKET_STATUSES,
   formatTicketNumber,
   isSettledStatus,
+  isRequester,
   isSupervisorOf,
   planAutoAssignment,
   PRIORITIES,
@@ -89,6 +90,12 @@ const TABS: { scope: TicketScope; label: string }[] = [
   { scope: "mine", label: "Mis solicitudes" },
   { scope: "settled", label: "Resueltos" },
   { scope: "all", label: "Todos" },
+];
+
+/** El solicitante no atiende su área: solo sigue lo que pidió (docs/PLAN_ROL_SOLICITANTE.md). */
+const REQUESTER_TABS: { scope: TicketScope; label: string }[] = [
+  { scope: "mine", label: "Mis solicitudes" },
+  { scope: "settled", label: "Resueltas" },
 ];
 
 /** Solo los estados que la pestaña puede contener: el alcance ya descartó, por ejemplo, los cerrados. */
@@ -181,15 +188,22 @@ export default function TicketsPage() {
    */
   const [params, setParams] = useSearchParams();
   const tabsFade = useOverflowFade<HTMLDivElement>();
+  const requester = Boolean(me && isRequester(me));
+  const tabs = requester ? REQUESTER_TABS : TABS;
   // Sin pestaña en la URL se abre "Asignados a mí": lo primero es lo que le toca a quien entra.
   // Si el enlace pide otra (las fichas del tablero), manda el enlace.
-  const [scope, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "assigned");
-  const [view, setViewState] = useState<ViewMode>(() => oneOf(VIEW_MODES, params.get("vista") ?? "") ?? "lista");
+  const [scopeState, setScope] = useState<TicketScope>(() => oneOf(TICKET_SCOPES, params.get("scope") ?? "") ?? "assigned");
+  // Una pestaña que su rol no tiene (un enlace viejo, "Asignados a mí" por defecto) cae en la primera.
+  const scope = tabs.some((tab) => tab.scope === scopeState) ? scopeState : tabs[0]!.scope;
+  const [viewState, setViewState] = useState<ViewMode>(() => oneOf(VIEW_MODES, params.get("vista") ?? "") ?? "lista");
+  // Kanban y grupos son para quien mueve tickets; quien solo pide ve la lista.
+  const view: ViewMode = requester ? "lista" : viewState;
   const [search, setSearch] = useState(() => params.get("q") ?? "");
   // La búsqueda de la barra lateral llega como "?q=": si cambia estando ya aquí, se adopta.
   const [lastQuery, setLastQuery] = useState(params.get("q"));
 
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
+  // Las fichas del tablero del solicitante enlazan a "?status=on_hold".
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | "">(() => oneOf(TICKET_STATUSES, params.get("status") ?? "") ?? "");
   const [priorityFilter, setPriorityFilter] = useState<Priority | "">(() => oneOf(PRIORITIES, params.get("priority") ?? "") ?? "");
 
   function setView(next: ViewMode) {
@@ -245,7 +259,7 @@ export default function TicketsPage() {
   // Los contadores de las pestañas son la misma consulta pidiendo una sola fila:
   // lo que interesa de la respuesta es el total, no los tickets.
   const counts = useQueries({
-    queries: TABS.map((tab) => ({
+    queries: tabs.map((tab) => ({
       queryKey: [...ticketKeys.list({ scope: tab.scope, limit: 1 }), "count"],
       queryFn: () => listTickets({ scope: tab.scope, limit: 1 }),
       staleTime: 30_000,
@@ -399,7 +413,7 @@ export default function TicketsPage() {
   return (
     <div>
       <PageHeader
-        title="Tickets"
+        title={requester ? "Mis solicitudes" : "Tickets"}
         actions={
           /*
            * El CSV lo arma el servidor con los filtros actuales: trae todo lo que coincide
@@ -421,7 +435,7 @@ export default function TicketsPage() {
         ref={tabsFade.ref}
         className={`mb-4 flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--content-border)] [scrollbar-width:none] ${tabsFade.fadeClass}`}
       >
-        {TABS.map((tab, index) => (
+        {tabs.map((tab, index) => (
           <button
             key={tab.scope}
             aria-pressed={scope === tab.scope}
@@ -500,6 +514,7 @@ export default function TicketsPage() {
             </option>
           ))}
         </select>
+        {!requester && (
         <div className="ml-auto flex rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-0.5">
           {(
             [
@@ -531,6 +546,7 @@ export default function TicketsPage() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {moveError && (
@@ -588,6 +604,7 @@ export default function TicketsPage() {
           onSort={sortBy}
           selected={selected}
           onSelectedChange={setSelected}
+          selectable={!requester}
           sameArea={scope === "area"}
         />
         </div>
@@ -951,6 +968,7 @@ function ListView({
   onSort,
   selected,
   onSelectedChange,
+  selectable = true,
   sameArea = false,
 }: {
   tickets: TicketListItem[];
@@ -959,6 +977,8 @@ function ListView({
   onSort: (column: TicketSort) => void;
   selected: string[];
   onSelectedChange: (next: string[]) => void;
+  /** Sin casillas: quien solo pide no tiene acciones masivas que hacer. */
+  selectable?: boolean;
   /** Todas las filas son del área de quien mira: no hace falta repetir el chip. */
   sameArea?: boolean;
 }) {
@@ -998,15 +1018,19 @@ function ListView({
                 isSelected ? "bg-accent/5" : ""
               }`}
             >
-              <label className="flex shrink-0 cursor-pointer items-start p-3">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={(event) => toggle(ticket.id, event.target.checked)}
-                  aria-label={`Seleccionar ${number}`}
-                  className="h-4 w-4 accent-accent"
-                />
-              </label>
+              {selectable ? (
+                <label className="flex shrink-0 cursor-pointer items-start p-3">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(event) => toggle(ticket.id, event.target.checked)}
+                    aria-label={`Seleccionar ${number}`}
+                    className="h-4 w-4 accent-accent"
+                  />
+                </label>
+              ) : (
+                <span className="w-3 shrink-0" aria-hidden="true" />
+              )}
               <div className="min-w-0 flex-1 py-1.5">
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-display text-xs tabular text-[var(--content-ink-dim)]">{number}</span>
@@ -1045,15 +1069,17 @@ function ListView({
         <table className="w-full min-w-[1040px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--content-border)] text-left text-xs text-[var(--content-ink-dim)]">
-              <th className="w-10 px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={allOnPage}
-                  onChange={(event) => togglePage(event.target.checked)}
-                  aria-label="Seleccionar los tickets de esta página"
-                  className="h-4 w-4 accent-accent"
-                />
-              </th>
+              {selectable && (
+                <th className="w-10 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={allOnPage}
+                    onChange={(event) => togglePage(event.target.checked)}
+                    aria-label="Seleccionar los tickets de esta página"
+                    className="h-4 w-4 accent-accent"
+                  />
+                </th>
+              )}
               <Th label="ID" column="number" sort={sort} dir={dir} onSort={onSort} />
               <Th label="Estado" column="status" sort={sort} dir={dir} onSort={onSort} />
               <Th label="Título" column="title" sort={sort} dir={dir} onSort={onSort} />
@@ -1077,15 +1103,17 @@ function ListView({
                   selected.includes(ticket.id) ? "bg-accent/5" : ""
                 }`}
               >
-                <td className="px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(ticket.id)}
-                    onChange={(event) => toggle(ticket.id, event.target.checked)}
-                    aria-label={`Seleccionar ${formatTicketNumber(ticket.number)}`}
-                    className="h-4 w-4 accent-accent"
-                  />
-                </td>
+                {selectable && (
+                  <td className="px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(ticket.id)}
+                      onChange={(event) => toggle(ticket.id, event.target.checked)}
+                      aria-label={`Seleccionar ${formatTicketNumber(ticket.number)}`}
+                      className="h-4 w-4 accent-accent"
+                    />
+                  </td>
+                )}
                 <td className="whitespace-nowrap px-3 py-2.5 font-display tabular text-[var(--content-ink)]">
                   {formatTicketNumber(ticket.number)}
                 </td>

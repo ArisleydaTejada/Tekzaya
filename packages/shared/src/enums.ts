@@ -86,7 +86,9 @@ export const SLA_STATE_LABEL: Record<SlaState, string> = {
 // El rol base se combina con banderas en vez de multiplicar roles:
 // "supervisor de área" = employee + isAreaSupervisor,
 // "supervisor de RRHH" = employee + isAreaSupervisor + hasGlobalReadAccess.
-export const ROLES = ["employee", "admin"] as const;
+// "solicitante" = requester: pertenece a un área pero no la atiende; solo crea
+// tickets y sigue los suyos (docs/PLAN_ROL_SOLICITANTE.md).
+export const ROLES = ["employee", "requester", "admin"] as const;
 export const role = z.enum(ROLES);
 export type Role = z.infer<typeof role>;
 

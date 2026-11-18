@@ -1,4 +1,4 @@
-import type { Priority } from "@tekzaya/shared";
+import type { Priority, Role } from "@tekzaya/shared";
 
 export interface SeedArea {
   name: string;
@@ -59,7 +59,7 @@ export interface SeedUser {
   name: string;
   email: string;
   areaName: string;
-  role: "employee" | "admin";
+  role: Role;
   isAreaSupervisor?: boolean;
   hasGlobalReadAccess?: boolean;
   away?: { reason: "vacation" | "leave" | "sick" | "other"; days: number };
@@ -114,6 +114,10 @@ export const USERS: SeedUser[] = [
 
   { name: "Valeria Núñez", email: "valeria.nunez@tekzaya.com", areaName: "Finanzas", role: "employee", isAreaSupervisor: true },
   { name: "Tomás Vega", email: "tomas.vega@tekzaya.com", areaName: "Finanzas", role: "employee" },
+
+  // Solicitantes: están en un área pero no la atienden; solo piden y siguen lo suyo.
+  { name: "Lucía Herrera", email: "lucia.herrera@tekzaya.com", areaName: "Ventas", role: "requester" },
+  { name: "Martín Soto", email: "martin.soto@tekzaya.com", areaName: "Finanzas", role: "requester" },
 ];
 
 export interface TicketTemplate {

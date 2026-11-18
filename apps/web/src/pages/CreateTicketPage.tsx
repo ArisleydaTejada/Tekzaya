@@ -129,7 +129,9 @@ export default function CreateTicketPage() {
     }
   }
 
-  const { data: areas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
+  const { data: allAreas = [] } = useQuery({ queryKey: areaKeys.all, queryFn: listAreas });
+  // Solo las áreas que atienden tickets son destino; las demás solo agrupan personas.
+  const areas = allAreas.filter((item) => item.receivesTickets);
   const { data: ai } = useQuery({ queryKey: aiKeys.status, queryFn: getAiStatus, staleTime: 60_000 });
   const aiSuggests = Boolean(ai?.configured && ai.enabled.suggestArea);
 
@@ -168,7 +170,8 @@ export default function CreateTicketPage() {
   const { data: colleagues = [] } = useQuery({
     queryKey: areaKeys.members(me?.areaId ?? ""),
     queryFn: () => listAreaMembers(me!.areaId),
-    enabled: Boolean(me?.areaId),
+    // El solicitante no crea en nombre de nadie: ni se le ofrece ni se consulta.
+    enabled: Boolean(me?.areaId) && me?.role !== "requester",
   });
 
   const area = areas.find((item: Area) => item.id === areaId);

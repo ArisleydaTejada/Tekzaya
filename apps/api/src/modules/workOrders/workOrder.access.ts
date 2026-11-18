@@ -1,6 +1,7 @@
 import {
   canViewWorkOrder,
   isAdmin,
+  isRequester,
   WORK_ORDER_STATUS_LABEL,
   WORK_ORDER_TRANSITIONS,
   type Actor,
@@ -64,6 +65,8 @@ export function workOrderRefOf(order: { areaId?: unknown; assigneeIds?: unknown[
  */
 export function workOrderScopeFilter(actor: Actor): Record<string, unknown> {
   if (isAdmin(actor) || actor.hasGlobalReadAccess) return {};
+  // El solicitante no atiende su área: no ve su trabajo de mantenimiento.
+  if (isRequester(actor)) return { _id: { $exists: false } };
   return { areaId: new Types.ObjectId(actor.areaId) };
 }
 

@@ -59,7 +59,7 @@ export function NotificationBell() {
         {unread > 0 && (
           <span
             key={unread}
-            className="badge-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-display text-[10px] font-semibold tabular text-white"
+            className="badge-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-display text-[10px] font-semibold tabular text-[var(--on-status-red)]"
             aria-hidden="true"
           >
             {unread > 9 ? "9+" : unread}

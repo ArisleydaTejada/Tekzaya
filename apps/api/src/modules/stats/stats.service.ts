@@ -7,6 +7,7 @@ import {
   type CategoryRow,
   type PersonalKpis,
   type PersonRow,
+  type RequesterKpis,
   type StatsIncident,
   type StatsRange,
   type TimeseriesPoint,
@@ -174,6 +175,38 @@ export async function personalKpisFor(
 }
 
 /**
+ * Tablero del solicitante: solo lo que pidió o creó. No hay "del área" porque no
+ * la atiende; los fusionados tampoco cuentan, su conversación sigue en el otro.
+ */
+export async function requesterKpisFor(userId: string, range: StatsRange): Promise<RequesterKpis> {
+  const window = windowOf(range);
+  const me = oid(userId);
+  const own: Filter = {
+    $or: [{ requesterId: me }, { createdById: me }, { additionalRequesterIds: me }],
+  };
+
+  const [open, awaitingMe, unanswered, resolved, pendingSurveys] = await Promise.all([
+    Ticket.countDocuments(and(own, { status: ACTIVE })),
+    Ticket.countDocuments(and(own, { status: "on_hold" })),
+    Ticket.countDocuments(and(own, { status: ACTIVE, "sla.firstResponseAt": { $exists: false } })),
+    Ticket.countDocuments(
+      and(own, {
+        status: { $ne: "merged" },
+        "sla.resolvedAt": { $gte: window.from, $lt: window.to },
+      }),
+    ),
+    // La encuesta la responde quien pidió el ticket, no quien lo registró (spec §7.6).
+    Ticket.countDocuments({
+      requesterId: me,
+      status: "resolved",
+      "csat.answeredAt": { $exists: false },
+    }),
+  ]);
+
+  return { kind: "requester", open, awaitingMe, unanswered, resolved, pendingSurveys };
+}
+
+/**
  * Incidente abierto con más tickets dentro del alcance. Alimenta la franja de aviso
  * del tablero; si el supervisor lo descartó, su estado queda en `dismissed` y deja
  * de aparecer (spec §6.2, IA-5).
@@ -211,7 +244,8 @@ export async function activeIncidentFor(scope: ResolvedScope): Promise<StatsInci
 // ── Disponibilidad del equipo (spec §7.2.2) ───────────────────
 
 export async function availabilityFor(scope: ResolvedScope): Promise<AvailabilityEntry[]> {
-  const filter: Filter = { status: "active" };
+  // Los solicitantes no atienden: su disponibilidad no le dice nada a nadie.
+  const filter: Filter = { status: "active", role: { $ne: "requester" } };
   if (scope.scope !== "global") filter["areaId"] = oid(scope.areaId!);
 
   const members = await User.find(filter)

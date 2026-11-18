@@ -17,11 +17,18 @@ export const area = z.object({
   description: z.string().max(280).optional(),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
   isActive: z.boolean(),
+  /**
+   * Si el área atiende tickets. Una empresa que solo tiene soporte de TI marca
+   * solo TI: las demás áreas existen para agrupar a la gente, no para recibir
+   * tickets, y ni la IA ni el formulario las ofrecen como destino.
+   */
+  receivesTickets: z.boolean(),
   categories: z.array(category),
 });
 export type Area = z.infer<typeof area>;
 
 export const createAreaInput = area.pick({ name: true, description: true, color: true }).extend({
+  receivesTickets: z.boolean().default(true),
   categories: z.array(z.string().min(2).max(60)).default([]),
 });
 export type CreateAreaInput = z.infer<typeof createAreaInput>;
@@ -41,6 +48,8 @@ export const areaMember = z.object({
   }),
   /** Tickets activos que ya tiene encima; alimenta el modal de asignación (spec §7.4). */
   openTickets: z.number().int().min(0),
+  /** Solicitante: está en el área pero no la atiende, así que no se asigna ni supervisa. */
+  isRequester: z.boolean().optional(),
 });
 export type AreaMember = z.infer<typeof areaMember>;
 
@@ -69,6 +78,8 @@ export const WORKLOAD_WEIGHTS = { urgent: 4, high: 3, medium: 2, low: 1 } as con
 export const adminArea = area.extend({
   supervisors: z.array(z.object({ id: objectId, name: z.string() })),
   memberCount: z.number().int().min(0),
+  /** Miembros que pueden atender tickets: todos menos los solicitantes. */
+  agentCount: z.number().int().min(0),
   activeTickets: z.number().int().min(0),
 });
 export type AdminArea = z.infer<typeof adminArea>;
@@ -81,6 +92,7 @@ export const updateAreaInput = z.object({
     .regex(/^#[0-9a-f]{6}$/i, "Usa un color en formato #rrggbb")
     .optional(),
   isActive: z.boolean().optional(),
+  receivesTickets: z.boolean().optional(),
 });
 export type UpdateAreaInput = z.infer<typeof updateAreaInput>;
 

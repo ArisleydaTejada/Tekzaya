@@ -69,7 +69,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[var(--rail-surface-2)]"
           >
-            <Avatar name={me.name} initials={initialsOf(me.name)} src={me.avatarUrl} available={isAvailable} />
+            <Avatar name={me.name} initials={initialsOf(me.name)} src={me.avatarUrl} available={me.role === "requester" ? undefined : isAvailable} />
             <span className="hidden text-left leading-tight md:block">
               <span className="block text-sm font-medium text-[var(--rail-ink)]">{me.name}</span>
               <span className="block text-xs text-[var(--rail-ink-dim)]">
@@ -112,6 +112,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                     {theme === "light" ? "Tema oscuro" : "Tema claro"}
                   </button>
                   <div className="my-1 border-t border-[var(--content-border)]" />
+                  {me.role !== "requester" && (
                   <button
                     onClick={() => {
                       availabilityMutation.mutate({ state: isAvailable ? "away" : "available" });
@@ -126,6 +127,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                     />
                     {isAvailable ? "Marcarme como ausente" : "Marcarme como disponible"}
                   </button>
+                  )}
                   <button
                     onClick={logout}
                     className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red hover:bg-red/10"

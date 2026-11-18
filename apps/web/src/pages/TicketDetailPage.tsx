@@ -1186,7 +1186,12 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
               <LockIcon className="h-3 w-3" /> Interna
             </span>
           )}
-          <span className={`text-xs ${own ? "text-white/70" : "text-[var(--content-ink-dim)]"}`}>
+          {/* Sobre el ámbar de la nota interna el gris tenue no contrasta en tema oscuro. */}
+          <span
+            className={`text-xs ${
+              own ? "text-white/70" : internal ? "text-[var(--content-ink)]" : "text-[var(--content-ink-dim)]"
+            }`}
+          >
             {formatWhen(message.createdAt)}
           </span>
           {/* Viene de un duplicado absorbido: se lee aquí, pero vive allí. */}
@@ -1196,7 +1201,9 @@ function MessageBubble({ message, meId }: { message: MessageView; meId?: string 
               className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
                 own
                   ? "border-white/30 text-white/80 hover:text-white"
-                  : "border-[var(--content-border)] text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
+                  : internal
+                    ? "border-[var(--content-border)] text-[var(--content-ink)]"
+                    : "border-[var(--content-border)] text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
               }`}
             >
               Original de {formatTicketNumber(message.fromTicket.number)}
@@ -1960,7 +1967,7 @@ function TransferModal({
       >
         <option value="">Selecciona un área</option>
         {areas
-          .filter((area: Area) => area.id !== ticket.area.id)
+          .filter((area: Area) => area.id !== ticket.area.id && area.receivesTickets)
           .map((area: Area) => (
             <option key={area.id} value={area.id}>
               {area.name}

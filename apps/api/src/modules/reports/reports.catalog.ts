@@ -4,10 +4,13 @@ import {
   DIMENSION_META,
   dimensionSources,
   dimensionsForScope,
+  isRequester,
   maxReportScope,
   MEASURE_META,
   measureSource,
   measuresForScope,
+  REQUESTER_HIDDEN_DIMENSIONS,
+  REQUESTER_MEASURES,
   type Actor,
   type ReportCatalog,
   type ReportTemplate,
@@ -39,6 +42,7 @@ export async function catalogFor(actor: Actor): Promise<ReportCatalog> {
     canPickPerson: supervisor,
     measures: measuresForScope(scope)
       .filter((key) => sourceAllowed(measureSource(key)))
+      .filter((key) => !isRequester(actor) || REQUESTER_MEASURES.includes(key))
       .map((key) => {
       const meta = MEASURE_META[key];
       return {
@@ -54,6 +58,7 @@ export async function catalogFor(actor: Actor): Promise<ReportCatalog> {
       };
     }),
     dimensions: dimensionsForScope(scope, supervisor)
+      .filter((key) => !isRequester(actor) || !REQUESTER_HIDDEN_DIMENSIONS.includes(key))
       .map((key) => ({
         key,
         label: DIMENSION_META[key].label,
@@ -61,7 +66,7 @@ export async function catalogFor(actor: Actor): Promise<ReportCatalog> {
       }))
       .filter((item) => item.sources.length > 0),
     charts: CHART_TYPES.map((type) => ({ type, label: CHART_META[type].label })),
-    templates: templatesFor(scope, maintenance),
+    templates: templatesFor(scope, maintenance, isRequester(actor)),
     limits: settings.reportLimits,
   };
 }
@@ -112,7 +117,7 @@ const m = (key: ReportWidget["measures"][number]["key"], aggregation?: "avg" | "
  * se guardan como propias (spec §7.8.7). La que un rol no puede pedir no se le
  * ofrece, porque sus gráficas devolverían 403 una a una.
  */
-function templatesFor(scope: StatsScope, maintenance: boolean): ReportTemplate[] {
+function templatesFor(scope: StatsScope, maintenance: boolean, requester: boolean): ReportTemplate[] {
   widgetSeq = 0;
   const personal: ReportTemplate[] = [
     {
@@ -199,6 +204,8 @@ function templatesFor(scope: StatsScope, maintenance: boolean): ReportTemplate[]
     },
   ];
 
+  // El solicitante no atiende nada: las plantillas de agente le saldrían vacías.
+  if (requester) return personal.filter((template) => template.perspective === "requester");
   if (scope === "me") return personal;
 
   const areaTemplates: ReportTemplate[] = [

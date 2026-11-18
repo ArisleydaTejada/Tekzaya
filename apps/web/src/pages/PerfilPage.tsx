@@ -42,7 +42,8 @@ export default function PerfilPage() {
 
       <div className="flex flex-col gap-4">
         <IdentityCard />
-        <AvailabilityCard />
+        {/* Quien solo pide no atiende nada: estar ausente no cambia nada para nadie. */}
+        {me?.role !== "requester" && <AvailabilityCard />}
         <PasswordCard />
       </div>
     </div>

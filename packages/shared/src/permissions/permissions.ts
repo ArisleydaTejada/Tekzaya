@@ -41,13 +41,29 @@ export function isAdmin(actor: Actor): boolean {
   return actor.role === "admin";
 }
 
-/** Pertenece al área que atiende el ticket, así que es agente de ese ticket. */
-export function isAreaMember(actor: Actor, areaId: string): boolean {
+/** Solo crea tickets y sigue los suyos: pertenece a un área, pero no la atiende. */
+export function isRequester(actor: Pick<Actor, "role">): boolean {
+  return actor.role === "requester";
+}
+
+/**
+ * Está en esa área, sin decir nada de si la atiende. Sirve para lo que depende
+ * del área como lugar de trabajo: los equipos que usa, los compañeros.
+ */
+export function belongsToArea(actor: Actor, areaId: string): boolean {
   return actor.areaId === areaId;
 }
 
+/**
+ * Es **agente** del área: ve, toma y resuelve sus tickets. El solicitante
+ * pertenece a un área sin ser agente de ella, así que nunca lo es.
+ */
+export function isAreaMember(actor: Actor, areaId: string): boolean {
+  return !isRequester(actor) && belongsToArea(actor, areaId);
+}
+
 export function isSupervisorOf(actor: Actor, areaId: string): boolean {
-  return isAdmin(actor) || (actor.isAreaSupervisor && actor.areaId === areaId);
+  return isAdmin(actor) || (actor.isAreaSupervisor && isAreaMember(actor, areaId));
 }
 
 /** El ticket es suyo: lo pidió o lo registró. Actúa como solicitante, no como agente. */
@@ -176,6 +192,7 @@ export function canAnswerCsat(actor: Actor, ticket: TicketRef): boolean {
 /** Crear en nombre de un compañero: mismo área, salvo el admin (spec §10.4). */
 export function canCreateOnBehalfOf(actor: Actor, target: UserRef): boolean {
   if (isAdmin(actor)) return true;
+  if (isRequester(actor)) return false;
   return actor.areaId === target.areaId;
 }
 
@@ -195,7 +212,7 @@ export function canManageSystem(actor: Actor): boolean {
  * administrador (ver `SYSTEM_ONLY_SETTINGS`).
  */
 export function canManageSettings(actor: Actor): boolean {
-  return isAdmin(actor) || actor.hasGlobalReadAccess;
+  return isAdmin(actor) || (!isRequester(actor) && actor.hasGlobalReadAccess);
 }
 
 /**
@@ -210,7 +227,7 @@ export const SYSTEM_ONLY_SETTINGS = ["aiEnabled", "reportLimits", "maintenance"]
  * además del administrador — son quienes saben quién entra y quién sale.
  */
 export function canManageUsers(actor: Actor): boolean {
-  return isAdmin(actor) || actor.hasGlobalReadAccess;
+  return isAdmin(actor) || (!isRequester(actor) && actor.hasGlobalReadAccess);
 }
 
 /**
@@ -237,6 +254,7 @@ export type DataScope =
  * que el cliente mande por encima (spec §10.4).
  */
 export function maxReportScope(actor: Actor): DataScope {
+  if (isRequester(actor)) return { type: "me", userId: actor.id };
   if (isAdmin(actor) || actor.hasGlobalReadAccess) return { type: "global" };
   if (actor.isAreaSupervisor) return { type: "area", areaId: actor.areaId };
   return { type: "me", userId: actor.id };

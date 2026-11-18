@@ -2,6 +2,7 @@ import {
   isAdmin,
   isAreaMember,
   isOwnTicket,
+  isRequester,
   isSupervisorOf,
   type Actor,
   type TicketRef,
@@ -30,7 +31,8 @@ export interface WorkOrderRef {
   assigneeIds: readonly string[];
 }
 
-const hasGlobalRead = (actor: Actor) => isAdmin(actor) || actor.hasGlobalReadAccess;
+const hasGlobalRead = (actor: Actor) =>
+  isAdmin(actor) || (!isRequester(actor) && actor.hasGlobalReadAccess);
 
 /** El equipo es "suyo" como usuario: lo tiene a cargo o lo usa su área. */
 function usesAsset(actor: Actor, asset: AssetRef): boolean {
@@ -153,8 +155,11 @@ export function canManageMaintenanceSettings(actor: Actor): boolean {
 
 export type AssetScope =
   | { type: "global" }
-  /** Los del área responsable, los que usa su área y los que tiene a cargo. */
-  | { type: "limited"; areaId: string; userId: string };
+  /**
+   * Los que usa su área y los que tiene a cargo; con `maintains`, también los
+   * que su área mantiene. El solicitante no mantiene nada.
+   */
+  | { type: "limited"; areaId: string; userId: string; maintains: boolean };
 
 /**
  * Qué activos entran en una lista. Lo decide el servidor desde la sesión; los
@@ -162,5 +167,5 @@ export type AssetScope =
  */
 export function assetScopeFor(actor: Actor): AssetScope {
   if (hasGlobalRead(actor)) return { type: "global" };
-  return { type: "limited", areaId: actor.areaId, userId: actor.id };
+  return { type: "limited", areaId: actor.areaId, userId: actor.id, maintains: !isRequester(actor) };
 }

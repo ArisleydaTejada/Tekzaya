@@ -6,12 +6,15 @@ const BASE_URL = "/api/v1";
 export class ApiRequestError extends Error {
   status: number;
   code: string;
+  /** Errores por campo cuando el servidor rechaza un formulario (`validation_error`). */
+  fields: Record<string, string[]>;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, fields: Record<string, string[]> = {}) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
     this.code = code;
+    this.fields = fields;
   }
 }
 
@@ -82,6 +85,7 @@ export async function apiFetch<T extends z.ZodType>(
       response.status,
       parsed.success ? parsed.data.error.code : "unknown_error",
       parsed.success ? parsed.data.error.message : "No se pudo contactar con el servidor",
+      parsed.success ? (parsed.data.error.fields ?? {}) : {},
     );
   }
 

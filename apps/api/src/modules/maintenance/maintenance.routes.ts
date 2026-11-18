@@ -1,6 +1,7 @@
 import {
   addDaysToKey,
   isAdmin,
+  isRequester,
   maintenanceDashboardQuery,
   zonedTimeToUtc,
   type AreaRef,
@@ -74,6 +75,7 @@ router.get("/maintenance/dashboard", validateQuery(maintenanceDashboardQuery), a
   if (global) {
     areaId = query.areaId;
   } else {
+    if (isRequester(actor)) throw new AppError(404, "not_found", "Tu área no mantiene equipos");
     if (query.areaId && query.areaId !== actor.areaId) {
       throw new AppError(403, "forbidden", "Solo puedes ver el panel de tu área");
     }

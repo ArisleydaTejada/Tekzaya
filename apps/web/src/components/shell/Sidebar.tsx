@@ -42,6 +42,19 @@ const NAV_ITEMS = [
   { to: "/reportes", label: "Reportes", icon: ChartIcon },
 ];
 
+/** El solicitante sigue sus solicitudes; el contador marca las que esperan su respuesta. */
+const REQUESTER_NAV_ITEMS = [
+  NAV_ITEMS[0]!,
+  {
+    to: "/tickets",
+    label: "Mis solicitudes",
+    icon: TicketIcon,
+    badge: true,
+    countLabel: (n: number) => `${n} ${n === 1 ? "necesita tu respuesta" : "necesitan tu respuesta"}`,
+  },
+  NAV_ITEMS[2]!,
+];
+
 /**
  * RRHH lleva altas y bajas, pero las áreas definen cómo se enruta el trabajo
  * y son del administrador (spec §4.3).
@@ -109,12 +122,11 @@ function SidebarHeader({ collapsed, onToggle }: { collapsed: boolean; onToggle?:
  * Tickets asignados a esta persona que siguen sin resolver. Es la misma consulta
  * del listado pidiendo una sola fila: de la respuesta solo interesa el total.
  */
-function useMyOpenCount(): number {
-  const query = {
-    scope: "assigned" as const,
-    status: [...ACTIVE_TICKET_STATUSES],
-    limit: 1,
-  };
+function useMyOpenCount(requester: boolean): number {
+  // Al solicitante no le asignan nada: lo que le toca es contestar lo que está en espera.
+  const query = requester
+    ? { scope: "mine" as const, status: ["on_hold" as const], limit: 1 }
+    : { scope: "assigned" as const, status: [...ACTIVE_TICKET_STATUSES], limit: 1 };
 
   const { data } = useQuery({
     queryKey: [...ticketKeys.list(query), "count"],
@@ -215,7 +227,9 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
   const isAdmin = me?.role === "admin";
   const managesUsers = Boolean(me && canManageUsers(me));
   const managesSettings = Boolean(me && canManageSettings(me));
-  const myOpenCount = useMyOpenCount();
+  const requester = me?.role === "requester";
+  const myOpenCount = useMyOpenCount(requester);
+  const navItems = requester ? REQUESTER_NAV_ITEMS : NAV_ITEMS;
   // Las OT son del área que mantiene el equipo (plan A3): quien no mantiene nada
   // no ve la entrada, igual que Configuración.
   const seesWorkOrders = Boolean(me && (isAdmin || me.hasGlobalReadAccess || me.maintainsAssets));
@@ -261,7 +275,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
             Principal
           </p>
         )}
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavItem key={item.to} {...item} count={myOpenCount} collapsed={collapsed} />
         ))}
       </nav>

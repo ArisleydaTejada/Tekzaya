@@ -2,13 +2,14 @@ import {
   assetPickerQuery,
   canCreateOnBehalfOf,
   canCreateWorkOrder,
-  canLinkAssetToTicket,
   canLinkAssetsOnTicket,
+  canLinkAssetToTicket,
   createWorkOrderFromTicketInput,
   formatWorkOrderNumber,
   isAdmin,
   isAreaMember,
   isOwnTicket,
+  isRequester,
   isSettledStatus,
   linkTicketAssetInput,
   type Actor,
@@ -65,7 +66,9 @@ function linkableFilter(actor: Actor, ticket: TicketRef): Record<string, unknown
   if (isAdmin(actor)) return {};
   const areaId = oid(actor.areaId);
   if (isOwnTicket(actor, ticket)) {
-    return { $or: [{ areaId }, { usedByAreaId: areaId }, { custodianId: oid(actor.id) }] };
+    // El solicitante no mantiene equipos: solo vincula los que usa su área o tiene a cargo.
+    const maintained = isRequester(actor) ? [] : [{ areaId }];
+    return { $or: [...maintained, { usedByAreaId: areaId }, { custodianId: oid(actor.id) }] };
   }
   return isAreaMember(actor, ticket.areaId) ? { areaId } : null;
 }

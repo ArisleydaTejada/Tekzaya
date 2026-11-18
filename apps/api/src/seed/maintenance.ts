@@ -212,7 +212,9 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     away: user.availability?.state === "away",
   }));
   const membersOf = (areaId: Types.ObjectId) =>
-    people.filter((person) => person.areaId.equals(areaId) && person.role !== "admin");
+    people.filter(
+      (person) => person.areaId.equals(areaId) && person.role !== "admin" && person.role !== "requester",
+    );
   const supervisorOf = (areaId: Types.ObjectId) =>
     membersOf(areaId).find((person) => person.isAreaSupervisor) ?? membersOf(areaId)[0]!;
   const technicians = (areaId: Types.ObjectId, onlyAvailable = false) =>

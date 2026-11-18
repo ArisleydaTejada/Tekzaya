@@ -1,6 +1,8 @@
 import {
   ACTIVE_TICKET_STATUSES,
   isAdmin,
+  isAreaMember,
+  isRequester,
   slaStateAt,
   WORKLOAD_WEIGHTS,
   type AreaMember,
@@ -33,6 +35,7 @@ router.get("/areas", async (_req, res) => {
       ...(area.description ? { description: area.description } : {}),
       color: area.color,
       isActive: area.isActive !== false,
+      receivesTickets: area.receivesTickets !== false,
       categories: (area.categories ?? [])
         .filter((category) => category.isActive !== false)
         .map((category) => ({
@@ -57,12 +60,15 @@ router.get("/areas/:id/members", async (req, res) => {
   // `hasGlobalReadAccess` entra aquí porque RRHH necesita elegir "una persona" en
   // Reportes (spec §7.8.1) y ya ve la disponibilidad de todas las áreas en el tablero.
   // Sigue siendo lectura: no le da ningún permiso de gestión sobre esas personas.
+  if (isRequester(actor)) {
+    throw new AppError(403, "forbidden", "Un solicitante no consulta los miembros de su área");
+  }
   if (!isAdmin(actor) && !actor.hasGlobalReadAccess && actor.areaId !== areaId) {
     throw new AppError(403, "forbidden", "Solo puedes consultar los miembros de tu área");
   }
 
   const members = await User.find({ areaId, status: "active" })
-    .select("name avatarUrl availability")
+    .select("name avatarUrl availability role")
     .sort({ name: 1 })
     .lean();
 
@@ -89,6 +95,7 @@ router.get("/areas/:id/members", async (req, res) => {
         : {}),
     },
     openTickets: openByUser.get(String(member._id)) ?? 0,
+    ...(member.role === "requester" ? { isRequester: true } : {}),
   }));
 
   res.json({ items });
@@ -106,11 +113,12 @@ router.get("/areas/:id/workload", async (req, res) => {
   const areaId = routeParam(req.params["id"]);
   if (!Types.ObjectId.isValid(areaId)) throw new AppError(404, "not_found", "Esa área no existe");
 
-  if (!isAdmin(actor) && actor.areaId !== areaId) {
+  if (!isAdmin(actor) && !isAreaMember(actor, areaId)) {
     throw new AppError(403, "forbidden", "Solo puedes consultar la carga de tu área");
   }
 
-  const members = await User.find({ areaId, status: "active" })
+  // Los solicitantes no atienden tickets: no entran en el reparto.
+  const members = await User.find({ areaId, status: "active", role: { $ne: "requester" } })
     .select("name avatarUrl availability")
     .sort({ name: 1 })
     .lean();

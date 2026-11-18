@@ -10,6 +10,8 @@ export const ACCOUNTS = {
   rrhh: { email: "elena.paredes@tekzaya.com", name: "Elena Paredes" },
   /** Empleado de Ventas: pide ayuda a IT desde fuera del área. */
   employee: { email: "diego.castillo@tekzaya.com", name: "Diego Castillo" },
+  /** Solicitante de Ventas: pertenece al área pero no la atiende; solo pide. */
+  requester: { email: "lucia.herrera@tekzaya.com", name: "Lucía Herrera" },
 } as const;
 
 export type Role = keyof typeof ACCOUNTS;

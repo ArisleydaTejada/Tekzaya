@@ -204,16 +204,21 @@ stateDiagram-v2
 
 ### Roles
 
-El rol base es **empleado** o **administrador**. A eso se le suman dos banderas:
+El rol base es **empleado**, **solicitante** o **administrador**. A eso se le suman dos banderas:
 
 | Perfil | Cómo se define | Qué puede hacer |
 | --- | --- | --- |
+| Solicitante | `role: requester` | Crear tickets y seguir los suyos. Pertenece a un área sin atenderla; no admite ninguna de las dos banderas |
 | Empleado | `role: employee` | Crear tickets, ver los suyos y trabajar los que le asignan |
 | Supervisor de área | empleado + `isAreaSupervisor` | Todo lo de su área: asignar, transferir, cancelar, reportes del área |
 | Supervisor de RRHH | empleado + `hasGlobalReadAccess` | Leer tickets y reportes de todas las áreas |
 | Administrador | `role: admin` | Todo, más usuarios, áreas, configuración e IA |
 
 Los permisos están en `packages/shared/src/permissions/` como funciones pequeñas (`canReplyPublicly`, `canWriteInternalNote`, `isSupervisorOf`…). La API las aplica en cada ruta; la interfaz las usa para no mostrar botones que no funcionarían.
+
+**Pertenecer a un área no es lo mismo que atenderla.** `belongsToArea(actor, areaId)` dice si la persona está en esa área; `isAreaMember(actor, areaId)` dice si es **agente** de ella, y para un solicitante siempre es `false`. Casi todas las reglas de tickets y mantenimiento pasan por `isAreaMember`, así que el solicitante queda fuera sin tocarlas una a una. Las consultas que filtran por `areaId` a mano (`visibilityFilter`, los alcances de órdenes, planes y repuestos, la sala `area:<id>` de Socket.IO, los avisos del área, la carga para asignar) excluyen al solicitante de forma explícita; `apps/api/src/modules/tickets/requester.test.ts` recorre esos puntos.
+
+Las áreas tienen además `receivesTickets`: solo las que lo tienen en `true` se aceptan como destino al crear o transferir un ticket, y solo esas se le ofrecen a la IA.
 
 ### Sesión y seguridad
 

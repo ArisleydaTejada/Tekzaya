@@ -22,6 +22,14 @@ import {
   type Actor,
   type TicketRef,
 } from "./permissions";
+import {
+  belongsToArea,
+  canAnswerCsat,
+  canManageUsers,
+  isAreaMember,
+  isRequester,
+  isSupervisorOf,
+} from "./permissions";
 
 const IT = "area-it";
 const RRHH = "area-rrhh";
@@ -368,5 +376,65 @@ describe("§7.5 · Unirme", () => {
 
   it("no lo pide alguien de otra área ni el propio solicitante", () => {
     expect(canRequestJoin(empleadoVentas, conResponsables)).toBe(false);
+  });
+});
+
+describe("Rol solicitante (docs/PLAN_ROL_SOLICITANTE.md)", () => {
+  const solicitanteIT: Actor = { ...empleadoIT, id: "u-sol-it", role: "requester" };
+  /** Ticket de otra persona dirigido a IT: el área del solicitante. */
+  const ajenoDeSuArea = ticketIT;
+  /** Su propio ticket, dirigido a su propia área. */
+  const suyo: TicketRef = {
+    ...ticketIT,
+    requesterId: solicitanteIT.id,
+    createdById: solicitanteIT.id,
+    assigneeIds: [empleadoIT.id],
+  };
+
+  it("pertenece a su área, pero no es agente de ella", () => {
+    expect(isRequester(solicitanteIT)).toBe(true);
+    expect(belongsToArea(solicitanteIT, IT)).toBe(true);
+    expect(isAreaMember(solicitanteIT, IT)).toBe(false);
+  });
+
+  it("no ve los tickets ajenos de su área ni sus notas internas", () => {
+    expect(canViewTicket(solicitanteIT, ajenoDeSuArea)).toBe(false);
+    expect(canReadInternalNotes(solicitanteIT, ajenoDeSuArea)).toBe(false);
+    expect(canWriteInternalNote(solicitanteIT, ajenoDeSuArea)).toBe(false);
+  });
+
+  it("no toma, asigna, une ni fusiona tickets de su área", () => {
+    expect(canSelfAssign(solicitanteIT, ticketITSinAsignar)).toBe(false);
+    expect(canManageAssignees(solicitanteIT, ajenoDeSuArea)).toBe(false);
+    expect(canRequestJoin(solicitanteIT, ajenoDeSuArea)).toBe(false);
+    expect(canMerge(solicitanteIT, ajenoDeSuArea, ajenoDeSuArea)).toBe(false);
+    expect(canChangePriority(solicitanteIT, ajenoDeSuArea)).toBe(false);
+  });
+
+  it("en su propio ticket: ve, responde, cambia la categoría, cancela y puntúa", () => {
+    expect(canViewTicket(solicitanteIT, suyo)).toBe(true);
+    expect(canReplyPublicly(solicitanteIT, suyo)).toBe(true);
+    expect(canChangeCategory(solicitanteIT, suyo)).toBe(true);
+    expect(canCancel(solicitanteIT, suyo)).toBe(true);
+    expect(canAnswerCsat(solicitanteIT, { ...suyo, status: "resolved" })).toBe(true);
+  });
+
+  it("en su propio ticket no ve notas internas ni cambia estado o prioridad", () => {
+    expect(canReadInternalNotes(solicitanteIT, suyo)).toBe(false);
+    expect(canChangeStatus(solicitanteIT, suyo)).toBe(false);
+    expect(canChangePriority(solicitanteIT, suyo)).toBe(false);
+    expect(canTransfer(solicitanteIT, suyo)).toBe(false);
+  });
+
+  it("no crea en nombre de nadie, ni de un compañero de su área", () => {
+    expect(canCreateOnBehalfOf(solicitanteIT, { id: empleadoIT.id, areaId: IT })).toBe(false);
+  });
+
+  it("una bandera de supervisor o RRHH colada por error no le da nada", () => {
+    const conBanderas: Actor = { ...solicitanteIT, isAreaSupervisor: true, hasGlobalReadAccess: true };
+    expect(isSupervisorOf(conBanderas, IT)).toBe(false);
+    expect(canManageUsers(conBanderas)).toBe(false);
+    expect(maxReportScope(conBanderas)).toEqual({ type: "me", userId: conBanderas.id });
+    expect(isScopeAllowed(conBanderas, { type: "area", areaId: IT })).toBe(false);
   });
 });

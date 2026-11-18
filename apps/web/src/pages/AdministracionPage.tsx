@@ -3,11 +3,15 @@ import {
   PRIORITY_LABEL,
   canGrantPrivileges,
   canManageSettings,
+  inviteUserInput,
+  ROLE_OUTSIDE_SERVICE_AREA,
+  roleFitsArea,
   roleLabelOf,
   type AccessLink,
   type AdminArea,
   type AdminUser,
   type Area,
+  type Role,
   type Settings,
   type UserStatus,
   aiFeatures,
@@ -45,6 +49,7 @@ import {
   settingsKey,
   updateSettings,
 } from "../api/tickets";
+import { ApiRequestError } from "../api/client";
 import { formatDateTime, formatWhen } from "../lib/format";
 import { oneOf } from "../lib/oneOf";
 
@@ -118,7 +123,16 @@ type UserColumn = "name" | "area" | "role" | "openTickets" | "status" | "lastLog
 const USER_SORT_KEY: Record<UserColumn, (user: AdminUser) => string | number> = {
   name: (user) => user.name.toLowerCase(),
   area: (user) => user.areaName.toLowerCase(),
-  role: (user) => (user.role === "admin" ? 0 : user.hasGlobalReadAccess ? 1 : user.isAreaSupervisor ? 2 : 3),
+  role: (user) =>
+    user.role === "admin"
+      ? 0
+      : user.hasGlobalReadAccess
+        ? 1
+        : user.isAreaSupervisor
+          ? 2
+          : user.role === "requester"
+            ? 4
+            : 3,
   openTickets: (user) => user.openTickets,
   status: (user) => ["active", "invited", "disabled"].indexOf(user.status),
   // Quien nunca entró va al final en ascendente, que es donde se le busca.
@@ -515,6 +529,45 @@ function UsuariosTab() {
   );
 }
 
+type FieldErrors = Partial<Record<"name" | "email" | "areaId" | "role", string>>;
+
+type RoleChoice = { role: Role; isAreaSupervisor: boolean; hasGlobalReadAccess: boolean };
+
+/**
+ * Del rechazo del servidor a errores por campo: un 422 trae `fields`, y el de
+ * rol fuera de un área de servicio se pinta bajo el rol. Lo que no es de un
+ * campo concreto queda como aviso general.
+ */
+interface FormRejection {
+  fields: FieldErrors;
+  general: string | null;
+}
+
+function fieldErrorsOf(cause: Error): FormRejection {
+  if (!(cause instanceof ApiRequestError)) return { fields: {}, general: cause.message };
+
+  if (cause.code === "role_outside_service_area") return { fields: { role: cause.message }, general: null };
+
+  if (cause.code === "email_taken") return { fields: { email: cause.message }, general: null };
+
+  const fields: FieldErrors = {};
+
+  for (const key of ["name", "email", "areaId", "role"] as const) {
+    const message = cause.fields[key]?.[0];
+
+    if (message) fields[key] = message;
+  }
+
+  return { fields, general: Object.keys(fields).length ? null : cause.message };
+}
+
+/** Al elegir un área que no atiende tickets, el rol de empleado no cabe: pasa a solicitante. */
+function roleForArea(current: RoleChoice, area: Area | undefined): RoleChoice {
+  if (!area || roleFitsArea(current, area.receivesTickets)) return current;
+
+  return { role: "requester", isAreaSupervisor: false, hasGlobalReadAccess: false };
+}
+
 function InviteModal({
   open,
   areas,
@@ -529,10 +582,12 @@ function InviteModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [areaId, setAreaId] = useState("");
-  const [role, setRole] = useState<"employee" | "admin">("employee");
+  const [role, setRole] = useState<Role>("employee");
   const [isAreaSupervisor, setIsAreaSupervisor] = useState(false);
   const [hasGlobalReadAccess, setHasGlobalReadAccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const area = areas.find((item) => item.id === areaId);
 
   const invite = useMutation({
     mutationFn: () =>
@@ -544,8 +599,44 @@ function InviteModal({
       setAreaId("");
       onClose();
     },
-    onError: (cause) => setError(cause.message),
+    onError: (cause) => {
+      const { fields, general } = fieldErrorsOf(cause);
+
+      setFieldErrors(fields);
+      setError(general);
+    },
   });
+
+  function applyRole(next: RoleChoice) {
+    setRole(next.role);
+    setIsAreaSupervisor(next.isAreaSupervisor);
+    setHasGlobalReadAccess(next.hasGlobalReadAccess);
+  }
+
+  /** Se valida con el mismo esquema que el servidor, y cada error va bajo su campo. */
+  function submit() {
+    setError(null);
+    const parsed = inviteUserInput.safeParse({ name, email, areaId, role, isAreaSupervisor, hasGlobalReadAccess });
+    const errors: FieldErrors = {};
+
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+
+        if ((key === "name" || key === "email" || key === "areaId" || key === "role") && !errors[key]) {
+          errors[key] = issue.message;
+        }
+      }
+    }
+
+    if (area && !roleFitsArea({ role, hasGlobalReadAccess }, area.receivesTickets)) {
+      errors.role = ROLE_OUTSIDE_SERVICE_AREA;
+    }
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length === 0) invite.mutate();
+  }
 
   return (
     <Modal
@@ -561,8 +652,8 @@ function InviteModal({
             Cancelar
           </button>
           <button
-            onClick={() => invite.mutate()}
-            disabled={name.length < 2 || !email.includes("@") || !areaId || invite.isPending}
+            onClick={submit}
+            disabled={invite.isPending}
             className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Generar enlace de invitación
@@ -577,6 +668,7 @@ function InviteModal({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Ej. Rosa Delgado"
+          error={fieldErrors.name}
         />
         <Field
           label="Correo"
@@ -584,33 +676,25 @@ function InviteModal({
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="rosa.delgado@empresa.com"
+          error={fieldErrors.email}
         />
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
-            Área
-          </label>
-          <select
-            value={areaId}
-            onChange={(event) => setAreaId(event.target.value)}
-            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
-          >
-            <option value="">Selecciona un área</option>
-            {areas.map((area) => (
-              <option key={area.id} value={area.id}>
-                {area.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <AreaSelect
+          areas={areas}
+          value={areaId}
+          placeholder="Selecciona un área"
+          error={fieldErrors.areaId}
+          onChange={(id) => {
+            setAreaId(id);
+            applyRole(roleForArea({ role, isAreaSupervisor, hasGlobalReadAccess }, areas.find((item) => item.id === id)));
+          }}
+        />
         <RolePicker
           role={role}
           isAreaSupervisor={isAreaSupervisor}
           hasGlobalReadAccess={hasGlobalReadAccess}
-          onChange={(next) => {
-            setRole(next.role);
-            setIsAreaSupervisor(next.isAreaSupervisor);
-            setHasGlobalReadAccess(next.hasGlobalReadAccess);
-          }}
+          areaReceivesTickets={area?.receivesTickets ?? true}
+          error={fieldErrors.role}
+          onChange={applyRole}
         />
         <p className="text-xs text-[var(--content-ink-dim)]">
           La persona elige su contraseña al abrir el enlace. Tú nunca la conoces.
@@ -637,6 +721,8 @@ function EditUserModal({
   const [isAreaSupervisor, setIsAreaSupervisor] = useState(user.isAreaSupervisor);
   const [hasGlobalReadAccess, setHasGlobalReadAccess] = useState(user.hasGlobalReadAccess);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const area = areas.find((item) => item.id === areaId);
 
   const save = useMutation({
     mutationFn: () =>
@@ -645,8 +731,34 @@ function EditUserModal({
       await onSaved();
       onClose();
     },
-    onError: (cause) => setError(cause.message),
+    onError: (cause) => {
+      const { fields, general } = fieldErrorsOf(cause);
+
+      setFieldErrors(fields);
+      setError(general);
+    },
   });
+
+  function applyRole(next: RoleChoice) {
+    setRole(next.role);
+    setIsAreaSupervisor(next.isAreaSupervisor);
+    setHasGlobalReadAccess(next.hasGlobalReadAccess);
+  }
+
+  function submit() {
+    setError(null);
+    const errors: FieldErrors = {};
+
+    if (name.trim().length < 2) errors.name = "Escribe al menos 2 caracteres";
+
+    if (area && !roleFitsArea({ role, hasGlobalReadAccess }, area.receivesTickets)) {
+      errors.role = ROLE_OUTSIDE_SERVICE_AREA;
+    }
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length === 0) save.mutate();
+  }
 
   return (
     <Modal
@@ -662,7 +774,7 @@ function EditUserModal({
             Cancelar
           </button>
           <button
-            onClick={() => save.mutate()}
+            onClick={submit}
             disabled={save.isPending}
             className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
           >
@@ -673,37 +785,29 @@ function EditUserModal({
     >
       {error && <p className="mb-2 text-sm text-red">{error}</p>}
       <div className="space-y-3">
-        <Field label="Nombre" value={name} onChange={(event) => setName(event.target.value)} />
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
-            Área
-          </label>
-          <select
-            value={areaId}
-            onChange={(event) => setAreaId(event.target.value)}
-            className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
-          >
-            {areas.map((area) => (
-              <option key={area.id} value={area.id}>
-                {area.name}
-              </option>
-            ))}
-          </select>
-          {areaId !== user.areaId && (
-            <p className="mt-1.5 text-xs text-amber">
-              Al cambiar de área dejará de supervisar la anterior.
-            </p>
-          )}
-        </div>
+        <Field
+          label="Nombre"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          error={fieldErrors.name}
+        />
+        <AreaSelect
+          areas={areas}
+          value={areaId}
+          error={fieldErrors.areaId}
+          note={areaId !== user.areaId ? "Al cambiar de área dejará de supervisar la anterior." : undefined}
+          onChange={(id) => {
+            setAreaId(id);
+            applyRole(roleForArea({ role, isAreaSupervisor, hasGlobalReadAccess }, areas.find((item) => item.id === id)));
+          }}
+        />
         <RolePicker
           role={role}
           isAreaSupervisor={isAreaSupervisor}
           hasGlobalReadAccess={hasGlobalReadAccess}
-          onChange={(next) => {
-            setRole(next.role);
-            setIsAreaSupervisor(next.isAreaSupervisor);
-            setHasGlobalReadAccess(next.hasGlobalReadAccess);
-          }}
+          areaReceivesTickets={area?.receivesTickets ?? true}
+          error={fieldErrors.role}
+          onChange={applyRole}
         />
         <p className="text-xs text-[var(--content-ink-dim)]">
           {user.openTickets > 0
@@ -723,18 +827,20 @@ function RolePicker({
   role,
   isAreaSupervisor,
   hasGlobalReadAccess,
+  areaReceivesTickets,
+  error,
   onChange,
 }: {
-  role: "employee" | "admin";
+  role: Role;
   isAreaSupervisor: boolean;
   hasGlobalReadAccess: boolean;
-  onChange: (next: {
-    role: "employee" | "admin";
-    isAreaSupervisor: boolean;
-    hasGlobalReadAccess: boolean;
-  }) => void;
+  /** En un área que no atiende tickets, empleado y supervisor no tienen nada que atender. */
+  areaReceivesTickets: boolean;
+  error?: string | undefined;
+  onChange: (next: RoleChoice) => void;
 }) {
   const { me } = useAuth();
+  const id = useId();
   // RRHH no reparte privilegios: con el rol de administrador o la lectura global podría
   // nombrarse a sí misma. El servidor lo rechaza igualmente.
   const mayGrant = Boolean(me && canGrantPrivileges(me));
@@ -742,7 +848,9 @@ function RolePicker({
   const current =
     role === "admin"
       ? "admin"
-      : hasGlobalReadAccess
+      : role === "requester"
+        ? "requester"
+        : hasGlobalReadAccess
         ? "hr"
         : isAreaSupervisor
           ? "supervisor"
@@ -750,6 +858,7 @@ function RolePicker({
 
   const options = {
     employee: { role: "employee" as const, isAreaSupervisor: false, hasGlobalReadAccess: false },
+    requester: { role: "requester" as const, isAreaSupervisor: false, hasGlobalReadAccess: false },
     supervisor: { role: "employee" as const, isAreaSupervisor: true, hasGlobalReadAccess: false },
     hr: { role: "employee" as const, isAreaSupervisor: true, hasGlobalReadAccess: true },
     admin: { role: "admin" as const, isAreaSupervisor: false, hasGlobalReadAccess: false },
@@ -757,25 +866,52 @@ function RolePicker({
 
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">Rol</label>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+        Rol
+      </label>
       <select
+        id={id}
         value={current}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => {
           const choice = oneOf(ROLE_CHOICES, event.target.value);
 
           if (choice) onChange(options[choice]);
         }}
-        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)]"
+        className={`w-full rounded-lg border bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] ${
+          error ? "border-red" : "border-[var(--field-border)]"
+        }`}
       >
-        <option value="employee">Empleado</option>
-        <option value="supervisor">Supervisor de área</option>
-        <option value="hr" disabled={!mayGrant && current !== "hr"}>
+        <option value="requester">Solicitante</option>
+        <option value="employee" disabled={!areaReceivesTickets}>
+          Empleado
+        </option>
+        <option value="supervisor" disabled={!areaReceivesTickets}>
+          Supervisor de área
+        </option>
+        <option value="hr" disabled={!areaReceivesTickets || (!mayGrant && current !== "hr")}>
           Supervisor de RRHH (lectura global)
         </option>
         <option value="admin" disabled={!mayGrant && current !== "admin"}>
           Administrador
         </option>
       </select>
+      {error && (
+        <p id={`${id}-error`} className="mt-1.5 text-xs text-red">
+          {error}
+        </p>
+      )}
+      {!error && !areaReceivesTickets && (
+        <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
+          Esta área no atiende tickets: quien está en ella solo pide ayuda.
+        </p>
+      )}
+      {!error && areaReceivesTickets && current === "requester" && (
+        <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
+          Solo crea tickets y sigue los suyos. No atiende los tickets de su área.
+        </p>
+      )}
       {!mayGrant && (
         <p className="mt-1.5 text-xs text-[var(--content-ink-dim)]">
           Nombrar administradores o conceder la lectura global es cosa del administrador.
@@ -878,6 +1014,11 @@ function AreasTab() {
                     Desactivada
                   </span>
                 )}
+                {area.isActive && !area.receivesTickets && (
+                  <span className="rounded-full bg-[var(--content-bg)] px-2 py-0.5 text-xs text-[var(--content-ink-dim)]">
+                    No atiende tickets
+                  </span>
+                )}
               </div>
               <div className="flex shrink-0 gap-2 text-xs">
                 <button onClick={() => setEditing(area)} className="text-accent-ink hover:underline">
@@ -903,8 +1044,18 @@ function AreasTab() {
                 : "sin asignar"}
             </p>
             <p className="text-xs text-[var(--content-ink-dim)]">
-              {area.memberCount} personas · {area.activeTickets} tickets sin cerrar
+              {area.memberCount} personas
+              {area.memberCount > area.agentCount &&
+                ` (${area.memberCount - area.agentCount} ${
+                  area.memberCount - area.agentCount === 1 ? "solicitante" : "solicitantes"
+                })`}{" "}
+              · {area.activeTickets} tickets sin cerrar
             </p>
+            {area.isActive && area.receivesTickets && area.agentCount === 0 && (
+              <p className="mt-2 rounded-lg border border-amber/40 bg-amber/10 px-2.5 py-1.5 text-xs text-[var(--content-ink)]">
+                Atiende tickets, pero no tiene a nadie que los resuelva.
+              </p>
+            )}
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {area.categories.map((category) => (
@@ -1010,6 +1161,7 @@ function AreaModal({
   const [name, setName] = useState(area?.name ?? "");
   const [description, setDescription] = useState(area?.description ?? "");
   const [color, setColor] = useState(area?.color ?? "#7c8cae");
+  const [receivesTickets, setReceivesTickets] = useState(area?.receivesTickets ?? true);
 
   const [supervisors, setSupervisors] = useState<string[]>(
     area?.supervisors.map((person) => person.id) ?? [],
@@ -1021,11 +1173,14 @@ function AreaModal({
     enabled: Boolean(area),
   });
 
+  // Un solicitante no atiende el área, así que tampoco puede supervisarla.
+  const agents = members.filter((member) => !member.isRequester);
+
   const save = useMutation({
     mutationFn: async () => {
       const items = area
-        ? await updateArea(area.id, { name, description, color })
-        : await createArea({ name, description, color, categories: [] });
+        ? await updateArea(area.id, { name, description, color, receivesTickets })
+        : await createArea({ name, description, color, receivesTickets, categories: [] });
 
       // Los supervisores se guardan aparte porque tocan la tabla de personas.
       return area ? await saveSupervisors(area.id, { userIds: supervisors }) : items;
@@ -1089,18 +1244,48 @@ function AreaModal({
           </div>
         </div>
 
+        <div>
+          <label className="flex items-start gap-2 text-sm text-[var(--content-ink)]">
+            <input
+              type="checkbox"
+              checked={receivesTickets}
+              onChange={(event) => setReceivesTickets(event.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-accent"
+            />
+            <span>
+              Atiende tickets
+              <span className="block text-xs text-[var(--content-ink-dim)]">
+                Si no lo marcas, el área agrupa a su gente pero no aparece como destino al crear o
+                transferir un ticket.
+              </span>
+            </span>
+          </label>
+          {area && area.receivesTickets && !receivesTickets && (
+            <p className="mt-1.5 text-xs text-amber">
+              Sus empleados y supervisores, incluido el de RRHH, pasarán a ser solicitantes. El
+              administrador no cambia.
+            </p>
+          )}
+          {area && area.receivesTickets && !receivesTickets && area.activeTickets > 0 && (
+            <p className="mt-1.5 text-xs text-amber">
+              Tiene {area.activeTickets} {area.activeTickets === 1 ? "ticket" : "tickets"} sin
+              cerrar: seguirán aquí hasta que los resuelvan o los transfieran.
+            </p>
+          )}
+        </div>
+
         {area && (
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
               Supervisores del área
             </label>
-            {members.length === 0 ? (
+            {agents.length === 0 ? (
               <p className="text-xs text-[var(--content-ink-dim)]">
-                El área todavía no tiene personas activas.
+                El área todavía no tiene personas activas que atiendan tickets.
               </p>
             ) : (
               <ul className="max-h-48 space-y-1 overflow-y-auto">
-                {members.map((member) => (
+                {agents.map((member) => (
                   <li key={member.id}>
                     <label className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-[var(--content-ink)] hover:bg-[var(--content-bg)]">
                       <input
@@ -1599,7 +1784,7 @@ function offsetOf(timeZone: string): string {
  * desfase, para elegir sin tener que escribir `America/La_Paz` de memoria.
  */
 /** Las cuatro opciones del selector de rol, que combinan rol y privilegios. */
-const ROLE_CHOICES = ["employee", "supervisor", "hr", "admin"] as const;
+const ROLE_CHOICES = ["requester", "employee", "supervisor", "hr", "admin"] as const;
 
 function TimezoneSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const groups = useMemo(() => {
@@ -1649,8 +1834,9 @@ function TimezoneSelect({ value, onChange }: { value: string; onChange: (value: 
 
 function Field({
   label,
+  error,
   ...rest
-}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+}: { label: string; error?: string | undefined } & React.InputHTMLAttributes<HTMLInputElement>) {
   const id = useId();
 
   return (
@@ -1660,9 +1846,68 @@ function Field({
       </label>
       <input
         id={id}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         {...rest}
-        className="w-full rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent"
+        className={`w-full rounded-lg border bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] outline-none focus:border-accent ${
+          error ? "border-red" : "border-[var(--field-border)]"
+        }`}
       />
+      {error && (
+        <p id={`${id}-error`} className="mt-1.5 text-xs text-red">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Selector de área de las fichas de personas; marca las que no atienden tickets. */
+function AreaSelect({
+  areas,
+  value,
+  placeholder,
+  error,
+  note,
+  onChange,
+}: {
+  areas: Area[];
+  value: string;
+  placeholder?: string;
+  error?: string | undefined;
+  note?: string | undefined;
+  onChange: (id: string) => void;
+}) {
+  const id = useId();
+
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[var(--content-ink-dim)]">
+        Área
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={`w-full rounded-lg border bg-[var(--content-bg)] px-3 py-2 text-sm text-[var(--content-ink)] ${
+          error ? "border-red" : "border-[var(--field-border)]"
+        }`}
+      >
+        {placeholder && <option value="">{placeholder}</option>}
+        {areas.map((area) => (
+          <option key={area.id} value={area.id}>
+            {area.receivesTickets ? area.name : `${area.name} (no atiende tickets)`}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p id={`${id}-error`} className="mt-1.5 text-xs text-red">
+          {error}
+        </p>
+      )}
+      {!error && note && <p className="mt-1.5 text-xs text-amber">{note}</p>}
     </div>
   );
 }

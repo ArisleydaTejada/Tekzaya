@@ -5,6 +5,8 @@ import {
   canTransfer,
   FINAL_TICKET_STATUSES,
   formatTicketNumber,
+  isAdmin,
+  isAreaMember,
   joinRequestInput,
   mergeTicketsInput,
   transferTicketInput,
@@ -63,11 +65,14 @@ router.post("/tickets/:id/transfer", validateBody(transferTicketInput), async (r
   }
 
   const [target, origin] = await Promise.all([
-    Area.findById(input.areaId).select("name isActive").lean(),
+    Area.findById(input.areaId).select("name isActive receivesTickets").lean(),
     Area.findById(ref.areaId).select("name").lean(),
   ]);
   if (!target || target.isActive === false) {
     throw new AppError(422, "validation_error", "Esa área no existe o está desactivada");
+  }
+  if (target.receivesTickets === false) {
+    throw new AppError(422, "validation_error", "Esa área no atiende tickets");
   }
 
   const at = new Date();
@@ -111,7 +116,7 @@ router.get("/tickets/:id/duplicate-candidates", async (req, res) => {
 
   // Los candidatos son tickets del área: quien no los podría abrir tampoco los lista.
   const ref = refOf(plainOf(ticket));
-  if (actor.role !== "admin" && actor.areaId !== ref.areaId) {
+  if (!isAdmin(actor) && !isAreaMember(actor, ref.areaId)) {
     throw new AppError(403, "forbidden", "Solo el área que atiende el ticket busca duplicados");
   }
 

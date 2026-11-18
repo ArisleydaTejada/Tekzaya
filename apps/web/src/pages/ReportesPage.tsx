@@ -251,7 +251,8 @@ export default function ReportesPage() {
     document.getElementById("tickets-del-periodo")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const personal = draft?.scope === "me" || draft?.scope === "user";
+  // El solicitante solo tiene un lado, el de quien pide: el servidor ya lo fija.
+  const personal = (draft?.scope === "me" || draft?.scope === "user") && me?.role !== "requester";
 
   return (
     <div>

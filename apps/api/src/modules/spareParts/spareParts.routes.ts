@@ -6,8 +6,9 @@ import {
   formatSparePartNumber,
   isAdmin,
   isLowStock,
-  PART_UNIT_LABEL,
+  isRequester,
   paginationQuery,
+  PART_UNIT_LABEL,
   sparePartListQuery,
   updateSparePartInput,
   type Actor,
@@ -50,6 +51,8 @@ const unknownArea = (id: unknown): AreaRef => ({ id: String(id), name: "Área el
 /** El almacén que ve la sesión: el de su área, salvo lectura global. */
 function scopeFilter(actor: Actor): Record<string, unknown> {
   if (isAdmin(actor) || actor.hasGlobalReadAccess) return {};
+  // El solicitante no atiende su área: no ve su trabajo de mantenimiento.
+  if (isRequester(actor)) return { _id: { $exists: false } };
   return { areaId: oid(actor.areaId) };
 }
 

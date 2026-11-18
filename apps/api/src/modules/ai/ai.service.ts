@@ -51,7 +51,8 @@ export async function suggestArea(input: SuggestAreaInput): Promise<AreaSuggesti
   if (text.length < MIN_TEXT_LENGTH) return null;
   if (!(await usable("suggestArea"))) return null;
 
-  const areas = await Area.find({ isActive: { $ne: false } })
+  // Solo las áreas que atienden tickets: las demás no son un destino posible.
+  const areas = await Area.find({ isActive: { $ne: false }, receivesTickets: { $ne: false } })
     .select("name description categories")
     .lean();
   if (areas.length === 0) return null;

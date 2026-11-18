@@ -96,7 +96,7 @@ router.post("/reports/query", validateBody(reportQueryInput), async (req, res) =
       actor,
       widget: input.widget,
       scope,
-      perspective: effectivePerspective(scope, input.widget.perspective),
+      perspective: effectivePerspective(scope, input.widget.perspective, actor),
       range,
       now: new Date(),
     }),
@@ -110,7 +110,7 @@ router.get("/reports/tickets", validateQuery(reportTicketsQuery), async (_req, r
   const query = res.locals.query as ReportTicketsQuery;
   const { scope, range } = await context(query as never, actor, "list");
   const now = new Date();
-  const perspective = effectivePerspective(scope, undefined);
+  const perspective = effectivePerspective(scope, undefined, actor);
 
   const result = await listTicketsOfPeriod(query, scope, perspective, actor, range, now);
   res.json(buildResponse(result, query, scope, range));
@@ -145,7 +145,7 @@ router.get("/reports/tickets/export", validateQuery(reportTicketsQuery), async (
   const result = await listTicketsOfPeriod(
     query,
     scope,
-    effectivePerspective(scope, undefined),
+    effectivePerspective(scope, undefined, actor),
     actor,
     range,
     new Date(),
@@ -169,7 +169,7 @@ router.post("/reports/query/export", validateBody(reportQueryInput), async (req,
     actor,
     widget: input.widget,
     scope,
-    perspective: effectivePerspective(scope, input.widget.perspective),
+    perspective: effectivePerspective(scope, input.widget.perspective, actor),
     range,
     now: new Date(),
   });
@@ -195,7 +195,7 @@ router.post("/reports/query/export-xlsx", validateBody(reportExportAllInput), as
           actor,
           widget,
           scope,
-          perspective: effectivePerspective(scope, widget.perspective),
+          perspective: effectivePerspective(scope, widget.perspective, actor),
           range,
           now,
         });

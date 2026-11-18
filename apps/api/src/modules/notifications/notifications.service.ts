@@ -85,6 +85,7 @@ export async function supervisorsOf(areaId: string | Types.ObjectId): Promise<st
   const supervisors = await User.find({
     areaId: String(areaId),
     isAreaSupervisor: true,
+    role: { $ne: "requester" },
     status: "active",
   })
     .select("_id")
@@ -111,12 +112,19 @@ export async function availableAmong(userIds: readonly string[]): Promise<string
   return available.map((user) => String(user._id));
 }
 
-/** Miembros activos del área, sin contar a quien provoca el aviso. */
+/**
+ * Agentes activos del área, sin contar a quien provoca el aviso. Los solicitantes
+ * quedan fuera: no atienden el área, así que sus avisos no les tocan.
+ */
 export async function areaMembersExcept(
   areaId: string | Types.ObjectId,
   excludeIds: readonly string[],
 ): Promise<string[]> {
-  const members = await User.find({ areaId: String(areaId), status: "active" })
+  const members = await User.find({
+    areaId: String(areaId),
+    status: "active",
+    role: { $ne: "requester" },
+  })
     .select("_id")
     .lean();
   const excluded = new Set(excludeIds.map(String));

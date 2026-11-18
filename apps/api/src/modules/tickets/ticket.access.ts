@@ -3,6 +3,7 @@ import {
   SETTLED_TICKET_STATUSES,
   canViewTicket,
   isAdmin,
+  isRequester,
   type Actor,
   type TicketListQuery,
   type TicketRef,
@@ -61,13 +62,17 @@ export function visibilityFilter(actor: Actor): Filter {
       { createdById: oid(actor.id) },
       // Solicitante heredado de un duplicado fusionado (spec §7.5.1).
       { additionalRequesterIds: oid(actor.id) },
-      { areaId: oid(actor.areaId) },
+      // El solicitante pertenece a un área sin atenderla: solo ve lo suyo.
+      ...(isRequester(actor) ? [] : [{ areaId: oid(actor.areaId) }]),
     ],
   };
 }
 
 /** El área sobre la que puede preguntar: la suya, salvo que sea administrador. */
 function resolveAreaId(actor: Actor, requested: string | undefined): string {
+  if (isRequester(actor)) {
+    throw new AppError(403, "forbidden", "Solo puedes consultar tus propias solicitudes");
+  }
   if (!requested || requested === actor.areaId) return actor.areaId;
   if (isAdmin(actor)) return requested;
   throw new AppError(403, "forbidden", "Solo puedes consultar los tickets de tu área");
@@ -109,7 +114,7 @@ export function scopeFilter(actor: Actor, query: TicketListQuery): Filter {
           { requesterId: oid(actor.id) },
           { createdById: oid(actor.id) },
           { additionalRequesterIds: oid(actor.id) },
-          { areaId: oid(resolveAreaId(actor, query.areaId)) },
+          ...(isRequester(actor) ? [] : [{ areaId: oid(resolveAreaId(actor, query.areaId)) }]),
         ],
       };
     case "unassigned":

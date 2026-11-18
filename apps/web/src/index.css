@@ -58,6 +58,7 @@
 [data-surface="light"] {
   --status-amber: #965000;
   --status-red: #b42318;
+  --on-status-red: #ffffff;
   --status-green: #15703f;
 }
 
@@ -181,6 +182,8 @@
   --status-amber: #f5a623;
   /* El #e5484d de la marca se quedaba en 3,3:1 sobre su propio tinte. */
   --status-red: #ff7a7f;
+  /* Blanco sobre este rojo claro da 2,5:1: los contadores rojos llevan tinta oscura. */
+  --on-status-red: #2a0b0d;
   --status-green: #39d98a;
 
   --chart-recibidos: #b5a3cf;
@@ -472,6 +475,7 @@ button:not(:disabled):not([role="switch"]):active,
     --content-shadow: none;
     --status-amber: #965000;
     --status-red: #b42318;
+    --on-status-red: #ffffff;
     --status-green: #15703f;
     --accent-contrast: var(--color-accent);
   }

@@ -2,6 +2,7 @@ import {
   businessClock,
   businessMinutesBetween,
   isAdmin,
+  isRequester,
   MEASURE_META,
   minutesInWindow,
   repairEpisodes,
@@ -102,6 +103,7 @@ const isOpen = (status: string) => (OPEN as readonly string[]).includes(status);
  */
 export async function canReportMaintenance(actor: Actor): Promise<boolean> {
   if (isAdmin(actor) || actor.hasGlobalReadAccess) return true;
+  if (isRequester(actor)) return false;
   return Boolean(await Asset.exists({ areaId: oid(actor.areaId) }));
 }
 

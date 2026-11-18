@@ -131,7 +131,7 @@ Descrita a nivel de visión en la [sección 14](#14-fase-2-gestión-de-mantenimi
 
 ### 4.1 Principio básico
 
-**Todo empleado pertenece a un área, y todo miembro de un área puede atender los tickets dirigidos a ella.** Por lo tanto, un mismo usuario tiene dos facetas:
+**Todo empleado pertenece a un área, y todo miembro de un área puede atender los tickets dirigidos a ella.** La única excepción es el **solicitante** (§4.4), que pertenece a un área sin atenderla. Por lo tanto, un mismo usuario tiene dos facetas:
 
 - **Solicitante:** crea tickets hacia cualquier área, incluida la suya.
 - **Agente de su área:** ve, toma y resuelve los tickets que llegan a su área.
@@ -144,13 +144,14 @@ Por eso el tablero del empleado muestra "tickets resueltos por mí" y "tickets p
 
 | Rol | Descripción |
 |---|---|
+| **Solicitante** | Pertenece a un área pero **no la atiende**: crea tickets, da seguimiento a los suyos, responde y califica la atención. Ver §4.4. |
 | **Empleado** | Rol base. Crea tickets, da seguimiento a sus solicitudes, atiende los tickets de su área (se autoasigna o recibe asignaciones), lee las conversaciones de todos los tickets de su área y genera **reportes solo sobre sus propios datos**. |
 | **Supervisor de área** | Empleado con permisos adicionales sobre **su área**: asigna y reasigna tickets, cambia prioridades, ve las estadísticas del área y genera **reportes de su área** (del área completa, de una persona del área o suyos). Puede haber uno o más supervisores por área. |
 | **Supervisor de RRHH** | Supervisor de su propia área (RRHH) **más una vista global de solo lectura** de las estadísticas de todas las áreas y personas, y puede **generar reportes de todas las áreas**. No configura el sistema, no gestiona usuarios y no asigna tickets de otras áreas. |
 | **Administrador** | Control total: gestiona usuarios, áreas, categorías, SLA y configuración; ve estadísticas globales y **genera reportes de todas las áreas**; puede asignar o reasignar cualquier ticket. |
 
 > **Implementación sugerida:** en lugar de un único campo "rol", conviene guardar
-> `role: "employee" | "admin"`, `areaId`, `isAreaSupervisor: boolean` y `hasGlobalReadAccess: boolean` (para RRHH).
+> `role: "employee" | "requester" | "admin"`, `areaId`, `isAreaSupervisor: boolean` y `hasGlobalReadAccess: boolean` (para RRHH).
 > Así se pueden combinar permisos sin crear roles duplicados.
 
 ### 4.3 Matriz de permisos (Fase 1)
@@ -183,6 +184,28 @@ Por eso el tablero del empleado muestra "tickets resueltos por mí" y "tickets p
 | Gestionar usuarios, áreas, categorías y SLA | ❌ | ❌ | ❌ | ✅ |
 
 **Regla de privacidad:** un solicitante **nunca** ve las notas internas, aunque pertenezca al área que atiende otro ticket suyo. Solo las ve cuando actúa como agente del área destino. La misma regla vale para la lectura de conversaciones del área: si el ticket es **suyo** (como solicitante o como creador), no ve las notas internas de ese ticket, aunque pertenezca al área destino.
+
+### 4.4 Rol Solicitante y áreas que atienden tickets
+
+Hay empresas donde solo un área da soporte (por ejemplo, TI) y el resto de la gente solo pide ayuda. Para ellas existen dos piezas:
+
+- **Rol Solicitante** (`role: "requester"`), por persona. Pertenece a un área, pero no es agente de ella. No admite `isAreaSupervisor` ni `hasGlobalReadAccess`, y no se le puede asignar ese rol a quien tiene tickets activos asignados: primero hay que reasignarlos.
+- **Áreas que atienden tickets** (`receivesTickets`), por área. Solo esas aparecen como destino al crear o transferir un ticket, y solo esas se le ofrecen a la IA. Una empresa con solo soporte de TI marca únicamente TI. En un área que no atiende tickets solo caben solicitantes y el administrador; al desmarcarla, sus empleados y supervisores (también el de RRHH) pasan a ser solicitantes (si alguno lleva tickets activos asignados, el cambio se rechaza hasta reasignarlos).
+
+| Acción | Solicitante |
+|---|:-:|
+| Crear ticket hacia un área que atiende tickets | ✅ |
+| Crear ticket en nombre de otra persona | ❌ |
+| Ver, responder, cambiar la categoría y cancelar sus propios tickets | ✅ |
+| Responder la encuesta de satisfacción de sus tickets | ✅ |
+| Ver los tickets de su área, sus conversaciones o sus notas internas | ❌ |
+| Autoasignarse, asignar, transferir, fusionar o cambiar estado o prioridad | ❌ |
+| Marcarse disponible o ausente | ❌ (no atiende nada) |
+| Recibir avisos dirigidos al área | ❌ |
+| Ver la ficha básica de los equipos que usa su área o tiene a cargo | ✅ |
+| Historial, costos, órdenes de trabajo, repuestos y preventivos | ❌ |
+| Tablero | ✅ Tablero propio (§7.2.5) |
+| Reportes | ✅ Solo sus datos, siempre desde la perspectiva "Como solicitante"; de las plantillas solo ve *Mis solicitudes*, y solo mide volumen, tiempos y CSAT de sus tickets (sin SLA, IA, carga, notas ni fusiones) |
 
 ---
 
@@ -469,6 +492,19 @@ Los reportes personalizados y la lista de tickets de la sección [Reportes](#78-
 Además, la **lista de tickets** tiene un botón **"Exportar CSV"** que descarga los tickets que coinciden con los filtros actuales.
 
 **Permisos:** solo se exporta lo que el usuario puede ver en pantalla (el backend aplica las mismas reglas que en las estadísticas). Las exportaciones **nunca** incluyen el contenido de las notas internas.
+
+#### 7.2.5 Tablero del solicitante
+
+Cuatro tarjetas, todas sobre **sus propias solicitudes** (las que pidió o creó):
+
+| Tarjeta | Definición |
+|---|---|
+| Abiertas | Sus solicitudes sin resolver. |
+| Necesitan tu respuesta | Sus solicitudes **En espera**. |
+| Sin respuesta aún | Abiertas que nadie del área ha respondido todavía. |
+| Resueltas | Resueltas en el período seleccionado. |
+
+Debajo, el panel **"Mis solicitudes"** ocupa todo el ancho con las 8 más recientes. Si tiene encuestas de satisfacción pendientes, un aviso encima del panel lleva a calificarlas. No hay panel "Asignados a mí", ni disponibilidad del equipo, ni exportación.
 
 ### 7.3 Tickets (listado)
 

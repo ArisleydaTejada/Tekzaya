@@ -94,12 +94,58 @@ describe("ver inventario completo del área, historial y costos", () => {
   it("el alcance de una lista lo decide la sesión: global solo para RRHH y admin", () => {
     expect(assetScopeFor(admin)).toEqual({ type: "global" });
     expect(assetScopeFor(rrhh)).toEqual({ type: "global" });
-    expect(assetScopeFor(supervisorIT)).toEqual({ type: "limited", areaId: IT, userId: supervisorIT.id });
+    expect(assetScopeFor(supervisorIT)).toEqual({
+      type: "limited",
+      areaId: IT,
+      userId: supervisorIT.id,
+      maintains: true,
+    });
     expect(assetScopeFor(empleadoVentas)).toEqual({
       type: "limited",
       areaId: VENTAS,
       userId: empleadoVentas.id,
+      maintains: true,
     });
+  });
+});
+
+describe("solicitante: pertenece a un área sin atenderla", () => {
+  const solicitanteIT: Actor = { ...base, id: "u-sol-it", areaId: IT, role: "requester" };
+  const solicitanteVentas: Actor = { ...base, id: "u-sol-ventas", areaId: VENTAS, role: "requester" };
+
+  it("ve la ficha básica de lo que usa su área, pero no historial ni costos", () => {
+    expect(canViewAsset(solicitanteVentas, impresoraVentas)).toBe(true);
+    expect(canViewAssetDetails(solicitanteVentas, impresoraVentas)).toBe(false);
+  });
+
+  it("aunque su área mantenga el equipo, no ve los detalles ni lo gestiona", () => {
+    expect(canViewAssetDetails(solicitanteIT, laptopDiego)).toBe(false);
+    expect(canManageAsset(solicitanteIT, laptopDiego)).toBe(false);
+    expect(canViewAsset(solicitanteIT, laptopDiego)).toBe(false);
+  });
+
+  it("su alcance de lista no incluye lo que su área mantiene", () => {
+    expect(assetScopeFor(solicitanteIT)).toEqual({
+      type: "limited",
+      areaId: IT,
+      userId: solicitanteIT.id,
+      maintains: false,
+    });
+  });
+
+  it("no ve ni trabaja órdenes de su área", () => {
+    expect(canViewWorkOrder(solicitanteIT, ordenIT)).toBe(false);
+    expect(canTakeWorkOrder(solicitanteIT, ordenIT)).toBe(false);
+  });
+
+  it("vincula a su ticket solo equipos que usa su área", () => {
+    const suTicket: TicketRef = {
+      ...ticketDeDiego,
+      requesterId: solicitanteVentas.id,
+      createdById: solicitanteVentas.id,
+    };
+    expect(canLinkAssetToTicket(solicitanteVentas, impresoraVentas, suTicket)).toBe(true);
+    expect(canLinkAssetToTicket(solicitanteVentas, aireSala, suTicket)).toBe(false);
   });
 });
 

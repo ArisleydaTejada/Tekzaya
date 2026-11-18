@@ -8,6 +8,7 @@ import {
   type BusinessCalendar,
   type MessageType,
   type Priority,
+  type Role,
   type SlaPolicy,
   type SlaState,
   type TicketStatus,
@@ -73,7 +74,7 @@ interface SeededUser {
   email: string;
   passwordHash: string;
   areaId: Types.ObjectId;
-  role: "employee" | "admin";
+  role: Role;
   isAreaSupervisor: boolean;
   hasGlobalReadAccess: boolean;
   status: "active";
@@ -179,8 +180,9 @@ async function main(): Promise<void> {
   });
   await User.insertMany(users);
 
+  // Quien atiende cada área; los solicitantes piden pero no reciben tickets.
   const membersByArea = new Map<string, SeededUser[]>();
-  for (const user of users) {
+  for (const user of users.filter((item) => item.role !== "requester")) {
     const key = String(user.areaId);
     membersByArea.set(key, [...(membersByArea.get(key) ?? []), user]);
   }

@@ -36,6 +36,7 @@ let io: Server | null = null;
 interface SocketIdentity {
   userId: string;
   areaId: string;
+  isRequester: boolean;
 }
 
 /**
@@ -79,14 +80,18 @@ export function attachRealtime(server: HttpServer): Server {
       return;
     }
     void User.findById(userId)
-      .select("areaId status")
+      .select("areaId status role")
       .lean()
       .then((user) => {
         if (!user || user.status !== "active") {
           next(new Error("unauthenticated"));
           return;
         }
-        socket.data = { userId, areaId: String(user.areaId) } satisfies SocketIdentity;
+        socket.data = {
+          userId,
+          areaId: String(user.areaId),
+          isRequester: user.role === "requester",
+        } satisfies SocketIdentity;
         next();
       })
       .catch(() => next(new Error("unauthenticated")));
@@ -95,7 +100,9 @@ export function attachRealtime(server: HttpServer): Server {
   io.on("connection", (socket) => {
     const identity = socket.data as SocketIdentity;
     void socket.join(room.user(identity.userId));
-    void socket.join(room.area(identity.areaId));
+    // La sala del área lleva la actividad de todos sus tickets: el solicitante,
+    // que no la atiende, solo escucha la suya y la de sus tickets.
+    if (!identity.isRequester) void socket.join(room.area(identity.areaId));
 
     // Entrar en la sala de un ticket se comprueba contra el motor de permisos: si
     // no, cualquiera escucharía la actividad de un ticket ajeno pidiendo su id.

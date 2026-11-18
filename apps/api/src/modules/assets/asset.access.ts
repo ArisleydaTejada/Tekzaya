@@ -62,7 +62,7 @@ export function assetScopeFilter(actor: Actor): Record<string, unknown> {
   const areaId = new Types.ObjectId(scope.areaId);
   return {
     $or: [
-      { areaId },
+      ...(scope.maintains ? [{ areaId }] : []),
       { usedByAreaId: areaId },
       { custodianId: new Types.ObjectId(scope.userId) },
     ],
@@ -77,6 +77,7 @@ export function assetScopeFilter(actor: Actor): Record<string, unknown> {
 export async function seesOtherAreasAssets(actor: Actor): Promise<boolean> {
   const scope = assetScopeFor(actor);
   if (scope.type === "global") return true;
+  if (!scope.maintains) return false;
   return Boolean(await Asset.exists({ areaId: new Types.ObjectId(scope.areaId) }));
 }
 
