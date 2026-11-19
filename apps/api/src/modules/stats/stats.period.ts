@@ -61,8 +61,14 @@ export function resolveRange(query: StatsQuery, hours: BusinessHours, now: Date)
   })();
 
   if (query.period === "range") {
+    if (from > now) {
+      throw new AppError(422, "validation_error", "El rango no puede empezar en el futuro");
+    }
     // El día final entra completo: quien pide "del 1 al 7" espera el día 7 incluido.
-    const end = addDays(parseDay(query.to!, zone), 1);
+    // Pero no pasa de ahora, como los períodos fijos: si no, la comparación con el
+    // período anterior mediría días que todavía no han ocurrido.
+    const dayAfter = addDays(parseDay(query.to!, zone), 1);
+    const end = dayAfter > now ? now : dayAfter;
     if (end <= from) {
       throw new AppError(422, "validation_error", "La fecha de fin va después de la de inicio");
     }

@@ -658,6 +658,14 @@ function ScopeSelector({
   );
 }
 
+/** La fecha local como "aaaa-mm-dd", el formato de `<input type="date">`. */
+function localDay(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 /** Rango personalizado: entra en el mismo grupo de botones que los períodos fijos. */
 function RangePicker({
   draft,
@@ -668,11 +676,28 @@ function RangePicker({
 }) {
   const [open, setOpen] = useState(false);
   const active = draft?.period === "range";
+  // Hoy en la fecha local: el calendario no ofrece días que todavía no han pasado.
+  // Se vuelve a leer al abrir, por si la página lleva abierta desde ayer.
+  const [today, setToday] = useState(() => localDay(new Date()));
+  const from = draft?.from ?? "";
+  const to = draft?.to ?? "";
+
+  // Escrita a mano, una fecha futura no pasa del atributo `max`: se descarta aquí.
+  function pick(patch: { from: string } | { to: string }) {
+    const value = "from" in patch ? patch.from : patch.to;
+
+    if (value > today) return;
+
+    onChange({ period: "range", ...patch });
+  }
 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          setToday(localDay(new Date()));
+          setOpen(!open);
+        }}
         className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${
           active ? "bg-accent text-white" : "text-[var(--content-ink-dim)] hover:text-[var(--content-ink)]"
         }`}
@@ -685,15 +710,20 @@ function RangePicker({
           <div className="absolute right-0 z-30 mt-1 flex items-center gap-1.5 rounded-lg border border-[var(--content-border)] bg-[var(--content-surface)] p-2 shadow-[var(--content-shadow)]">
             <input
               type="date"
-              value={draft?.from ?? ""}
-              onChange={(event) => onChange({ period: "range", from: event.target.value })}
+              value={from}
+              max={to && to < today ? to : today}
+              aria-label="Desde"
+              onChange={(event) => pick({ from: event.target.value })}
               className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
             />
             <span className="text-xs text-[var(--content-ink-dim)]">a</span>
             <input
               type="date"
-              value={draft?.to ?? ""}
-              onChange={(event) => onChange({ period: "range", to: event.target.value })}
+              value={to}
+              min={from || undefined}
+              max={today}
+              aria-label="Hasta"
+              onChange={(event) => pick({ to: event.target.value })}
               className="rounded-lg border border-[var(--field-border)] bg-[var(--content-bg)] px-2 py-1 text-xs text-[var(--content-ink)]"
             />
           </div>
