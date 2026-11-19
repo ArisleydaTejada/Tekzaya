@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Modal } from "../Modal";
 import { SidebarContent } from "./Sidebar";
@@ -138,10 +138,25 @@ export function AppShell() {
         </Modal>
         <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8">
           <div key={pathname} className="page-enter">
-            <Outlet />
+            {/* Cada página baja su propio código la primera vez: mientras tanto, el
+                armazón se queda y solo el contenido muestra su esqueleto. */}
+            <Suspense fallback={<PageSkeleton />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+/** La forma de una página cualquiera (título, subtítulo y bloque) mientras llega su código. */
+function PageSkeleton() {
+  return (
+    <div role="status" aria-label="Cargando la página" className="animate-pulse">
+      <div className="h-8 w-56 rounded-lg bg-[var(--content-border)]" />
+      <div className="mt-3 h-4 w-80 max-w-full rounded-lg bg-[var(--content-border)]" />
+      <div className="mt-8 h-72 rounded-2xl bg-[var(--content-surface)]" />
     </div>
   );
 }

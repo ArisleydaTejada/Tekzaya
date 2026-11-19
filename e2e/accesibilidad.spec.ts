@@ -211,8 +211,26 @@ for (const theme of ["light", "dark"] as const) {
     });
 
     test("inicio de sesión", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/ingresar");
       await expect(page.getByRole("heading", { name: "Bienvenido de nuevo" })).toBeVisible();
+      await audit(page);
+    });
+
+    test("página principal y solicitud de demo", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      // Las capturas y las secciones entran al verlas: se recorre la página para que todo quede pintado.
+      for (const id of ["tickets", "mantenimiento", "juntos", "planes"]) {
+        await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+      }
+      await page.waitForTimeout(700);
+      await audit(page);
+
+      await page.getByRole("banner").getByRole("button", { name: "Solicitar demo" }).click();
+      const dialog = page.getByRole("dialog", { name: "Solicitar demo" });
+      await dialog.getByRole("button", { name: "Enviar solicitud" }).click();
+      await expect(dialog.getByText("Escribe tu nombre")).toBeVisible();
+      await page.waitForTimeout(400);
       await audit(page);
     });
 

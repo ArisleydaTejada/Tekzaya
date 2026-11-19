@@ -62,7 +62,7 @@ export default function AccessLinkPage({ purpose }: { purpose: "invite" | "reset
               Los enlaces caducan y solo se pueden usar una vez. Pídele otro a tu administrador.
             </p>
             <Link
-              to="/"
+              to="/ingresar"
               className="mt-4 inline-block rounded-lg border border-[var(--content-border)] px-3 py-1.5 text-xs font-medium text-[var(--content-ink)]"
             >
               Ir al inicio de sesión

@@ -74,6 +74,7 @@ const TYPE_ICON: Record<NotificationType, IconType> = {
   low_stock: BoxIcon,
   warranty_expiring: ShieldIcon,
   repeated_failures: WrenchIcon,
+  demo_request: UserPlusIcon,
 };
 
 /**

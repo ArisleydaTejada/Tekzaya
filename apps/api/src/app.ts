@@ -13,6 +13,7 @@ import areasRoutes from "./modules/areas/areas.routes";
 import attachmentsRoutes from "./modules/attachments/attachments.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import healthRoutes from "./modules/health/health.routes";
+import demoRoutes from "./modules/demo/demo.routes";
 import avatarRoutes from "./modules/me/avatar.routes";
 import meRoutes from "./modules/me/me.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
@@ -37,6 +38,8 @@ export function createApp() {
 
   app.use("/api/v1", healthRoutes);
   app.use("/api/v1", authRoutes);
+  // La página pública pide demos sin sesión.
+  app.use("/api/v1", demoRoutes);
 
   // Todo lo que va debajo exige sesión; la autorización fina la aplica cada ruta.
   app.use("/api/v1", requireAuth, meRoutes);

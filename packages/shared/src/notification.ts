@@ -34,6 +34,8 @@ export const NOTIFICATION_TYPES = [
   "low_stock",
   "warranty_expiring",
   "repeated_failures",
+  // Página pública: alguien pidió una demo.
+  "demo_request",
 ] as const;
 
 export const notificationType = z.enum(NOTIFICATION_TYPES);
@@ -67,6 +69,7 @@ export const NOTIFICATION_TONE: Record<NotificationType, "red" | "amber" | "acce
   low_stock: "amber",
   warranty_expiring: "amber",
   repeated_failures: "red",
+  demo_request: "accent",
 };
 
 export const notificationView = z.object({

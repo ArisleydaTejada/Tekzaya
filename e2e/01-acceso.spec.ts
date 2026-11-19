@@ -9,8 +9,14 @@ import { ACCOUNTS, DEMO_PASSWORD } from "./accounts";
 test.describe("Recorrido 1 · Acceso", () => {
   test("una ruta privada sin sesión devuelve al inicio de sesión", async ({ page }) => {
     await page.goto("/tickets");
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/ingresar");
     await expect(page.getByRole("heading", { name: "Bienvenido de nuevo" })).toBeVisible();
+  });
+
+  test("la página principal lleva al inicio de sesión", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("banner").getByRole("link", { name: "Iniciar sesión" }).click();
+    await expect(page).toHaveURL("/ingresar");
   });
 
   test("la API rechaza sin sesión", async ({ request }) => {
@@ -19,7 +25,7 @@ test.describe("Recorrido 1 · Acceso", () => {
   });
 
   test("contraseña incorrecta, luego correcta, y cerrar sesión", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/ingresar");
 
     await page.getByLabel("Correo electrónico").fill(ACCOUNTS.employee.email);
     await page.getByLabel("Contraseña", { exact: true }).fill("no-es-la-clave");
@@ -32,13 +38,15 @@ test.describe("Recorrido 1 · Acceso", () => {
     await expect(page).toHaveURL("/tablero");
     await expect(page.getByText(ACCOUNTS.employee.name).first()).toBeVisible();
 
-    // Con sesión, el login ya no se enseña: lleva directo al tablero.
+    // Con sesión, ni el login ni la página principal se enseñan: llevan directo al tablero.
+    await page.goto("/ingresar");
+    await expect(page).toHaveURL("/tablero");
     await page.goto("/");
     await expect(page).toHaveURL("/tablero");
 
     await page.getByRole("button", { name: "Cerrar sesión" }).first().click();
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/ingresar");
     await page.goto("/tablero");
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/ingresar");
   });
 });

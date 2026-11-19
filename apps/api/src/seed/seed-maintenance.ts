@@ -5,7 +5,8 @@ import { printMaintenanceSummary, seedMaintenance } from "./maintenance";
 /**
  * Siembra solo el módulo 2 sobre una base que ya tiene el módulo 1: no toca
  * áreas, personas, tickets, mensajes ni reportes. Útil para añadir los activos a
- * una demo en marcha sin perder lo que se hizo en ella.
+ * una demo en marcha sin perder lo que se hizo en ella. Lo único que quita de los
+ * tickets son los vínculos a equipos y OT, que dejan de existir.
  */
 async function main(): Promise<void> {
   console.log(`Conectando a ${env.MONGODB_URI}`);

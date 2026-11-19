@@ -345,7 +345,7 @@ export function SidebarContent({ collapsed, onToggle }: SidebarContentProps) {
           <button
             onClick={() => {
               logout();
-              navigate("/", { replace: true });
+              navigate("/ingresar", { replace: true });
             }}
             aria-label={collapsed ? "Cerrar sesión" : undefined}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--rail-ink-dim)] transition-colors hover:bg-red/10 hover:text-red ${

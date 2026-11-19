@@ -8,7 +8,7 @@ export function RequireAuth() {
 
   if (isLoading) return <SessionCheck />;
 
-  if (!me) return <Navigate to="/" replace />;
+  if (!me) return <Navigate to="/ingresar" replace />;
 
   return <Outlet />;
 }
@@ -21,6 +21,19 @@ export function RequireGuest() {
   const { me, isLoading } = useAuth();
 
   if (isLoading) return <SessionCheck />;
+
+  if (me) return <Navigate to="/tablero" replace />;
+
+  return <Outlet />;
+}
+
+/**
+ * La página pública no espera a la comprobación de sesión: es lo primero que ve
+ * quien llega desde fuera y no tiene nada privado. Si resulta que hay sesión,
+ * se va al tablero en cuanto se sabe.
+ */
+export function RedirectIfSignedIn() {
+  const { me } = useAuth();
 
   if (me) return <Navigate to="/tablero" replace />;
 
@@ -47,7 +60,7 @@ export function RequireAdmin() {
 
   if (isLoading) return null;
 
-  if (!me) return <Navigate to="/" replace />;
+  if (!me) return <Navigate to="/ingresar" replace />;
 
   if (me.role !== "admin") return <Navigate to="/tablero" replace />;
 
@@ -60,7 +73,7 @@ export function RequireUserManager() {
 
   if (isLoading) return null;
 
-  if (!me) return <Navigate to="/" replace />;
+  if (!me) return <Navigate to="/ingresar" replace />;
 
   if (!canManageUsers(me)) return <Navigate to="/tablero" replace />;
 
@@ -73,7 +86,7 @@ export function RequireSettingsManager() {
 
   if (isLoading) return null;
 
-  if (!me) return <Navigate to="/" replace />;
+  if (!me) return <Navigate to="/ingresar" replace />;
 
   if (!canManageSettings(me)) return <Navigate to="/tablero" replace />;
 

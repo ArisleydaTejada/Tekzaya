@@ -35,7 +35,9 @@ import {
   StockMovement,
   WorkOrder,
 } from "../models/maintenance.models";
+import { Message } from "../models/message.model";
 import { Notification, Settings, SETTINGS_ID } from "../models/support.models";
+import { Ticket } from "../models/ticket.model";
 import { User } from "../models/user.model";
 import {
   AREA_LOCATION,
@@ -99,7 +101,34 @@ export interface MaintenanceSeedSummary {
   plans: number;
   overduePlans: string[];
   repeatedFailure: { name: string; last90Days: number; repairCost: number; purchaseCost: number };
+  /** Tickets con equipo vinculado, y cuántos de ellos abrieron una OT. */
+  ticketLinks: { linked: number; withWorkOrder: number };
 }
+
+/** Eventos de sistema que el módulo 2 escribe en la conversación de un ticket. */
+const MAINTENANCE_TICKET_EVENTS = [
+  "asset_linked",
+  "asset_unlinked",
+  "work_order_created",
+  "work_order_completed",
+  "work_order_cancelled",
+];
+
+/**
+ * Qué equipo se reconoce en un ticket de la semilla 1: la primera regla que case
+ * con el título (o, si ninguna, con la descripción). Sin `name`, es la laptop de
+ * quien pide. Lo que no es un activo inventariado —una silla, un lavamanos— no
+ * se vincula.
+ */
+const TICKET_ASSETS: { match: RegExp; type: AssetType; name?: RegExp }[] = [
+  { match: /laptop/i, type: "laptop" },
+  { match: /impresora.*color/i, type: "printer", name: /a color/i },
+  { match: /ca[ií]da|internet|p[aá]gina web/i, type: "network", name: /switch|router/i },
+  { match: /wifi.*segundo piso/i, type: "network", name: /wifi · Piso 2/i },
+  { match: /wifi/i, type: "network", name: /wifi/i },
+  { match: /aire acondicionado de recepci[oó]n/i, type: "air_conditioner", name: /recepci[oó]n/i },
+  { match: /tomacorriente/i, type: "electrical", name: /tablero/i },
+];
 
 interface Person {
   _id: Types.ObjectId;
@@ -144,6 +173,7 @@ interface SeedWorkOrder {
   description: string;
   asset: SeedAsset;
   planId?: Types.ObjectId;
+  ticketId?: Types.ObjectId;
   status: WorkOrderStatus;
   holdReason?: WorkOrderHoldReason;
   assigneeIds: Types.ObjectId[];
@@ -176,10 +206,28 @@ interface SeedEvent {
   at: Date;
   actorId?: Types.ObjectId;
   workOrderId?: Types.ObjectId;
+  ticketId?: Types.ObjectId;
   data: Record<string, unknown>;
 }
 
-export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary> {
+/** Un ticket del módulo 1 que pasa a tener equipo (y quizá OT). */
+interface TicketLink {
+  ticketId: Types.ObjectId;
+  asset: SeedAsset;
+  /** Sin fecha: lo vinculó quien pidió al crear el ticket, y eso no deja mensaje. */
+  linkedAt?: Date;
+  order?: SeedWorkOrder;
+  lastActivityAt: Date;
+}
+
+/**
+ * `linkTickets` vincula equipos y abre OT en tickets de la semilla 1 (los de IT y
+ * Mantenimiento cuyo texto nombra un equipo). Sin ella, los tickets no se tocan.
+ */
+export async function seedMaintenance(
+  now: Date,
+  options: { linkTickets?: boolean } = {},
+): Promise<MaintenanceSeedSummary> {
   const random = createRandom(20261017);
   const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)]!;
   const randomInt = (min: number, max: number) => Math.floor(random() * (max - min + 1)) + min;
@@ -231,6 +279,12 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
   );
   await Counter.deleteMany({ _id: { $in: ["asset", "work_order", "spare_part"] } });
   await Notification.deleteMany({ type: { $in: MAINTENANCE_NOTIFICATIONS } });
+  // Los vínculos de una siembra anterior apuntarían a equipos y OT que ya no existen.
+  await Ticket.updateMany(
+    { $or: [{ assetId: { $exists: true } }, { "workOrderIds.0": { $exists: true } }] },
+    { $unset: { assetId: 1 }, $set: { workOrderIds: [] } },
+  );
+  await Message.deleteMany({ type: "system", "systemEvent.kind": { $in: MAINTENANCE_TICKET_EVENTS } });
 
   // Sin tarifa interna: las horas de los técnicos no tienen costo (plan A3).
   await Settings.updateOne({ _id: SETTINGS_ID }, { $set: { maintenance: DEFAULT_MAINTENANCE_SETTINGS } });
@@ -408,22 +462,33 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     asset: SeedAsset,
     createdAt: Date,
     state: WorkOrderStatus,
-    options: { expensive?: boolean } = {},
+    options: {
+      expensive?: boolean;
+      /** La OT sale de un ticket: lleva su texto y la abre quien lo atiende. */
+      ticket?: { id: Types.ObjectId; title: string; description: string; assigneeId?: Types.ObjectId };
+      /** Nada de la OT ocurre después de este instante (el ticket se resolvió antes). */
+      deadline?: Date;
+    } = {},
   ): SeedWorkOrder {
     const template = pick(FAILURES[asset.type] ?? FAILURES.laptop!);
     const area = asset.areaId;
     const available = technicians(area, state !== "completed");
-    const assignee = pick(available.length ? available : technicians(area));
+    const ticketOwner = options.ticket?.assigneeId
+      ? technicians(area).find((person) => person._id.equals(options.ticket!.assigneeId!))
+      : undefined;
+    const assignee = ticketOwner ?? pick(available.length ? available : technicians(area));
     const supervisor = supervisorOf(area);
-    const opener = chance(0.5) ? assignee : supervisor;
+    const opener = options.ticket ? assignee : chance(0.5) ? assignee : supervisor;
+    const ticketId = options.ticket?.id;
     const outOfService = options.expensive ? true : chance(OUT_OF_SERVICE_RATE[asset.type]);
 
     const order: SeedWorkOrder = {
       _id: new Types.ObjectId(),
       type: "corrective",
-      title: template.title,
-      description: template.description,
+      title: options.ticket?.title ?? template.title,
+      description: options.ticket?.description ?? template.description,
       asset,
+      ...(ticketId ? { ticketId } : {}),
       status: state,
       assigneeIds: state === "pending" ? [] : [assignee._id],
       outOfService,
@@ -441,7 +506,8 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       at: createdAt,
       actorId: opener._id,
       workOrderId: order._id,
-      data: { title: template.title },
+      ...(ticketId ? { ticketId } : {}),
+      data: { title: order.title },
     });
     if (outOfService) {
       events.push({
@@ -450,6 +516,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
         at: createdAt,
         actorId: opener._id,
         workOrderId: order._id,
+        ...(ticketId ? { ticketId } : {}),
         data: { from: "operational", to: "in_repair" },
       });
     }
@@ -467,7 +534,9 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
 
     if (state === "pending") return order;
     // Lo que está en curso hoy no puede tener pasos en el futuro.
-    const ceiling = state === "completed" ? Number.POSITIVE_INFINITY : now.getTime() - 30 * 60_000;
+    const ceiling =
+      options.deadline?.getTime() ??
+      (state === "completed" ? Number.POSITIVE_INFINITY : now.getTime() - 30 * 60_000);
     const assignedAt = new Date(
       Math.max(createdAt.getTime(), Math.min(createdAt.getTime() + randomInt(5, 90) * 60_000, ceiling)),
     );
@@ -490,7 +559,9 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     }
 
     // Completada: la reparación dura de una hora a dos jornadas y media.
-    const completedAt = worked(startedAt, randomInt(60, 1500));
+    const completedAt = new Date(
+      Math.max(startedAt.getTime(), Math.min(worked(startedAt, randomInt(60, 1500)).getTime(), ceiling)),
+    );
     order.completedAt = completedAt;
     order.completionNotes = template.notes;
     order.statusHistory.push({ status: "completed", at: completedAt, byId: assignee._id });
@@ -540,6 +611,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       at: completedAt,
       actorId: assignee._id,
       workOrderId: order._id,
+      ...(ticketId ? { ticketId } : {}),
       data: { notes: template.notes },
     });
     if (outOfService) {
@@ -549,6 +621,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
         at: completedAt,
         actorId: assignee._id,
         workOrderId: order._id,
+        ...(ticketId ? { ticketId } : {}),
         data: { from: "in_repair", to: "operational" },
       });
     }
@@ -609,6 +682,105 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     const hoursAgo = state === "pending" ? randomInt(2, 30) : randomInt(20, 70);
     const createdAt = worked(new Date(now.getTime() - hoursAgo * 3_600_000), 1);
     orders.push(addCorrective(asset, new Date(Math.min(createdAt.getTime(), now.getTime() - 3_600_000)), state));
+  }
+
+  // ── Tickets con equipo y OT (plan A2) ────────────────────────
+  // Va antes de los repuestos para que lo que gastan estas OT salga del almacén
+  // como el resto. Qué tickets entran lo decide un generador aparte, para que la
+  // elección no dependa de cuántas averías salieron arriba.
+  const ticketLinks: TicketLink[] = [];
+  if (options.linkTickets) {
+    const linkRandom = createRandom(20261119);
+    const linkChance = (p: number) => linkRandom() < p;
+    const linkPick = <T>(items: readonly T[]): T => items[Math.floor(linkRandom() * items.length)]!;
+    const busyAssets = new Set(
+      orders
+        .filter((order) => order.status !== "completed" && order.status !== "cancelled")
+        .map((order) => String(order.asset._id)),
+    );
+
+    const tickets = await Ticket.find({
+      areaId: { $in: [itId, maintId] },
+      status: { $nin: ["merged", "cancelled"] },
+    })
+      .select("title description status areaId requesterId assigneeIds createdAt lastActivityAt sla")
+      .sort({ number: 1 })
+      .lean();
+
+    for (const ticket of tickets) {
+      const rule =
+        TICKET_ASSETS.find((item) => item.match.test(ticket.title as string)) ??
+        TICKET_ASSETS.find((item) => item.match.test(ticket.description as string));
+      const status = ticket.status as string;
+      const live = status === "in_progress" || status === "on_hold";
+      // Lo que se está trabajando hoy siempre lleva su equipo: es lo que se enseña.
+      if (!rule || (!live && !linkChance(0.7))) continue;
+
+      const createdAt = ticket.createdAt as Date;
+      const requester = people.find((person) => person._id.equals(ticket.requesterId as Types.ObjectId));
+      const pool = assets.filter(
+        (asset) =>
+          asset.type === rule.type &&
+          asset.areaId.equals(ticket.areaId as Types.ObjectId) &&
+          asset.createdAt < createdAt &&
+          !asset.retiredAt &&
+          (rule.name ? rule.name.test(asset.name) : Boolean(requester && asset.custodianId?.equals(requester._id))),
+      );
+      // Un equipo con una OT abierta no recibe otra: se prefiere uno libre.
+      const free = pool.filter((asset) => !busyAssets.has(String(asset._id)));
+      if (!pool.length) continue;
+      const asset = linkPick(free.length ? free : pool);
+
+      const sla = (ticket.sla ?? {}) as { firstResponseAt?: Date; resolvedAt?: Date };
+      const assigneeId = (ticket.assigneeIds as Types.ObjectId[] | undefined)?.[0];
+      // Sin respuesta aún, el equipo lo eligió quien pidió al abrir el ticket; si
+      // no, lo vinculó el técnico al contestar (nunca en el futuro).
+      const answeredAt = sla.firstResponseAt ? sla.firstResponseAt.getTime() + 2 * 60_000 : undefined;
+      const linkedAt =
+        answeredAt !== undefined && answeredAt <= now.getTime() - 5 * 60_000 ? new Date(answeredAt) : undefined;
+      // Quien pide solo vincula un equipo que usa (el suyo o el de su área).
+      const usedByRequester = Boolean(
+        requester &&
+          (asset.custodianId?.equals(requester._id) || asset.usedByAreaId?.equals(requester.areaId)),
+      );
+      if (!linkedAt && !usedByRequester) continue;
+      const link: TicketLink = {
+        ticketId: ticket._id,
+        asset,
+        ...(linkedAt ? { linkedAt } : {}),
+        lastActivityAt: ticket.lastActivityAt as Date,
+      };
+      ticketLinks.push(link);
+
+      // La OT solo si el técnico ya trabaja el ticket y el equipo está libre.
+      const canOpen =
+        linkedAt && assigneeId && asset !== repeated && !busyAssets.has(String(asset._id));
+      if (!canOpen) continue;
+      // Lo que sigue abierto hoy no puede tener pasos en el futuro.
+      const opensAt = new Date(
+        Math.min(linkedAt.getTime() + randomInt(10, 45) * 60_000, live ? now.getTime() - 45 * 60_000 : Infinity),
+      );
+      if (opensAt < linkedAt) continue;
+      const source = {
+        id: ticket._id,
+        title: ticket.title as string,
+        description: ticket.description as string,
+        assigneeId,
+      };
+
+      if ((status === "resolved" || status === "closed") && sla.resolvedAt) {
+        // La reparación terminó antes de que el ticket se diera por resuelto.
+        const deadline = new Date(sla.resolvedAt.getTime() - 10 * 60_000);
+        if (deadline.getTime() - opensAt.getTime() < 60 * 60_000 || !linkChance(0.6)) continue;
+        link.order = addCorrective(asset, opensAt, "completed", { ticket: source, deadline });
+      } else if (live) {
+        link.order = addCorrective(asset, opensAt, status === "on_hold" ? "on_hold" : "in_progress", {
+          ticket: source,
+        });
+        busyAssets.add(String(asset._id));
+      }
+      if (link.order) orders.push(link.order);
+    }
   }
 
   // ── Planes preventivos y sus órdenes ─────────────────────────
@@ -875,6 +1047,7 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       assetId: order.asset._id,
       areaId: order.asset.areaId,
       ...(order.planId ? { planId: order.planId } : {}),
+      ...(order.ticketId ? { ticketId: order.ticketId } : {}),
       status: order.status,
       ...(order.holdReason ? { holdReason: order.holdReason } : {}),
       assigneeIds: order.assigneeIds,
@@ -1045,6 +1218,45 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
     { _id: "spare_part", seq: sparePartDocs.length },
   ]);
 
+  // Los tickets ganan su equipo y sus OT, con lo que la conversación habría
+  // contado: equipo vinculado, OT abierta y, si ya acabó, OT terminada.
+  const assetNumber = new Map(assetDocs.map((doc) => [String(doc._id), doc.number]));
+  const orderNumber = new Map(workOrderDocs.map((doc) => [String(doc._id), doc.number]));
+  const ticketMessages: Record<string, unknown>[] = [];
+  const system = (ticketId: Types.ObjectId, at: Date, event: Record<string, string>) =>
+    ticketMessages.push({ ticketId, type: "system", body: "", systemEvent: event, createdAt: at, updatedAt: at });
+  for (const link of ticketLinks) {
+    const label = `${formatAssetNumber(assetNumber.get(String(link.asset._id))!)} · ${link.asset.name}`;
+    let lastActivityAt = link.lastActivityAt;
+    const touch = (at: Date) => {
+      if (at > lastActivityAt) lastActivityAt = at;
+    };
+    if (link.linkedAt) {
+      system(link.ticketId, link.linkedAt, { kind: "asset_linked", to: label });
+      touch(link.linkedAt);
+    }
+    if (link.order) {
+      const number = formatWorkOrderNumber(orderNumber.get(String(link.order._id))!);
+      system(link.ticketId, link.order.createdAt, { kind: "work_order_created", to: number });
+      touch(link.order.createdAt);
+      if (link.order.completedAt) {
+        system(link.ticketId, link.order.completedAt, { kind: "work_order_completed", to: number });
+        touch(link.order.completedAt);
+      }
+    }
+    await Ticket.updateOne(
+      { _id: link.ticketId },
+      {
+        $set: {
+          assetId: link.asset._id,
+          workOrderIds: link.order ? [link.order._id] : [],
+          lastActivityAt,
+        },
+      },
+    );
+  }
+  if (ticketMessages.length) await Message.insertMany(ticketMessages);
+
   // ── Resumen ──────────────────────────────────────────────────
   const workOrdersByStatus: Record<string, number> = {};
   for (const order of orders) workOrdersByStatus[order.status] = (workOrdersByStatus[order.status] ?? 0) + 1;
@@ -1068,6 +1280,10 @@ export async function seedMaintenance(now: Date): Promise<MaintenanceSeedSummary
       last90Days: repeatedOrders.filter((order) => order.createdAt.getTime() >= ninetyDaysAgo).length,
       repairCost: repeatedOrders.reduce((sum, order) => sum + workOrderCost(order).total, 0),
       purchaseCost: repeated.purchaseCost,
+    },
+    ticketLinks: {
+      linked: ticketLinks.length,
+      withWorkOrder: ticketLinks.filter((link) => link.order).length,
     },
   };
 }
@@ -1093,4 +1309,6 @@ export function printMaintenanceSummary(summary: MaintenanceSeedSummary, lastOrd
     `    Fallas repetidas: ${r.name} · ${r.last90Days} correctivas en 90 días · ` +
       `reparaciones ${usd(r.repairCost)} de ${usd(r.purchaseCost)} de compra`,
   );
+  const { ticketLinks: t } = summary;
+  if (t.linked) console.log(`    Tickets con equipo vinculado: ${t.linked} · con OT: ${t.withWorkOrder}`);
 }

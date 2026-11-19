@@ -255,12 +255,20 @@ async function main(): Promise<void> {
       }
     }
 
+    // Nada ocurre después de ahora: un ticket reciente que responde tarde todavía
+    // no ha respondido "tarde", así que la fecha se corta a un minuto atrás (sin
+    // bajar de `notBefore`, para no desordenar la historia). El azar ya se tiró:
+    // cortar no cambia el resto de la semilla.
+    const latest = now.getTime() - 60_000;
+    const past = (ms: number, notBefore: Date = createdAt) =>
+      new Date(Math.max(notBefore.getTime(), Math.min(ms, latest)));
+
     const hasResponse = status !== "open" && status !== "assigned";
     // Un 15 % incumple el plazo de respuesta: la demo necesita rojos reales.
     const respondsLate = random() < 0.15;
     const firstResponseAt =
       hasResponse && assignees.length
-        ? new Date(
+        ? past(
             respondsLate
               ? response.dueAt.getTime() + randomInt(20, 180) * 60_000
               : createdAt.getTime() +
@@ -272,31 +280,39 @@ async function main(): Promise<void> {
     const resolvesLate = random() < 0.12;
     const resolvedAt =
       isResolved && firstResponseAt
-        ? new Date(
+        ? past(
             resolvesLate
               ? resolution.dueAt.getTime() + randomInt(60, 600) * 60_000
               : firstResponseAt.getTime() + randomInt(30, 400) * 60_000,
+            firstResponseAt,
           )
         : undefined;
 
     const closedAt =
-      status === "closed" && resolvedAt ? new Date(resolvedAt.getTime() + 86_400_000) : undefined;
+      status === "closed" && resolvedAt ? past(resolvedAt.getTime() + 86_400_000, resolvedAt) : undefined;
 
     const id = new Types.ObjectId();
     sequence += 1;
 
     const statusHistory: { status: TicketStatus; at: Date }[] = [{ status: "open", at: createdAt }];
     if (assignees.length) {
-      statusHistory.push({ status: "assigned", at: new Date(createdAt.getTime() + 600_000) });
+      // Se asigna a los diez minutos, o antes si la respuesta llegó antes.
+      const assignedAt = Math.min(createdAt.getTime() + 600_000, firstResponseAt?.getTime() ?? Infinity);
+      statusHistory.push({ status: "assigned", at: past(assignedAt) });
     }
     if (firstResponseAt) statusHistory.push({ status: "in_progress", at: firstResponseAt });
     if (resolvedAt) statusHistory.push({ status: "resolved", at: resolvedAt });
     if (closedAt) statusHistory.push({ status: "closed", at: closedAt });
+    // Los estados finales van después de lo último que pasó, no desde la creación.
+    const lastAt = () => statusHistory.at(-1)!.at;
     if (status === "cancelled") {
-      statusHistory.push({ status: "cancelled", at: new Date(createdAt.getTime() + 3_600_000) });
+      const cancelledAt = Math.max(createdAt.getTime() + 3_600_000, lastAt().getTime() + 1_800_000);
+      statusHistory.push({ status: "cancelled", at: past(cancelledAt, lastAt()) });
     }
     if (status === "reopened") {
-      statusHistory.push({ status: "reopened", at: resolvedAt ?? createdAt });
+      // Se dio por resuelto y quien pidió lo reabrió: por eso `reopenCount` es 1.
+      statusHistory.push({ status: "resolved", at: past(lastAt().getTime() + 2 * 3_600_000, lastAt()) });
+      statusHistory.push({ status: "reopened", at: past(lastAt().getTime() + 3 * 3_600_000, lastAt()) });
     }
 
     // ── Conversación ────────────────────────────────────────
@@ -323,7 +339,7 @@ async function main(): Promise<void> {
       });
     }
     if (template.internalNotes?.[0] && owner && random() < 0.6) {
-      const at = new Date((firstResponseAt ?? createdAt).getTime() + 900_000);
+      const at = past((firstResponseAt ?? createdAt).getTime() + 900_000, firstResponseAt);
       messages.push({
         ticketId: id,
         authorId: owner._id,
@@ -388,7 +404,8 @@ async function main(): Promise<void> {
         resolvedAt,
         resolvedByIds: resolvedAt ? assignees.map((a) => a._id) : [],
         closedAt,
-        onHoldSince: status === "on_hold" ? new Date(now.getTime() - 6 * 3_600_000) : undefined,
+        onHoldSince:
+          status === "on_hold" ? past(now.getTime() - 6 * 3_600_000, firstResponseAt ?? createdAt) : undefined,
         pausedMs: 0,
         responseBreached: firstResponseAt ? firstResponseAt > response.dueAt : false,
         resolutionBreached: resolvedAt ? resolvedAt > resolution.dueAt : false,
@@ -397,7 +414,7 @@ async function main(): Promise<void> {
         ? {
             csat: {
               rating: Number(pickWeighted({ "5": 45, "4": 30, "3": 15, "2": 7, "1": 3 })),
-              answeredAt: new Date(closedAt.getTime() + 3_600_000),
+              answeredAt: past(closedAt.getTime() + 3_600_000, closedAt),
             },
           }
         : {}),
@@ -550,7 +567,7 @@ async function main(): Promise<void> {
 
   // Módulo 2 al final y con su propio generador aleatorio: los tickets de arriba
   // salen idénticos con o sin él.
-  const maintenance = await seedMaintenance(now);
+  const maintenance = await seedMaintenance(now, { linkTickets: true });
   printMaintenanceSummary(maintenance, maintenance.workOrders);
 
   console.log(`\n  Contraseña de todas las cuentas: ${DEMO_PASSWORD}`);

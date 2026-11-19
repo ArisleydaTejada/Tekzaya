@@ -16,3 +16,4 @@ export * from "./stats";
 export * from "./report";
 export * from "./realtime";
 export * from "./maintenance";
+export * from "./demoRequest";

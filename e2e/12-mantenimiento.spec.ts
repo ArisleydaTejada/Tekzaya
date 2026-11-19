@@ -15,7 +15,9 @@ test.describe("supervisor de IT", () => {
     await page.getByRole("link", { name: "Panel", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Panel de mantenimiento" })).toBeVisible();
     await expect(page.getByLabel("Cargando panel")).toHaveCount(0);
-    await expect(page.getByText("Órdenes abiertas")).toBeVisible();
+    // En el contenido: el menú lateral también dice "órdenes abiertas a tu cargo"
+    // cuando la semilla le deja órdenes en curso al supervisor.
+    await expect(page.getByRole("main").getByText("Órdenes abiertas", { exact: true })).toBeVisible();
     await expect(page.getByText("Costo de la semana")).toBeVisible();
     await page.getByRole("group", { name: "Período" }).getByRole("button", { name: "Mes" }).click();
     await expect(page.getByText("Costo del mes")).toBeVisible();

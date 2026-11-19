@@ -4,32 +4,61 @@ import { MotionConfig } from "motion/react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import {
+  RedirectIfSignedIn,
   RequireAdmin,
   RequireAuth,
   RequireGuest,
   RequireSettingsManager,
   RequireUserManager,
 } from "./auth/RequireAuth";
-import { AppShell } from "./components/shell/AppShell";
+import { lazy, Suspense } from "react";
 import AccessLinkPage from "./pages/AccessLinkPage";
+import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
-import TicketsPage from "./pages/TicketsPage";
-import CreateTicketPage from "./pages/CreateTicketPage";
-import TicketDetailPage from "./pages/TicketDetailPage";
-import AdministracionPage from "./pages/AdministracionPage";
-import PerfilPage from "./pages/PerfilPage";
-import ActivosPage from "./pages/ActivosPage";
-import ActivoDetailPage from "./pages/ActivoDetailPage";
-import OrdenesPage from "./pages/OrdenesPage";
-import OrdenDetailPage from "./pages/OrdenDetailPage";
-import RepuestosPage from "./pages/RepuestosPage";
-import RepuestoDetailPage from "./pages/RepuestoDetailPage";
-import PreventivosPage from "./pages/PreventivosPage";
-import MantenimientoPage from "./pages/MantenimientoPage";
-import ReportesPage from "./pages/ReportesPage";
 import { RealtimeProvider } from "./realtime/RealtimeContext";
 import { ThemeProvider } from "./theme/ThemeContext";
+
+/*
+ * La página pública, el login y los enlaces de acceso van en el paquete
+ * inicial; la aplicación se baja al entrar en ella. Quien llega a "/" desde un
+ * buscador no descarga gráficas, tableros ni el editor de reportes.
+ */
+const AppShell = lazy(() => import("./components/shell/AppShell").then((module) => ({ default: module.AppShell })));
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+
+const TicketsPage = lazy(() => import("./pages/TicketsPage"));
+
+const CreateTicketPage = lazy(() => import("./pages/CreateTicketPage"));
+
+const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage"));
+
+const AdministracionPage = lazy(() => import("./pages/AdministracionPage"));
+
+const PerfilPage = lazy(() => import("./pages/PerfilPage"));
+
+const ActivosPage = lazy(() => import("./pages/ActivosPage"));
+
+const ActivoDetailPage = lazy(() => import("./pages/ActivoDetailPage"));
+
+const OrdenesPage = lazy(() => import("./pages/OrdenesPage"));
+
+const OrdenDetailPage = lazy(() => import("./pages/OrdenDetailPage"));
+
+const RepuestosPage = lazy(() => import("./pages/RepuestosPage"));
+
+const RepuestoDetailPage = lazy(() => import("./pages/RepuestoDetailPage"));
+
+const PreventivosPage = lazy(() => import("./pages/PreventivosPage"));
+
+const MantenimientoPage = lazy(() => import("./pages/MantenimientoPage"));
+
+const ReportesPage = lazy(() => import("./pages/ReportesPage"));
+
+/** Mientras baja el armazón de la aplicación, el fondo del tema y nada más: dura un instante. */
+function AppLoading() {
+  return <div role="status" aria-label="Cargando" className="min-h-dvh bg-[var(--content-bg)]" />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,9 +77,14 @@ export default function App() {
               {/* Un solo socket para toda la sesión; de él viven la campana y los listados. */}
               <RealtimeProvider>
                 <AppToaster />
+                <Suspense fallback={<AppLoading />}>
                 <Routes>
+                  {/* Con sesión abierta, la página pública y el login llevan al tablero. */}
+                  <Route element={<RedirectIfSignedIn />}>
+                    <Route path="/" element={<LandingPage />} />
+                  </Route>
                   <Route element={<RequireGuest />}>
-                    <Route path="/" element={<LoginPage />} />
+                    <Route path="/ingresar" element={<LoginPage />} />
                   </Route>
                   {/* Enlaces que reparte el administrador; se abren sin sesión. */}
                   <Route path="/invitacion" element={<AccessLinkPage purpose="invite" />} />
@@ -95,6 +129,7 @@ export default function App() {
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                </Suspense>
               </RealtimeProvider>
             </AuthProvider>
           </BrowserRouter>
